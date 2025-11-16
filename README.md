@@ -1,69 +1,86 @@
-# Browser Automation Demo (Safe & Educational)
+# 🚀 **BlueCrack – Browser‑Based Login Tester**
 
-A small, safe demonstration repository that shows how to automate a single login attempt using Selenium against a local test server. This project is intended for learning, development, and defensive testing only.
+*A Selenium‑powered login testing tool inspired by Hydra workflows.*
 
-Important: This repository does NOT include or support credential stuffing, brute-force testing, or any other automated attack techniques. If you need to perform stress or security testing against systems you own, consult a professional and obtain written authorization. Misuse may be illegal.
+BlueCrack lets you test login forms **inside a real browser** (Chrome), without headless mode, without manually inspecting elements.
+You just **click the input fields**, lock the selectors, load your wordlist, and start testing inside the browser UI.
 
-## Contents
+⚠️ **For educational + authorized testing only.**
 
-- demo_server.py — Simple Flask app that exposes a local test login page.
-- bluecrack.py — A minimal Selenium script to perform a single login attempt against the demo server.
-- README.md — This file.
+---
 
-## Features
+## ✨ Features
 
-- Safe local demo environment (Flask).
-- Clean, minimal Selenium example for automation and integration testing.
-- Clear instructions and ethical usage guidance.
+* Click‑to‑Select username & password fields
+* Auto‑generates CSS selectors from clicked elements
+* Multi‑threaded testing (Hydra‑style `--threads`)
+* Full browser automation using Selenium
+* Real‑time attempt logging
+* Works on any HTML login form (no rate‑limit = faster)
 
-## Prerequisites
+---
 
-- Python 3.8+
-- pip
-- Google Chrome and chromedriver (matching Chrome version) in your PATH, or adjust the code to point to your webdriver executable.
-- Recommended virtualenv to isolate dependencies.
+## 📂 Repository Structure
 
-Install Python dependencies:
+```
+BlueCrack/
+│
+├── bluecrack.py        # Main brute testing engine
+├── requirements.txt     # Selenium + keyboard + dependencies
+└── README.md            # You are reading this
+```
+
+---
+
+## 🛠️ Installation
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
-# or
-pip install flask selenium
 ```
 
-(There is no requirements.txt in this skeleton; install the minimal dependencies above.)
+Make sure Chrome + ChromeDriver are installed.
 
-## Running the demo (local, safe)
+---
 
-1. Start the demo server (in a terminal):
+## ▶️ Usage
 
 ```bash
-python demo_server.py
+python bluecrack.py --u USERNAME --wordlist WORDLIST.txt --threads 10 --url "https://targetsite.com/login"
 ```
 
-The server starts on http://127.0.0.1:5000 and exposes a simple login form. The correct credential for the demo is:
-
-- Username: demo
-- Password: password123
-
-2. In a separate terminal, run the Selenium demo:
+### Example:
 
 ```bash
-python bluecrack.py --url http://127.0.0.1:5000/login --user demo
+python bluecrack.py --u admin --wordlist passwords.txt --threads 5 --url "http://localhost/login"
 ```
 
-This will open a Chrome window, fill the username and password, submit the form, and print the server's response. The demo performs a single, explicit login attempt so you can learn Selenium interactions without engaging in abusive behavior.
+---
 
-## Security & Ethics
+## 🧩 How It Works
 
-- Only ever run automated tests against systems you own or have explicit written permission to test.
-- This repository is for learning and local testing only.
-- If you need to perform authorized security testing, follow a formal authorization process (scope, rules of engagement, and reporting) and use established tools and frameworks.
+1. Launches the target login page in Chrome.
+2. You click the username field → press **S**.
+3. You click the password field → press **T**.
+4. Press **ENTER** to begin.
+5. Threads start submitting credentials inside the live browser.
+6. If a login does **not** trigger an “incorrect” message, it's marked as a possible success.
 
-## Contributing
+---
 
-Contributions are welcome for the safe demo and documentation. Please do not submit code that automates brute-force attacks or otherwise facilitates unauthorized access.
+## 📜 Arguments
 
-## License
+| Flag         | Description           |
+| ------------ | --------------------- |
+| `--u`        | Username to test with |
+| `--wordlist` | Password list file    |
+| `--threads`  | Thread count          |
+| `--url`      | Login page URL        |
 
-Specify a license for your project here (e.g., MIT). This repository contains only educational code and documentation.
+---
+
+## ⚠️ Legal Disclaimer
+
+This tool is for **educational**, **research**, and **authorized penetration testing** only.
+Do **not** use it on systems you don't own or have permission to test.
