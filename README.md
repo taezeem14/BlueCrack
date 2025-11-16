@@ -80,12 +80,14 @@ python bluecrack.py --u admin --wordlist passwords.txt --threads 5 --url "http:/
 
 ## 📜 Arguments
 
-| Flag         | Description           |
-| ------------ | --------------------- |
-| `--u`        | Username to test with |
-| `--wordlist` | Password list file    |
-| `--threads`  | Thread count          |
-| `--url`      | Login page URL        |
+| Flag                | Description               |
+| ------------------- | ------------------------- |
+| `-u` / `--user`     | Single username           |
+| `-U` / `--userfile` | File containing usernames |
+| `-p` / `--passw`    | Single password           |
+| `-P` / `--passlist` | File containing passwords |
+| `--threads`         | Thread count              |
+| `--url`             | Login page URL            |
 
 ---
 
