@@ -96,6 +96,11 @@ while username_selector is None or password_selector is None:
         time.sleep(0.3)
 
 print("\nSelectors locked! Press ENTER to launch brute...")
+
+# TEST THE SELECTORS IMMEDIATELY (fix)
+driver.find_element(By.CSS_SELECTOR, username_selector)
+driver.find_element(By.CSS_SELECTOR, password_selector)
+
 keyboard.wait("enter")
 
 # LOAD WORDLIST
