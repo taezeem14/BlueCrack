@@ -1,3 +1,11 @@
+print("""
+\033[34m██████╗ ██╗     ██╗   ██╗███████╗\033[0m \033[31m ██████╗██████╗  █████╗  ██████╗██╗  ██╗\033[0m
+\033[34m██╔══██╗██║     ██║   ██║██╔════╝\033[0m \033[31m██╔════╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝\033[0m
+\033[34m██████╔╝██║     ██║   ██║█████╗  \033[0m \033[31m██║     ██████╔╝███████║██║     █████╔╝ \033[0m
+\033[34m██╔══██╗██║     ╚██╗ ██╔╝██╔══╝  \033[0m \033[31m██║     ██╔══██╗██╔══██║██║     ██╔═██╗ \033[0m
+\033[34m██████╔╝███████╗ ╚████╔╝ ███████╗\033[0m \033[31m╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗\033[0m
+\033[34m╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝\033[0m \033[31m ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[0m
+""")
 import argparse
 import threading
 import time
@@ -63,6 +71,7 @@ USERLIST = users if len(users) > 1 else None
 
 PASSWORD_FIXED = passwords[0] if len(passwords) == 1 else None
 PASSLIST = passwords if len(passwords) > 1 else None
+WORDLIST = "Single password" if PASSWORD_FIXED else f"{len(PASSLIST)} passwords loaded"
 
 THREADS = args.threads
 TARGET_URL = args.url
