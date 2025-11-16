@@ -45,9 +45,18 @@ Make sure Chrome + ChromeDriver are installed.
 ---
 
 ## ▶️ Usage
+```
+### Single username + passlist
+python bluecrack.py -u USERNAME -P PASSLIST.txt --threads 10 --url "https://target.com/login"
 
-```bash
-python bluecrack.py --u USERNAME --wordlist WORDLIST.txt --threads 10 --url "https://targetsite.com/login"
+### Userlist + single pass
+python bluecrack.py -U USERLIST.txt -p PASSWORD --threads 10 --url "https://target.com/login"
+
+### Userlist + passlist
+python bluecrack.py -U USERLIST.txt -P PASSLIST.txt --threads 10 --url "https://target.com/login"
+
+### Single username + single password
+python bluecrack.py -u USERNAME -p PASSWORD --threads 10 --url "https://target.com/login"
 ```
 
 ### Example:
