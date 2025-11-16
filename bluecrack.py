@@ -10,17 +10,63 @@ from selenium.webdriver.common.keys import Keys
 import keyboard
 
 # CLI ARGUMENTS (HYDRA STYLE)
-parser = argparse.ArgumentParser(description="Hydra-style Browser Brute Tester")
-parser.add_argument("--u", "--user", dest="username", required=True, help="username to test with")
-parser.add_argument("--wordlist", required=True, help="password list file")
-parser.add_argument("--threads", type=int, default=5, help="number of threads")
-parser.add_argument("--url", required=True, help="login page URL")
-args = parser.parse_args()
+parser = argparse.ArgumentParser(description="Hydra-style Browser Tester")
 
-USERNAME_FIXED = args.username
-WORDLIST = args.wordlist
+# USERNAME INPUT
+parser.add_argument("-u", "--user", dest="username",
+                    help="single username to test")
+parser.add_argument("-U", "--userfile", dest="userfile",
+                    help="file containing list of usernames")
+
+# PASSWORD INPUT
+parser.add_argument("-p", "--passw", dest="password",
+                    help="single password to test")
+parser.add_argument("-P", "--passlist", dest="passfile",
+                    help="file containing list of passwords")
+
+# OTHER
+parser.add_argument("--threads", type=int, default=1,
+                    help="number of threads")
+parser.add_argument("--url", required=True,
+                    help="login page URL")
+
+args = parser.parse_args()
+if not args.username and not args.userfile:
+    raise SystemExit("❌ Provide -u USER or -U USERFILE")
+
+if not args.password and not args.passfile:
+    raise SystemExit("❌ Provide -p PASS or -P PASSLIST")
+    
+# LOAD USERNAMES
+users = []
+
+if args.username:
+    users.append(args.username)
+
+if args.userfile:
+    with open(args.userfile, "r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            users.append(line.strip())
+# LOAD PASSWORDS
+passwords = []
+
+if args.password:
+    passwords.append(args.password)
+
+if args.passfile:
+    with open(args.passfile, "r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            passwords.append(line.strip())
+
+USERNAME_FIXED = users[0] if len(users) == 1 else None
+USERLIST = users if len(users) > 1 else None
+
+PASSWORD_FIXED = passwords[0] if len(passwords) == 1 else None
+PASSLIST = passwords if len(passwords) > 1 else None
+
 THREADS = args.threads
 TARGET_URL = args.url
+
 
 # LAUNCH SELENIUM
 driver = webdriver.Chrome()
@@ -105,9 +151,8 @@ keyboard.wait("enter")
 
 # LOAD WORDLIST
 q = Queue()
-with open(WORDLIST, "r", encoding="utf-8", errors="ignore") as f:
-    for line in f:
-        q.put(line.strip())
+for pwd in passwords:
+    q.put(pwd)
 
 found = False
 
