@@ -16,10 +16,10 @@ You can literally just let it **auto-detect the inputs**, or you click the field
 *   **Auto-detects CSS selectors** (Auto-aim for HTML login forms)
 *   **Multi-threaded AF** (Hydra-style `--threads` but spawns parallel brains)
 *   **Invisible phantom mode (`--headless`)** so it doesn't nuke your screen real estate
-*   **Stealth AF (Bypass Cloudflare / Rate Limits):**
+*   **Stealth AF (duck Cloudflare / Rate Limits):**
     *   **User-Agent Spoofing:** Randomizes browsers (Chrome/Firefox/Mac/Linux) per thread to duck fingerprinting.
     *   **Anti-Bot Stripper:** Removes `navigator.webdriver` flags so WAFs don't instantly pack you up.
-    *   **Proxy Rotation Engine:** Feed it a proxy list and let threads randomly hop IPs. *Yes, this straight up fixes and bypasses IP blocking/bans because every request looks like a completely different user from a different location.*
+    *   **Proxy Rotation Engine:** Feed it a proxy list and let threads randomly hop IPs. *Yes, this straight up fixes and ducks IP blocking/bans because every request looks like a completely different user from a different location.*
     *   **Jitter Physics:** Humanized, randomized timing delays between requests so it never looks like a bot.
     *   **Smart Rate Limit Back-offs:** Automatically catches "Too Many Requests" blocks, pauses, and re-queues.
 
@@ -103,12 +103,12 @@ python bluecrack.py -U users.txt -P passlist.txt --threads 10 --url "http://targ
 | `--url`               | Target login page                             |
 | `--error`             | The string to check for an "L" (default: incorrect) |
 | `--limit-text`        | Text that confirms Rate Limit (`Too many...`) |
-| `--cooldown`          | Wait timer in secs when Rate Limit bypassed   |
+| `--cooldown`          | Wait timer in secs when Rate Limit ducked   |
 | `--headless`          | Runs workers invisibly in the background      |
 
 ---
 
-## 🚀 The Anti-Rate Limit & Ghost Stash (Bypass Mechanics)
+## 🚀 The Anti-Rate Limit & Ghost Stash (duck Mechanics)
 
 WAFs (Web Application Firewalls) like Cloudflare will block obvious bot spam instantly. BlueCrack uses multiple layers of Ghost-level evasion:
 
