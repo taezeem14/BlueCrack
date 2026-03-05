@@ -1,5 +1,3 @@
 selenium
 keyboard
-argparse
-threading
-queue
+flask

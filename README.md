@@ -1,97 +1,122 @@
-# 🚀 **BlueCrack – Browser‑Based Login Tester**
+# 🚀 **BlueCrack – Browser‑Based Login Tester (Built Different)**
 
-*A Selenium‑powered login testing tool inspired by Hydra workflows.*
+*A Selenium‑powered login testing tool giving Hydra vibes, but it actually respects your browser window.*
 
-BlueCrack lets you test login forms **inside a real browser** (Chrome), without headless mode, without manually inspecting elements.
-You just **click the input fields**, lock the selectors, load your wordlist, and start testing inside the browser UI.
+BlueCrack lets you vibe‑check login forms **inside an actual active browser** (Chrome), without inspecting elements like a boomer. 
+You can literally just let it **auto-detect the inputs**, or you click the fields, lock the selectors, load up your wordlist, and let it cook. It’s that deep.
 
-⚠️ **For educational + authorized testing only.**
-
----
-
-## ✨ Features
-
-* Click‑to‑Select username & password fields
-* Auto‑generates CSS selectors from clicked elements
-* Multi‑threaded testing (Hydra‑style `--threads`)
-* Full browser automation using Selenium
-* Real‑time attempt logging
-* Works on any HTML login form (no rate‑limit = faster)
+⚠️ **For educational + authorized pentesting only. Don't catch a case.**
 
 ---
 
-## 📂 Repository Structure
+## ✨ W Features
+
+*   **Interactive Wizard mode (`-i`)** because memorizing CLI commands is kinda mid
+*   **CUPP Integration (Wordlist Generator):** Direct integration with `cupp.py` (Common User Passwords Profiler) to build highly targeted, personalized dictionaries right from the wizard. 
+*   **Auto-detects CSS selectors** (Auto-aim for HTML login forms)
+*   **Multi-threaded AF** (Hydra-style `--threads` but spawns parallel brains)
+*   **Invisible phantom mode (`--headless`)** so it doesn't nuke your screen real estate
+*   **Stealth AF (Bypass Cloudflare / Rate Limits):**
+    *   **User-Agent Spoofing:** Randomizes browsers (Chrome/Firefox/Mac/Linux) per thread to duck fingerprinting.
+    *   **Anti-Bot Stripper:** Removes `navigator.webdriver` flags so WAFs don't instantly pack you up.
+    *   **Proxy Rotation Engine:** Feed it a proxy list and let threads randomly hop IPs. *Yes, this straight up fixes and bypasses IP blocking/bans because every request looks like a completely different user from a different location.*
+    *   **Jitter Physics:** Humanized, randomized timing delays between requests so it never looks like a bot.
+    *   **Smart Rate Limit Back-offs:** Automatically catches "Too Many Requests" blocks, pauses, and re-queues.
+
+---
+
+## 📂 The Stash (Repo Structure)
 
 ```
 BlueCrack/
 │
-├── bluecrack.py        # Main brute testing engine
-├── requirements.txt     # Selenium + keyboard + dependencies
-└── README.md            # You are reading this
+├── bluecrack.py         # Main brute testing engine (The Chef)
+├── cupp.py              # Profile-based target wordlist generator
+├── demo_server.py       # Local target practice (Dummy Flask App)
+├── requirements.txt     # The drip dependencies
+└── README.md            # The lore you're reading right now
 ```
 
 ---
 
-## 🛠️ Installation
+## 🛠️ Getting the Drip (Install)
 
-Install dependencies:
+Install the dependencies. Smash this into your terminal:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Make sure Chrome + ChromeDriver are installed.
+*(Note: BlueCrack will automatically prompt to download `cupp.py` dynamically if it's missing during wizard generation).*
+*Required: Make sure your system has Chrome + ChromeDriver setup properly or it's gonna crash and burn.*
 
 ---
 
-## ▶️ Usage
-```
-### Single username + passlist
-python bluecrack.py -u USERNAME -P PASSLIST.txt --threads 10 --url "https://target.com/login"
+## ▶️ How to Flex It
 
-### Userlist + single pass
-python bluecrack.py -U USERLIST.txt -p PASSWORD --threads 10 --url "https://target.com/login"
-
-### Userlist + passlist
-python bluecrack.py -U USERLIST.txt -P PASSLIST.txt --threads 10 --url "https://target.com/login"
-
-### Single username + single password
-python bluecrack.py -u USERNAME -p PASSWORD --threads 10 --url "https://target.com/login"
-```
-
-### Example:
-
+### The "I'm Lazy" Interactive Mode (Highly Recommended W)
+Just run this and answer the questions. The wizard can even launch CUPP for you to build a dictionary first, auto-detect the CSS, and set everything up:
 ```bash
-python bluecrack.py --u admin --wordlist passwords.txt --threads 5 --url "http://localhost/login"
+python bluecrack.py -i
+```
+
+### The "I'm a Hacker" Terminal Mode (CLI)
+
+**Single username + passlist under the radar (headless):**
+```bash
+python bluecrack.py -u admin -P passlist.txt --threads 5 --url "http://target.com/login" --error "failed" --headless
+```
+
+**Matrix Combo (Userlist + Passlist):**
+```bash
+python bluecrack.py -U users.txt -P passlist.txt --threads 10 --url "http://target.com/login"
 ```
 
 ---
 
-## 🧩 How It Works
+## 🧩 The Lore (How it Cooks)
 
-1. Launches the target login page in Chrome.
-2. You click the username field → press **S**.
-3. You click the password field → press **T**.
-4. Press **ENTER** to begin.
-5. Threads start submitting credentials inside the live browser.
-6. If a login does **not** trigger an “incorrect” message, it's marked as a possible success.
-
----
-
-## 📜 Arguments
-
-| Flag                | Description               |
-| ------------------- | ------------------------- |
-| `-u` / `--user`     | Single username           |
-| `-U` / `--userfile` | File containing usernames |
-| `-p` / `--passw`    | Single password           |
-| `-P` / `--passlist` | File containing passwords |
-| `--threads`         | Thread count              |
-| `--url`             | Login page URL            |
+1. The script fires up the target login page in Chrome.
+2. The UI tries to **Auto-Detect** the username / password fields. 
+3. If auto-detect fumbles, point and click the username field → press **S**. Then click the password field → press **T**.
+4. Press **ENTER** to start the main event.
+5. The threads go brrr, spinning up browsers to spam credentials.
+6. If the page URL changes or the specific error message disappears, we secured the bag (Valid Login found 🔥). 
 
 ---
 
-## ⚠️ Legal Disclaimer
+## 📜 The Flags (No Red Flags Here)
 
-This tool is for **educational**, **research**, and **authorized penetration testing** only.
-Do **not** use it on systems you don't own or have permission to test.
+| Flag                  | Description                                   |
+| --------------------- | --------------------------------------------- |
+| `-i` / `--interactive`| Launch the ultimate hand-holding W wizard     |
+| `-u` / `--user`       | Single target username                        |
+| `-U` / `--userfile`   | File containing a bunch of usernames          |
+| `-p` / `--passw`      | Single password check                         |
+| `-P` / `--passlist`   | Wordlist of passwords to test                 |
+| `--threads`           | Thread count (How fast it goes brrr)          |
+| `--delay`             | Slow it down (Stealth throttle)               |
+| `--jitter`            | Add random X seconds to delay (Humanize it)   |
+| `--proxy`             | Single proxy string (http://IP:PORT)          |
+| `--proxy-list`        | Txt file of proxies to rotate constantly      |
+| `--url`               | Target login page                             |
+| `--error`             | The string to check for an "L" (default: incorrect) |
+| `--limit-text`        | Text that confirms Rate Limit (`Too many...`) |
+| `--cooldown`          | Wait timer in secs when Rate Limit bypassed   |
+| `--headless`          | Runs workers invisibly in the background      |
+
+---
+
+## 🚀 The Anti-Rate Limit & Ghost Stash (Bypass Mechanics)
+
+WAFs (Web Application Firewalls) like Cloudflare will block obvious bot spam instantly. BlueCrack uses multiple layers of Ghost-level evasion:
+
+1. **Proxy Roulette `--proxy-list proxies.txt`**: Give it a massive list of proxies, and every single testing thread will randomly hop onto a different proxy IP address!
+2. **Jitter Physics `--jitter 2.5`**: Typical bots hit a server exactly every `2.0` seconds. WAFs see that math and ban you. Using `jitter`, BlueCrack will wait a randomized time between requests (e.g., `delay + random up to 2.5s`). It looks entirely human.
+3. **Ghost Driver**: BlueCrack natively hides and removes `navigator.webdriver=True` flags and spoof layers a random popular User-Agent matrix from Chrome, Firefox, Mac, and Linux for every thread. 
+4. **Blank Payload Elimination**: Ghost Engine auto-strips random newline gaps and empty string payloads typically generated by OSINT profilers to prevent HTML5 `required` popups from triggering false positives.
+5. **Smart Auto-Throttle Engine**: Got hit with an IP-based `429 Too Many Requests`? No panic. When the UI catches the block word (`--limit-text`), it immediately initiates a `--cooldown` freeze, kicks the failed username/password back into the active queue, waits for the block to expire entirely stealthily, and resumes without losing any credential tests!
+No credentials skipped, no IP completely locked. Big W.
+
+This tool is strictly for **educational ops**, **security research**, and **authorized penetration testing** only. 
+Do **not** use it on your school's portal, systems you don't own, or ops that didn't give you written permission. You will get packed up. Deadass.
