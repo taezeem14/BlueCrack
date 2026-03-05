@@ -1,123 +1,195 @@
-# 🚀 **BlueCrack – Browser‑Based Login Tester (Built Different)**
+# 🚀 BlueCrack – Browser-Based Login Security Testing Framework
 
-*A Selenium‑powered login testing tool giving Hydra vibes, but it actually respects your browser window.*
+BlueCrack is a Selenium-powered login security testing tool designed for controlled security research, educational environments, and authorized penetration testing.
 
-BlueCrack lets you vibe‑check login forms **inside an actual active browser** (Chrome), without inspecting elements like a boomer. 
-You can literally just let it **auto-detect the inputs**, or you click the fields, lock the selectors, load up your wordlist, and let it cook. It’s that deep.
+It allows researchers and students to evaluate login form behavior inside a real browser (Chrome), analyze authentication responses, and study defensive mechanisms such as rate limiting and input validation.
 
-⚠️ **For educational + authorized pentesting only. Don't catch a case.**
-
----
-
-## ✨ W Features
-
-*   **Interactive Wizard mode (`-i`)** because memorizing CLI commands is kinda mid
-*   **CUPP Integration (Wordlist Generator):** Direct integration with `cupp.py` (Common User Passwords Profiler) to build highly targeted, personalized dictionaries right from the wizard. 
-*   **Auto-detects CSS selectors** (Auto-aim for HTML login forms)
-*   **Multi-threaded AF** (Hydra-style `--threads` but spawns parallel brains)
-*   **Invisible phantom mode (`--headless`)** so it doesn't nuke your screen real estate
-*   **Stealth AF (duck Cloudflare / Rate Limits):**
-    *   **User-Agent Spoofing:** Randomizes browsers (Chrome/Firefox/Mac/Linux) per thread to duck fingerprinting.
-    *   **Anti-Bot Stripper:** Removes `navigator.webdriver` flags so WAFs don't instantly pack you up.
-    *   **Proxy Rotation Engine:** Feed it a proxy list and let threads randomly hop IPs. *Yes, this straight up fixes and ducks IP blocking/bans because every request looks like a completely different user from a different location.*
-    *   **Jitter Physics:** Humanized, randomized timing delays between requests so it never looks like a bot.
-    *   **Smart Rate Limit Back-offs:** Automatically catches "Too Many Requests" blocks, pauses, and re-queues.
+> ⚠️ This tool must only be used in controlled lab environments or on systems where explicit written authorization has been granted.
 
 ---
 
-## 📂 The Stash (Repo Structure)
+## 🎯 Project Purpose
+
+BlueCrack was built as an experimentation project to explore:
+
+* Browser automation using Selenium
+* Multi-threaded request coordination
+* Login form state detection
+* Rate limiting behavior
+* Defensive mechanism analysis
+* Wordlist-based credential testing logic
+
+The focus is on understanding how authentication systems respond under repeated login attempts — not bypassing security controls.
+
+---
+
+## ✨ Core Features
+
+* **Interactive Wizard Mode (`-i`)**
+  Guided setup to configure targets, selectors, and wordlists.
+
+* **CSS Selector Auto-Detection**
+  Automatically identifies username and password fields in common login forms.
+
+* **Manual Field Locking**
+  Allows users to click and bind specific input elements when auto-detection fails.
+
+* **Multi-threaded Execution (`--threads`)**
+  Enables controlled parallel testing for analyzing rate limiting and server response patterns.
+
+* **Headless Mode (`--headless`)**
+  Runs browser instances invisibly for performance testing in lab environments.
+
+* **Configurable Timing Controls**
+
+  * `--delay` – Base delay between attempts
+  * `--jitter` – Randomized delay variation to simulate non-uniform user behavior
+
+* **Rate Limit Detection**
+
+  * Detects HTTP 429 or custom limit text
+  * Implements cooldown logic for controlled retry analysis
+
+* **CUPP Integration**
+  Supports integration with profile-based wordlist generation using `cupp.py` for password strength evaluation research.
+
+---
+
+## 📂 Repository Structure
 
 ```
 BlueCrack/
 │
-├── bluecrack.py         # Main brute testing engine (The Chef)
-├── cupp.py              # Profile-based target wordlist generator
-├── pass.txt             # Dummy Passlist
-├── demo_server.py       # Local target practice (Dummy Flask App)
-├── requirements.txt     # The drip dependencies
-└── README.md            # The lore you're reading right now
+├── bluecrack.py         # Main testing engine
+├── cupp.py              # Profile-based wordlist generator
+├── pass.txt             # Sample password list
+├── demo_server.py       # Local Flask demo login app
+├── requirements.txt     # Dependencies
+└── README.md            # Documentation
 ```
 
 ---
 
-## 🛠️ Getting the Drip (Install)
+## 🛠 Installation
 
-Install the dependencies. Smash this into your terminal:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-*(Note: BlueCrack will automatically prompt to download `cupp.py` dynamically if it's missing during wizard generation).*
-*Required: Make sure your system has Chrome + ChromeDriver setup properly or it's gonna crash and burn.*
+Requirements:
+
+* Python 3.x
+* Google Chrome
+* ChromeDriver (matching your Chrome version)
 
 ---
 
-## ▶️ How to Flex It
+## ▶ Usage
 
-### The "I'm Lazy" Interactive Mode (Highly Recommended W)
-Just run this and answer the questions. The wizard can even launch CUPP for you to build a dictionary first, auto-detect the CSS, and set everything up:
+### Interactive Mode (Recommended for Learning)
+
 ```bash
 python bluecrack.py -i
 ```
 
-### The "I'm a Hacker" Terminal Mode (CLI)
+The wizard will:
 
-**Single username + passlist under the radar (headless):**
+* Configure target URL
+* Detect or bind login fields
+* Load wordlists
+* Configure timing and threading
+
+---
+
+### CLI Mode
+
+Single username + password list:
+
 ```bash
-python bluecrack.py -u admin -P passlist.txt --threads 5 --url "http://target.com/login" --error "failed" --headless
+python bluecrack.py -u admin -P passlist.txt --threads 5 --url "http://localhost:5000/login"
 ```
 
-**Matrix Combo (Userlist + Passlist):**
+Username list + password list:
+
 ```bash
-python bluecrack.py -U users.txt -P passlist.txt --threads 10 --url "http://target.com/login"
+python bluecrack.py -U users.txt -P passlist.txt --threads 10 --url "http://localhost:5000/login"
 ```
 
 ---
 
-## 🧩 The Lore (How it Cooks)
+## 🧠 How It Works
 
-1. The script fires up the target login page in Chrome.
-2. The UI tries to **Auto-Detect** the username / password fields. 
-3. If auto-detect fumbles, point and click the username field → press **S**. Then click the password field → press **T**.
-4. Press **ENTER** to start the main event.
-5. The threads go brrr, spinning up browsers to spam credentials.
-6. If the page URL changes or the specific error message disappears, we secured the bag (Valid Login found 🔥). 
+1. Launches the target login page in Chrome.
+2. Identifies or binds login input fields.
+3. Iterates through credential combinations.
+4. Monitors:
 
----
+   * URL changes
+   * Error message presence
+   * Rate limit responses
+5. Logs results for analysis.
 
-## 📜 The Flags (No Red Flags Here)
-
-| Flag                  | Description                                   |
-| --------------------- | --------------------------------------------- |
-| `-i` / `--interactive`| Launch the ultimate hand-holding W wizard     |
-| `-u` / `--user`       | Single target username                        |
-| `-U` / `--userfile`   | File containing a bunch of usernames          |
-| `-p` / `--passw`      | Single password check                         |
-| `-P` / `--passlist`   | Wordlist of passwords to test                 |
-| `--threads`           | Thread count (How fast it goes brrr)          |
-| `--delay`             | Slow it down (Stealth throttle)               |
-| `--jitter`            | Add random X seconds to delay (Humanize it)   |
-| `--proxy`             | Single proxy string (http://IP:PORT)          |
-| `--proxy-list`        | Txt file of proxies to rotate constantly      |
-| `--url`               | Target login page                             |
-| `--error`             | The string to check for an "L" (default: incorrect) |
-| `--limit-text`        | Text that confirms Rate Limit (`Too many...`) |
-| `--cooldown`          | Wait timer in secs when Rate Limit ducked   |
-| `--headless`          | Runs workers invisibly in the background      |
+The included `demo_server.py` provides a safe local Flask login app for controlled testing.
 
 ---
 
-## 🚀 The Anti-Rate Limit & Ghost Stash (duck Mechanics)
+## 📜 Available Flags
 
-WAFs (Web Application Firewalls) like Cloudflare will block obvious bot spam instantly. BlueCrack uses multiple layers of Ghost-level evasion:
+| Flag                  | Description                                 |
+| --------------------- | ------------------------------------------- |
+| `-i`, `--interactive` | Launch interactive setup wizard             |
+| `-u`, `--user`        | Single username                             |
+| `-U`, `--userfile`    | File of usernames                           |
+| `-p`, `--passw`       | Single password                             |
+| `-P`, `--passlist`    | Password wordlist                           |
+| `--threads`           | Number of parallel workers                  |
+| `--delay`             | Base delay between attempts                 |
+| `--jitter`            | Randomized delay variation                  |
+| `--proxy`             | Optional proxy (for lab network simulation) |
+| `--proxy-list`        | Proxy list file                             |
+| `--url`               | Target login page                           |
+| `--error`             | Failure detection string                    |
+| `--limit-text`        | Rate limit detection string                 |
+| `--cooldown`          | Cooldown duration after limit detected      |
+| `--headless`          | Run browsers invisibly                      |
 
-1. **Proxy Roulette `--proxy-list proxies.txt`**: Give it a massive list of proxies, and every single testing thread will randomly hop onto a different proxy IP address!
-2. **Jitter Physics `--jitter 2.5`**: Typical bots hit a server exactly every `2.0` seconds. WAFs see that math and ban you. Using `jitter`, BlueCrack will wait a randomized time between requests (e.g., `delay + random up to 2.5s`). It looks entirely human.
-3. **Ghost Driver**: BlueCrack natively hides and removes `navigator.webdriver=True` flags and spoof layers a random popular User-Agent matrix from Chrome, Firefox, Mac, and Linux for every thread. 
-4. **Blank Payload Elimination**: Ghost Engine auto-strips random newline gaps and empty string payloads typically generated by OSINT profilers to prevent HTML5 `required` popups from triggering false positives.
-5. **Smart Auto-Throttle Engine**: Got hit with an IP-based `429 Too Many Requests`? No panic. When the UI catches the block word (`--limit-text`), it immediately initiates a `--cooldown` freeze, kicks the failed username/password back into the active queue, waits for the block to expire entirely stealthily, and resumes without losing any credential tests!
-No credentials skipped, no IP completely locked. Big W.
+---
 
-This tool is strictly for **educational ops**, **security research**, and **authorized penetration testing** only. 
-Do **not** use it on your school's portal, systems you don't own, or ops that didn't give you written permission. You will get packed up. Deadass.
+## 🔐 Responsible Use Policy
+
+BlueCrack is intended strictly for:
+
+* Educational cybersecurity labs
+* Personal research environments
+* Authorized penetration testing
+* Studying authentication system behavior
+
+It must **never** be used against:
+
+* School portals
+* Government systems
+* Production websites
+* Any service without explicit written authorization
+
+Misuse may violate local laws and regulations.
+
+---
+
+## 📘 Learning Outcomes
+
+This project demonstrates practical understanding of:
+
+* Selenium automation
+* Concurrency & threading
+* State-based response detection
+* Rate limiting analysis
+* Authentication flow modeling
+* Secure software testing concepts
+
+---
+
+## 📄 License
+
+MIT License © 2025 Muhammad Taezeem Tariq
