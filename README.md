@@ -32,6 +32,7 @@ BlueCrack/
 │
 ├── bluecrack.py         # Main brute testing engine (The Chef)
 ├── cupp.py              # Profile-based target wordlist generator
+├── pass.txt             # Dummy Passlist
 ├── demo_server.py       # Local target practice (Dummy Flask App)
 ├── requirements.txt     # The drip dependencies
 └── README.md            # The lore you're reading right now
