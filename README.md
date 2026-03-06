@@ -1,8 +1,7 @@
-# 🚀 BlueCrack – Browser-Based Login Security Testing Framework
+# 🚀 BlueCrack – Advanced GUI Browser-Based Penetration Testing Framework
 
-BlueCrack is a Selenium-powered login security testing tool designed for controlled security research, educational environments, and authorized penetration testing.
-
-It allows researchers and students to evaluate login form behavior inside a real browser (Chrome), analyze authentication responses, and study defensive mechanisms such as rate limiting and input validation.
+BlueCrack is a professional-grade Selenium and PyQt6-powered login security testing tool designed for controlled security research, educational environments, and authorized penetration testing. 
+It allows researchers and students to evaluate login form behavior inside a real browser (Chrome Headless), analyze authentication responses, and study defensive mechanisms such as rate limiting and input validation dynamically across multiple parallel web contexts.
 
 > ⚠️ This tool must only be used in controlled lab environments or on systems where explicit written authorization has been granted.
 
@@ -11,185 +10,75 @@ It allows researchers and students to evaluate login form behavior inside a real
 ## 🎯 Project Purpose
 
 BlueCrack was built as an experimentation project to explore:
-
-* Browser automation using Selenium
-* Multi-threaded request coordination
-* Login form state detection
-* Rate limiting behavior
-* Defensive mechanism analysis
-* Wordlist-based credential testing logic
-
-The focus is on understanding how authentication systems respond under repeated login attempts — not bypassing security controls.
+* Browser automation using Selenium Webdriver
+* Hardware-accelerated PyQt6 desktop interfaces
+* Complex multi-threaded request coordination
+* Login form state detection and CSS injection 
+* Dynamic browser-context restarts bridging WebSockets and Threading
+* Defensive mechanism evasion (Custom Tor Proxies, Auto-Rotations)
 
 ---
 
 ## ✨ Core Features
 
-* **Interactive Wizard Mode (`-i`)**
-  Guided setup to configure targets, selectors, and wordlists.
-
-* **CSS Selector Auto-Detection**
-  Automatically identifies username and password fields in common login forms.
-
-* **Manual Field Locking**
-  Allows users to click and bind specific input elements when auto-detection fails.
-
-* **Multi-threaded Execution (`--threads`)**
-  Enables controlled parallel testing for analyzing rate limiting and server response patterns.
-
-* **Headless Mode (`--headless`)**
-  Runs browser instances invisibly for performance testing in lab environments.
-
-* **Configurable Timing Controls**
-
-  * `--delay` – Base delay between attempts
-  * `--jitter` – Randomized delay variation to simulate non-uniform user behavior
-
-* **Rate Limit Detection**
-
-  * Detects HTTP 429 or custom limit text
-  * Implements cooldown logic for controlled retry analysis
-
-* **CUPP Integration**
-  Supports integration with profile-based wordlist generation using `cupp.py` for password strength evaluation research.
-
----
-
-## 📂 Repository Structure
-
-```
-BlueCrack/
-│
-├── bluecrack.py         # Main testing engine
-├── cupp.py              # Profile-based wordlist generator
-├── pass.txt             # Sample password list
-├── demo_server.py       # Local Flask demo login app
-├── requirements.txt     # Dependencies
-└── README.md            # Documentation
-```
+* **Rich Tabbed PyQt6 Interface**
+  A robust and fully integrated desktop UI removing the need for clunky CLIs. Manage Targets, Engines, Networking and Generators cleanly.
+* **Auto CSS Selector Bindings**
+  Includes a built-in browser-listener! Press `s` on any element to lock the Username target, and `t` to lock the Password target dynamically.
+* **Multi-threaded Execution Engine**
+  Spawns true parallel headless Chrome drivers simultaneously slicing through immense combos rapidly without RAM-locking. Seamlessly tears down and re-starts browser engines upon session death or successful authentication routes.
+* **Intelligent Output Logs**
+  Any successful session hit is aggressively parsed and cleanly appended to an integrated `credentials.txt` natively on the machine while bypassing subsequent multi-dimensional errors.
+* **Advanced Networking & Routing**
+  * Auto Tor Proxy support (`socks5://127.0.0.1:9050`)
+  * Dynamic IP Shifting logic (`Change IP every X attempts`) utilizing native Tor signals
+  * Support for external `.txt` proxy arrays.
+* **CUPP Integration & Sequence Generators**
+  Built-in support for generating intelligent wordlists using `cupp.py` and a custom mathematical Sequence Generator that outputs sequential combinations natively inside the application.
 
 ---
 
 ## 🛠 Installation
 
 Install dependencies:
-
 ```bash
 pip install -r requirements.txt
 ```
-
 Requirements:
-
-* Python 3.x
+* Python 3.10+
 * Google Chrome
-* ChromeDriver (matching your Chrome version)
+* PyQt6
+* Selenium
 
 ---
 
 ## ▶ Usage
 
-### Interactive Mode (Recommended for Learning)
+Launch the GUI interface:
 
 ```bash
-python bluecrack.py -i
+python bluecrack.py
 ```
 
-The wizard will:
-
-* Configure target URL
-* Detect or bind login fields
-* Load wordlists
-* Configure timing and threading
-
----
-
-### CLI Mode
-
-Single username + password list:
-
-```bash
-python bluecrack.py -u admin -P passlist.txt --threads 5 --url "http://localhost:5000/login"
-```
-
-Username list + password list:
-
-```bash
-python bluecrack.py -U users.txt -P passlist.txt --threads 10 --url "http://localhost:5000/login"
-```
-
----
-
-## 🧠 How It Works
-
-1. Launches the target login page in Chrome.
-2. Identifies or binds login input fields.
-3. Iterates through credential combinations.
-4. Monitors:
-
-   * URL changes
-   * Error message presence
-   * Rate limit responses
-5. Logs results for analysis.
-
-The included `demo_server.py` provides a safe local Flask login app for controlled testing.
-
----
-
-## 📜 Available Flags
-
-| Flag                  | Description                                 |
-| --------------------- | ------------------------------------------- |
-| `-i`, `--interactive` | Launch interactive setup wizard             |
-| `-u`, `--user`        | Single username                             |
-| `-U`, `--userfile`    | File of usernames                           |
-| `-p`, `--passw`       | Single password                             |
-| `-P`, `--passlist`    | Password wordlist                           |
-| `--threads`           | Number of parallel workers                  |
-| `--delay`             | Base delay between attempts                 |
-| `--jitter`            | Randomized delay variation                  |
-| `--proxy`             | Optional proxy (for lab network simulation) |
-| `--proxy-list`        | Proxy list file                             |
-| `--url`               | Target login page                           |
-| `--error`             | Failure detection string                    |
-| `--limit-text`        | Rate limit detection string                 |
-| `--cooldown`          | Cooldown duration after limit detected      |
-| `--headless`          | Run browsers invisibly                      |
+1. **Target Setup:** Map your target URL. The browser will spawn to allow you to detect fields. Hover over login fields, pressing `s` and `t` respectively.
+2. **Payload Settings:** Map your isolated Usernames, Passwords, or load external dictionary arrays. Single passwords traversing 100K users or isolated combos. 
+3. **Engine Settings:** Dial in your `delay`, browser pool `threads`, headless invisibility triggers, and rate-detection string limits (e.g. `Too many attempts`). 
+4. **Deploy:** Hit Start Attack! Output streams directly to your console logs and exports all valid credentials to `credentials.txt`.
 
 ---
 
 ## 🔐 Responsible Use Policy
 
 BlueCrack is intended strictly for:
-
 * Educational cybersecurity labs
 * Personal research environments
 * Authorized penetration testing
 * Studying authentication system behavior
 
-It must **never** be used against:
-
-* School portals
-* Government systems
-* Production websites
-* Any service without explicit written authorization
-
-Misuse may violate local laws and regulations.
-
----
-
-## 📘 Learning Outcomes
-
-This project demonstrates practical understanding of:
-
-* Selenium automation
-* Concurrency & threading
-* State-based response detection
-* Rate limiting analysis
-* Authentication flow modeling
-* Secure software testing concepts
+It must **never** be used against school portals, government systems, production websites, or any service without explicit written authorization.
 
 ---
 
 ## 📄 License
 
-MIT License © 2025 Muhammad Taezeem Tariq
+Included in the Repository.
