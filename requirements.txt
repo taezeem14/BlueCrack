@@ -2,3 +2,4 @@ selenium
 keyboard
 flask
 PyQt6
+requests
