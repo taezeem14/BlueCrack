@@ -25,6 +25,8 @@ BlueCrack was built as an experimentation project to explore:
   A robust and fully integrated desktop UI removing the need for clunky CLIs. Manage Targets, Engines, Networking and Generators cleanly.
 * **⚡ Raw HTTP Mode (Fast & Lightweight)**
   Bypass the overhead of headless browsers with an integrated Raw Requests mode (`--raw`). Ideal for low-end machines (e.g. older processors, 4GB RAM) utilizing native network socket testing, up to 20x faster.
+* **Auto-Discover Payload**
+  Scrapes the target login page with BeautifulSoup, extracts form action, method, and input fields — auto-generates the raw POST payload with `^USER^` and `^PASS^` placeholders. Available in both CLI wizard and GUI.
 * **Performance-Optimized Browser Engines**
   Even in browser mode, drivers are aggressively debloated—images disabled, background rendering off, UI throttled—making it lightweight for low-spec setups.
 * **Auto CSS Selector Bindings**
@@ -32,7 +34,9 @@ BlueCrack was built as an experimentation project to explore:
 * **Multi-threaded Execution Engine**
   Spawns true parallel headless Chrome drivers simultaneously slicing through immense combos rapidly without RAM-locking. Seamlessly tears down and re-starts browser engines upon session death or successful authentication routes.
 * **Intelligent Output Logs**
-  Any successful session hit is aggressively parsed and cleanly appended to an integrated `credentials.txt` natively on the machine while bypassing subsequent multi-dimensional errors. Also supports explicit positive match handling (`--success`).
+  Any successful session hit is aggressively parsed and cleanly appended to an integrated `credentials.txt` natively on the machine while bypassing subsequent multi-dimensional errors. Also supports explicit positive match handling (`--success`). Progress is tracked with a `[current/total]` counter so you always know where you're at.
+* **Multi-User Continuation**
+  Unlike tools that stop after the first hit, BlueCrack continues testing all remaining users after finding valid credentials. Every valid pair is saved to `credentials.txt` in real-time — even if you Ctrl+C mid-run.
 * **Advanced Networking & Routing**
   * Auto Tor Proxy support (`socks5://127.0.0.1:9050`)
   * Dynamic IP Shifting logic (`Change IP every X attempts`) utilizing native Tor signals
@@ -77,16 +81,39 @@ Requirements:
 
 ## ▶ Usage
 
-Launch the GUI interface:
-
+### GUI Mode
+Launch the full desktop interface:
 ```bash
-python bluecrack.py
+python bluecrack.py --gui
 ```
 
-1. **Target Setup:** Map your target URL. The browser will spawn to allow you to detect fields. Hover over login fields, pressing `s` and `t` respectively.
-2. **Payload Settings:** Map your isolated Usernames, Passwords, or load external dictionary arrays. Single passwords traversing 100K users or isolated combos. 
-3. **Engine Settings:** Dial in your `delay`, browser pool `threads`, headless invisibility triggers, and rate-detection string limits (e.g. `Too many attempts`). 
-4. **Deploy:** Hit Start Attack! Output streams directly to your console logs and exports all valid credentials to `credentials.txt`.
+### Interactive Wizard (CLI)
+```bash
+python bluecrack.py -i
+```
+The wizard walks you through every option step-by-step — target, usernames, passwords, raw mode, proxy, rate-limit handling, etc.
+
+### Direct CLI
+```bash
+# Raw HTTP mode (fastest) — single password against a user list
+python bluecrack.py --url https://target.com/login -U users.txt -p password123 --raw --error "invalid" --threads 4
+
+# Selenium browser mode — headless with auto-detect
+python bluecrack.py --url https://target.com/login -u admin -P passwords.txt --headless --error "incorrect"
+
+# With Tor proxy and custom payload
+python bluecrack.py --url https://target.com/login -U users.txt -p pass --raw --data "email=^USER^&password=^PASS^" --proxy socks5://127.0.0.1:9050
+```
+
+### Stopping a Run
+Press **Ctrl+C** at any time to gracefully stop. All credentials found so far are already saved to `credentials.txt`.
+
+### GUI Workflow
+1. **Target tab:** Enter URL, username(s), password(s)
+2. **Engine tab:** Set threads, delay, error text. Enable Raw HTTP mode and use **Auto-Discover Payload** to scrape the login form automatically
+3. **Network tab:** Configure Tor or proxy rotation
+4. **CUPP tab:** Generate targeted wordlists or number sequences
+5. Hit **START ATTACK** — progress streams to the log panel and all hits are saved to `credentials.txt`
 
 ---
 
