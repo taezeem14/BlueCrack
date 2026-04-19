@@ -1,4 +1,5 @@
 selenium
+stem
 keyboard
 flask
 PyQt6

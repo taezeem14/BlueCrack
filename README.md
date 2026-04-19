@@ -29,7 +29,7 @@ BlueCrack was built as an experimentation project to explore:
 - **Multi-threaded Execution Engine**
   Spawns true parallel headless Chrome drivers simultaneously slicing through immense combos rapidly without RAM-locking. Seamlessly tears down and re-starts browser engines upon session death or successful authentication routes.
 - **Intelligent Output Logs**
-  Any successful session hit is aggressively parsed and cleanly appended to an integrated `credentials.txt` natively on the machine while bypassing subsequent multi-dimensional errors.
+  Any successful session hit is aggressively parsed and cleanly appended to an integrated `credentials.txt` natives (saving URL - Username:Password) on the machine while bypassing subsequent multi-dimensional errors.
 - **Advanced Networking & Routing**
   - Auto Tor Proxy support (`socks5://127.0.0.1:9050`)
   - Dynamic IP Shifting logic (`Change IP every X attempts`) utilizing native Tor signals
@@ -66,7 +66,7 @@ python bluecrack.py
 
 1. **Target Setup:** Map your target URL. The browser will spawn to allow you to detect fields. Hover over login fields, pressing `s` and `t` respectively.
 2. **Payload Settings:** Map your isolated Usernames, Passwords, or load external dictionary arrays. Single passwords traversing 100K users or isolated combos.
-3. **Engine Settings:** Dial in your `delay`, browser pool `threads`, headless invisibility triggers, and rate-detection string limits (e.g. `Too many attempts`).
+3. **Engine Settings:** Dial in your `delay`, browser pool `threads`, headless invisibility triggers, and rate-detection string limits. Also, you can specify an `--error` string or `--success` string explicitly for validation accuracy.
 4. **Deploy:** Hit Start Attack! Output streams directly to your console logs and exports all valid credentials to `credentials.txt`.
 
 ---
