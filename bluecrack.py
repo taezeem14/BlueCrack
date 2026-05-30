@@ -425,327 +425,842 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
     # ─────────────────── Premium Glassmorphism Dark Theme ───────────────────
     DARK_STYLE: str = """
-    /* ═══ Global ═══ */
+    /* ═══════════════════════════════════════════════════════════════════
+       BLUECRACK DARK THEME stylesheet
+       Premium corporate-grade styling with Indigo-Cyan accents.
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* --- Global & Base Widgets --- */
     QWidget {
-        background-color: #0a0e17;
-        color: #e2e8f0;
-        font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+        background-color: #030712;
+        color: #f9fafb;
+        font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
         font-size: 13px;
     }
 
-    /* ═══ Group Boxes — Glassmorphism cards ═══ */
-    QGroupBox {
-        border: 1px solid rgba(148, 163, 184, 0.1);
-        border-radius: 12px;
-        margin-top: 18px;
-        padding: 26px 14px 14px 14px;
-        font-weight: bold;
-        font-size: 13px;
-        color: #4f8cff;
-        background-color: rgba(15, 23, 42, 0.8);
+    QDialog, QMainWindow {
+        background-color: #030712;
     }
+
+    /* --- Group Boxes (Card Containers) --- */
+    QGroupBox {
+        background-color: #0b0f19;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
+        margin-top: 20px;
+        padding: 24px 16px 16px 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.75px;
+        font-size: 11px;
+        color: #818cf8;
+    }
+
     QGroupBox::title {
         subcontrol-origin: margin;
         subcontrol-position: top left;
-        left: 16px;
+        left: 12px;
         top: 4px;
-        padding: 0 8px;
-        color: #4f8cff;
+        padding: 2px 8px;
+        background-color: #030712;
+        border-radius: 4px;
+        border: 1px solid #1f2937;
+        color: #818cf8;
     }
 
-    /* ═══ Scroll Areas ═══ */
+    /* --- Scroll Areas --- */
     QScrollArea {
         border: none;
-        background: transparent;
-    }
-    QScrollArea > QWidget > QWidget {
-        background: transparent;
-    }
-    QScrollBar:vertical {
-        background: rgba(15, 23, 42, 0.4);
-        width: 8px;
-        border-radius: 4px;
-    }
-    QScrollBar::handle:vertical {
-        background: rgba(79, 140, 255, 0.3);
-        border-radius: 4px;
-        min-height: 30px;
-    }
-    QScrollBar::handle:vertical:hover {
-        background: rgba(79, 140, 255, 0.6);
-    }
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-        height: 0;
+        background-color: transparent;
     }
 
-    /* ═══ Tab Widget ═══ */
+    QScrollArea > QWidget > QWidget {
+        background-color: transparent;
+    }
+
+    /* --- ScrollBars --- */
+    QScrollBar:vertical {
+        background-color: #030712;
+        width: 8px;
+        margin: 0px;
+        border-radius: 4px;
+    }
+
+    QScrollBar::handle:vertical {
+        background-color: #1f2937;
+        min-height: 24px;
+        border-radius: 4px;
+        border: 1px solid #374151;
+    }
+
+    QScrollBar::handle:vertical:hover {
+        background-color: #374151;
+    }
+
+    QScrollBar::handle:vertical:pressed {
+        background-color: #4b5563;
+    }
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+        background: none;
+        height: 0px;
+    }
+
+    QScrollBar:horizontal {
+        background-color: #030712;
+        height: 8px;
+        margin: 0px;
+        border-radius: 4px;
+    }
+
+    QScrollBar::handle:horizontal {
+        background-color: #1f2937;
+        min-width: 24px;
+        border-radius: 4px;
+        border: 1px solid #374151;
+    }
+
+    QScrollBar::handle:horizontal:hover {
+        background-color: #374151;
+    }
+
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
+    QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+        background: none;
+        width: 0px;
+    }
+
+    /* --- Tab Widget & Tab Bar --- */
+    QTabWidget {
+        background-color: transparent;
+    }
+
     QTabWidget::pane {
-        border: 1px solid rgba(148, 163, 184, 0.1);
+        border: 1px solid #1f2937;
         border-radius: 8px;
-        background: rgba(15, 23, 42, 0.5);
+        background-color: #0b0f19;
         top: -1px;
     }
+
+    QTabBar {
+        background-color: transparent;
+        qproperty-drawBase: 0;
+    }
+
     QTabBar::tab {
-        background: rgba(15, 23, 42, 0.4);
-        color: #94a3b8;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 10px 22px;
-        margin-right: 2px;
+        background-color: #030712;
+        color: #9ca3af;
+        border: 1px solid #1f2937;
+        border-bottom: none;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        padding: 8px 18px;
+        margin-right: 4px;
         font-weight: 600;
-        font-size: 13px;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
     }
+
     QTabBar::tab:hover {
-        color: #e2e8f0;
-        background: rgba(79, 140, 255, 0.08);
+        background-color: #0b0f19;
+        color: #f9fafb;
     }
+
     QTabBar::tab:selected {
-        color: #4f8cff;
-        background: rgba(15, 23, 42, 0.8);
-        border-bottom: 2px solid #4f8cff;
+        background-color: #0b0f19;
+        color: #06b6d4;
+        border: 1px solid #1f2937;
+        border-bottom: 2px solid #06b6d4;
+        padding-bottom: 8px;
     }
 
-    /* ═══ Input Fields ═══ */
+    /* --- Form Fields & Inputs --- */
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-        background-color: rgba(15, 23, 42, 0.6);
-        border: 1px solid rgba(148, 163, 184, 0.15);
-        border-radius: 8px;
-        padding: 8px 12px;
-        color: #e2e8f0;
-        min-height: 20px;
-        selection-background-color: rgba(79, 140, 255, 0.3);
+        background-color: #0d1220;
+        border: 1px solid #1f2937;
+        border-radius: 6px;
+        padding: 6px 12px;
+        color: #f9fafb;
+        selection-background-color: rgba(99, 102, 241, 0.4);
     }
+
+    QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover {
+        border: 1px solid #374151;
+    }
+
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-        border: 1px solid #4f8cff;
-        background-color: rgba(15, 23, 42, 0.8);
+        border: 1px solid #6366f1;
+        background-color: #0f172a;
     }
+
     QLineEdit::placeholder {
-        color: #475569;
+        color: #4b5563;
     }
 
-    /* ═══ Buttons — Base ═══ */
+    QComboBox::drop-down {
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 24px;
+        border-left-width: 0px;
+    }
+
+    QComboBox::down-arrow {
+        image: none;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-top: 5px solid #9ca3af;
+        margin-top: 2px;
+    }
+
+    QComboBox QAbstractItemView {
+        background-color: #0b0f19;
+        border: 1px solid #1f2937;
+        border-radius: 6px;
+        selection-background-color: #6366f1;
+        selection-color: #f9fafb;
+        color: #9ca3af;
+    }
+
+    /* --- Buttons --- */
     QPushButton {
-        background-color: rgba(30, 41, 59, 0.8);
-        border: 1px solid rgba(148, 163, 184, 0.15);
-        border-radius: 8px;
-        padding: 9px 18px;
-        color: #e2e8f0;
+        background-color: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        padding: 8px 16px;
+        color: #f9fafb;
         font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
     }
+
     QPushButton:hover {
-        background-color: rgba(51, 65, 85, 0.9);
-        border-color: #4f8cff;
+        background-color: #374151;
+        border-color: #4b5563;
     }
+
     QPushButton:pressed {
-        background-color: rgba(15, 23, 42, 0.9);
+        background-color: #111827;
+        border-color: #6366f1;
     }
+
     QPushButton:disabled {
-        background-color: rgba(15, 23, 42, 0.4);
-        color: #334155;
-        border-color: rgba(148, 163, 184, 0.05);
+        background-color: #030712;
+        color: #4b5563;
+        border-color: #1f2937;
     }
 
-    /* ═══ Checkboxes ═══ */
+    /* --- Checkboxes --- */
     QCheckBox {
-        spacing: 10px;
-        color: #e2e8f0;
-    }
-    QCheckBox::indicator {
-        width: 18px;
-        height: 18px;
-        border-radius: 5px;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(15, 23, 42, 0.6);
-    }
-    QCheckBox::indicator:hover {
-        border-color: #4f8cff;
-    }
-    QCheckBox::indicator:checked {
-        background-color: #00e676;
-        border-color: #00e676;
+        spacing: 8px;
+        color: #e5e7eb;
     }
 
-    /* ═══ Log Terminal ═══ */
+    QCheckBox::indicator {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid #1f2937;
+        background-color: #0b0f19;
+    }
+
+    QCheckBox::indicator:hover {
+        border-color: #374151;
+    }
+
+    QCheckBox::indicator:checked {
+        background-color: #6366f1;
+        border-color: #6366f1;
+        image: none;
+    }
+
+    /* --- Terminal Console (TextEdit) --- */
     QTextEdit {
         background-color: #020617;
-        border: 1px solid rgba(148, 163, 184, 0.1);
+        border: 1px solid #1f2937;
         border-radius: 8px;
-        color: #39d353;
-        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        color: #22d3ee;
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
         font-size: 12px;
-        padding: 10px;
-        selection-background-color: rgba(57, 211, 83, 0.2);
+        line-height: 1.4;
+        padding: 12px;
     }
 
-    /* ═══ Progress Bar ═══ */
+    /* --- Progress Bar --- */
     QProgressBar {
-        background-color: rgba(15, 23, 42, 0.6);
-        border: 1px solid rgba(148, 163, 184, 0.1);
-        border-radius: 10px;
+        background-color: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
         text-align: center;
-        color: #e2e8f0;
-        height: 24px;
-        font-weight: 600;
+        color: #f9fafb;
+        height: 20px;
+        font-weight: bold;
         font-size: 11px;
     }
+
     QProgressBar::chunk {
-        border-radius: 9px;
+        border-radius: 7px;
         background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-            stop:0 #4f8cff, stop:1 #00e676);
+            stop:0 #6366f1, stop:1 #06b6d4);
     }
 
-    /* ═══ Named Labels ═══ */
-    QLabel#titleLabel {
-        font-size: 32px;
-        font-weight: bold;
-        color: #4f8cff;
+    /* --- Custom Styled Widgets by Object Name --- */
+
+    QPushButton#startBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #10b981, stop:1 #059669);
+        color: #ffffff;
+        border: none;
+        font-weight: 700;
+        font-size: 12px;
     }
+
+    QPushButton#startBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #047857);
+    }
+
+    QPushButton#startBtn:disabled {
+        background: #064e3b;
+        color: #34d399;
+        opacity: 0.5;
+    }
+
+    QPushButton#stopBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ef4444, stop:1 #dc2626);
+        color: #ffffff;
+        border: none;
+        font-weight: 700;
+        font-size: 12px;
+    }
+
+    QPushButton#stopBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #dc2626, stop:1 #b91c1c);
+    }
+
+    QPushButton#stopBtn:disabled {
+        background: #7f1d1d;
+        color: #f87171;
+        opacity: 0.5;
+    }
+
+    QPushButton#cuppGenBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #4f46e5);
+        color: #ffffff;
+        border: none;
+    }
+
+    QPushButton#cuppGenBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f46e5, stop:1 #4338ca);
+    }
+
+    QPushButton#seqGenBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #06b6d4, stop:1 #0891b2);
+        color: #ffffff;
+        border: none;
+    }
+
+    QPushButton#seqGenBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0891b2, stop:1 #0e7490);
+    }
+
+    QPushButton#themeBtn {
+        border-radius: 16px;
+        background-color: #0b0f19;
+        border: 1px solid #1f2937;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 0px;
+    }
+
+    QPushButton#themeBtn:hover {
+        background-color: #1f2937;
+        border-color: #6366f1;
+    }
+
+    QFrame#footerFrame {
+        background-color: #0b0f19;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
+    }
+
+    QFrame#statBox {
+        background-color: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 8px;
+    }
+
+    QLabel#titleLabel {
+        font-size: 28px;
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: 1px;
+    }
+
     QLabel#subtitleLabel {
         font-size: 12px;
-        color: #94a3b8;
-        font-weight: 400;
+        color: #9ca3af;
     }
+
     QLabel#statLabel {
-        font-size: 12px;
-        color: #94a3b8;
+        font-size: 11px;
+        color: #9ca3af;
         font-weight: 600;
-        padding: 2px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
+
     QLabel#statValue {
-        font-size: 13px;
-        color: #e2e8f0;
+        font-size: 12px;
+        color: #22d3ee;
         font-weight: 700;
-        padding: 2px 8px;
+        font-family: 'JetBrains Mono', monospace;
     }
 
-    /* ═══ Splitter ═══ */
-    QSplitter::handle {
-        background: rgba(79, 140, 255, 0.15);
-        height: 3px;
-        border-radius: 1px;
-    }
-    QSplitter::handle:hover {
-        background: rgba(79, 140, 255, 0.4);
+    QLabel#statusLabel {
+        color: #9ca3af;
+        font-size: 11px;
+        padding: 4px;
     }
 
-    /* ═══ Form label styling ═══ */
     QFormLayout QLabel {
-        color: #94a3b8;
+        color: #9ca3af;
         font-weight: 500;
     }
 
-    /* ═══ Tooltips ═══ */
+    QSplitter::handle {
+        background-color: #1f2937;
+    }
+
+    QSplitter::handle:hover {
+        background-color: #6366f1;
+    }
+
     QToolTip {
-        background-color: rgba(15, 23, 42, 0.95);
-        color: #e2e8f0;
-        border: 1px solid rgba(79, 140, 255, 0.3);
+        background-color: #030712;
+        color: #f9fafb;
+        border: 1px solid #6366f1;
         border-radius: 6px;
         padding: 6px 10px;
-        font-size: 12px;
     }
     """
 
     LIGHT_STYLE: str = """
+    /* ═══════════════════════════════════════════════════════════════════
+       BLUECRACK LIGHT THEME stylesheet
+       Premium corporate-grade styling with Indigo-Cyan accents.
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* --- Global & Base Widgets --- */
     QWidget {
-        background-color: #f8fafc;
-        color: #1e293b;
-        font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+        background-color: #f9fafb;
+        color: #111827;
+        font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
         font-size: 13px;
     }
-    QGroupBox {
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        margin-top: 18px;
-        padding: 26px 14px 14px 14px;
-        font-weight: bold;
-        color: #3b82f6;
-        background-color: #ffffff;
+
+    QDialog, QMainWindow {
+        background-color: #f9fafb;
     }
+
+    /* --- Group Boxes (Card Containers) --- */
+    QGroupBox {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-top: 20px;
+        padding: 24px 16px 16px 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.75px;
+        font-size: 11px;
+        color: #4f46e5;
+    }
+
     QGroupBox::title {
         subcontrol-origin: margin;
         subcontrol-position: top left;
-        left: 16px;
+        left: 12px;
         top: 4px;
-        padding: 0 8px;
+        padding: 2px 8px;
+        background-color: #f9fafb;
+        border-radius: 4px;
+        border: 1px solid #e5e7eb;
+        color: #4f46e5;
     }
-    QScrollArea { border: none; background: transparent; }
-    QScrollArea > QWidget > QWidget { background: transparent; }
-    QTabWidget::pane {
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: #ffffff;
-    }
-    QTabBar::tab {
-        background: #f1f5f9;
-        color: #64748b;
+
+    /* --- Scroll Areas --- */
+    QScrollArea {
         border: none;
-        border-bottom: 2px solid transparent;
-        padding: 10px 22px;
-        margin-right: 2px;
+        background-color: transparent;
+    }
+
+    QScrollArea > QWidget > QWidget {
+        background-color: transparent;
+    }
+
+    /* --- ScrollBars --- */
+    QScrollBar:vertical {
+        background-color: #f9fafb;
+        width: 8px;
+        margin: 0px;
+        border-radius: 4px;
+    }
+
+    QScrollBar::handle:vertical {
+        background-color: #e5e7eb;
+        min-height: 24px;
+        border-radius: 4px;
+        border: 1px solid #d1d5db;
+    }
+
+    QScrollBar::handle:vertical:hover {
+        background-color: #d1d5db;
+    }
+
+    QScrollBar::handle:vertical:pressed {
+        background-color: #9ca3af;
+    }
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+        background: none;
+        height: 0px;
+    }
+
+    QScrollBar:horizontal {
+        background-color: #f9fafb;
+        height: 8px;
+        margin: 0px;
+        border-radius: 4px;
+    }
+
+    QScrollBar::handle:horizontal {
+        background-color: #e5e7eb;
+        min-width: 24px;
+        border-radius: 4px;
+        border: 1px solid #d1d5db;
+    }
+
+    QScrollBar::handle:horizontal:hover {
+        background-color: #d1d5db;
+    }
+
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
+    QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+        background: none;
+        width: 0px;
+    }
+
+    /* --- Tab Widget & Tab Bar --- */
+    QTabWidget {
+        background-color: transparent;
+    }
+
+    QTabWidget::pane {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #ffffff;
+        top: -1px;
+    }
+
+    QTabBar {
+        background-color: transparent;
+        qproperty-drawBase: 0;
+    }
+
+    QTabBar::tab {
+        background-color: #f9fafb;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+        border-bottom: none;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        padding: 8px 18px;
+        margin-right: 4px;
         font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
     }
+
+    QTabBar::tab:hover {
+        background-color: #ffffff;
+        color: #111827;
+    }
+
     QTabBar::tab:selected {
-        color: #3b82f6;
-        background: #ffffff;
-        border-bottom: 2px solid #3b82f6;
+        background-color: #ffffff;
+        color: #0891b2;
+        border: 1px solid #e5e7eb;
+        border-bottom: 2px solid #0891b2;
+        padding-bottom: 8px;
     }
+
+    /* --- Form Fields & Inputs --- */
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
         background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 8px 12px;
-        color: #1e293b;
-        min-height: 20px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 6px 12px;
+        color: #111827;
+        selection-background-color: rgba(99, 102, 241, 0.2);
     }
-    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-        border: 1px solid #3b82f6;
+
+    QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover {
+        border: 1px solid #9ca3af;
     }
+
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+        border: 1px solid #4f46e5;
+        background-color: #ffffff;
+    }
+
+    QLineEdit::placeholder {
+        color: #9ca3af;
+    }
+
+    QComboBox::drop-down {
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 24px;
+        border-left-width: 0px;
+    }
+
+    QComboBox::down-arrow {
+        image: none;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-top: 5px solid #4b5563;
+        margin-top: 2px;
+    }
+
+    QComboBox QAbstractItemView {
+        background-color: #ffffff;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        selection-background-color: #4f46e5;
+        selection-color: #ffffff;
+        color: #4b5563;
+    }
+
+    /* --- Buttons --- */
     QPushButton {
-        background-color: #f1f5f9;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 9px 18px;
-        color: #1e293b;
+        background-color: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 8px 16px;
+        color: #111827;
         font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
     }
-    QPushButton:hover { background-color: #e2e8f0; border-color: #3b82f6; }
-    QPushButton:pressed { background-color: #cbd5e1; }
-    QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; }
-    QCheckBox { spacing: 10px; color: #1e293b; }
+
+    QPushButton:hover {
+        background-color: #e5e7eb;
+        border-color: #d1d5db;
+    }
+
+    QPushButton:pressed {
+        background-color: #f3f4f6;
+        border-color: #4f46e5;
+    }
+
+    QPushButton:disabled {
+        background-color: #f9fafb;
+        color: #9ca3af;
+        border-color: #e5e7eb;
+    }
+
+    /* --- Checkboxes --- */
+    QCheckBox {
+        spacing: 8px;
+        color: #374151;
+    }
+
     QCheckBox::indicator {
-        width: 18px; height: 18px; border-radius: 5px;
-        border: 1px solid #cbd5e1; background: #ffffff;
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid #d1d5db;
+        background-color: #ffffff;
     }
-    QCheckBox::indicator:checked { background-color: #22c55e; border-color: #22c55e; }
+
+    QCheckBox::indicator:hover {
+        border-color: #9ca3af;
+    }
+
+    QCheckBox::indicator:checked {
+        background-color: #4f46e5;
+        border-color: #4f46e5;
+        image: none;
+    }
+
+    /* --- Terminal Console (TextEdit) --- */
     QTextEdit {
-        background-color: #1e293b;
-        border: 1px solid #e2e8f0;
+        background-color: #0f172a;
+        border: 1px solid #e5e7eb;
         border-radius: 8px;
-        color: #4ade80;
-        font-family: 'Cascadia Code', 'Consolas', monospace;
+        color: #22d3ee;
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
         font-size: 12px;
-        padding: 10px;
+        line-height: 1.4;
+        padding: 12px;
     }
+
+    /* --- Progress Bar --- */
     QProgressBar {
-        background-color: #e2e8f0;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
+        background-color: #e5e7eb;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
         text-align: center;
-        color: #1e293b;
-        height: 24px;
+        color: #111827;
+        height: 20px;
+        font-weight: bold;
+        font-size: 11px;
     }
+
     QProgressBar::chunk {
-        border-radius: 9px;
-        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3b82f6, stop:1 #22c55e);
+        border-radius: 7px;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 #4f46e5, stop:1 #0891b2);
     }
-    QLabel#titleLabel { font-size: 32px; font-weight: bold; color: #3b82f6; }
-    QLabel#subtitleLabel { font-size: 12px; color: #64748b; }
-    QLabel#statLabel { font-size: 12px; color: #64748b; font-weight: 600; padding: 2px 8px; }
-    QLabel#statValue { font-size: 13px; color: #1e293b; font-weight: 700; padding: 2px 8px; }
-    QSplitter::handle { background: #e2e8f0; height: 3px; }
+
+    /* --- Custom Styled Widgets by Object Name --- */
+
+    QPushButton#startBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #10b981, stop:1 #059669);
+        color: #ffffff;
+        border: none;
+        font-weight: 700;
+        font-size: 12px;
+    }
+
+    QPushButton#startBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #047857);
+    }
+
+    QPushButton#startBtn:disabled {
+        background: #d1fae5;
+        color: #a7f3d0;
+    }
+
+    QPushButton#stopBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ef4444, stop:1 #dc2626);
+        color: #ffffff;
+        border: none;
+        font-weight: 700;
+        font-size: 12px;
+    }
+
+    QPushButton#stopBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #dc2626, stop:1 #b91c1c);
+    }
+
+    QPushButton#stopBtn:disabled {
+        background: #fee2e2;
+        color: #fca5a5;
+    }
+
+    QPushButton#cuppGenBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f46e5, stop:1 #4338ca);
+        color: #ffffff;
+        border: none;
+    }
+
+    QPushButton#cuppGenBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4338ca, stop:1 #3730a3);
+    }
+
+    QPushButton#seqGenBtn {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0891b2, stop:1 #0e7490);
+        color: #ffffff;
+        border: none;
+    }
+
+    QPushButton#seqGenBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0e7490, stop:1 #155e75);
+    }
+
+    QPushButton#themeBtn {
+        border-radius: 16px;
+        background-color: #ffffff;
+        border: 1px solid #d1d5db;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 0px;
+    }
+
+    QPushButton#themeBtn:hover {
+        background-color: #f3f4f6;
+        border-color: #4f46e5;
+    }
+
+    QFrame#footerFrame {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    QFrame#statBox {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    QLabel#titleLabel {
+        font-size: 28px;
+        font-weight: 800;
+        color: #111827;
+        letter-spacing: 1px;
+    }
+
+    QLabel#subtitleLabel {
+        font-size: 12px;
+        color: #4b5563;
+    }
+
+    QLabel#statLabel {
+        font-size: 11px;
+        color: #4b5563;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    QLabel#statValue {
+        font-size: 12px;
+        color: #0891b2;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    QLabel#statusLabel {
+        color: #4b5563;
+        font-size: 11px;
+        padding: 4px;
+    }
+
+    QFormLayout QLabel {
+        color: #4b5563;
+        font-weight: 500;
+    }
+
+    QSplitter::handle {
+        background-color: #e5e7eb;
+    }
+
+    QSplitter::handle:hover {
+        background-color: #4f46e5;
+    }
+
     QToolTip {
-        background-color: #ffffff; color: #1e293b;
-        border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px;
+        background-color: #ffffff;
+        color: #111827;
+        border: 1px solid #4f46e5;
+        border-radius: 6px;
+        padding: 6px 10px;
     }
     """
 
@@ -1258,10 +1773,10 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self._build_ui()
 
         def _build_ui(self) -> None:
-            """Construct the entire GUI layout."""
+            """Construct the entire GUI layout with premium styling."""
             root = QVBoxLayout(self)
             root.setContentsMargins(18, 14, 18, 14)
-            root.setSpacing(8)
+            root.setSpacing(12)
 
             # ── Header Frame ──
             header_frame = QFrame()
@@ -1272,24 +1787,22 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             header_layout.setContentsMargins(0, 0, 0, 4)
 
             title_col = QVBoxLayout()
+            title_col.setSpacing(2)
             title = QLabel("BLUECRACK")
             title.setObjectName("titleLabel")
             title.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            sub = QLabel(
-                "Advanced Browser Penetration Framework"
-            )
+            sub = QLabel("Advanced Browser Penetration Framework")
             sub.setObjectName("subtitleLabel")
             sub.setAlignment(Qt.AlignmentFlag.AlignLeft)
             title_col.addWidget(title)
             title_col.addWidget(sub)
             header_layout.addLayout(title_col, stretch=1)
 
-            self.theme_btn = QPushButton("☀")
+            self.theme_btn = QPushButton("☼")
+            self.theme_btn.setObjectName("themeBtn")
             self.theme_btn.setFixedSize(36, 36)
             self.theme_btn.setToolTip("Toggle light/dark theme")
-            self.theme_btn.setStyleSheet(
-                "QPushButton { font-size: 18px; border-radius: 18px; }"
-            )
+            self.theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.theme_btn.clicked.connect(self._toggle_theme)
             header_layout.addWidget(
                 self.theme_btn, alignment=Qt.AlignmentFlag.AlignTop
@@ -1302,262 +1815,214 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             # ── Tabs ──
             self.tabs = QTabWidget()
 
-            # ═══ TAB 1 : Target ═══
-            tgt_scroll = QScrollArea()
-            tgt_scroll.setWidgetResizable(True)
-            tgt_scroll.setFrameShape(QFrame.Shape.NoFrame)
-            tgt_w = QWidget()
-            tgt_l = QVBoxLayout(tgt_w)
-            tgt_l.setSpacing(6)
+            # ═══ TAB 1 : DASHBOARD (Target, Engine, Network, Limits side-by-side) ═══
+            dash_scroll = QScrollArea()
+            dash_scroll.setWidgetResizable(True)
+            dash_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            
+            dash_w = QWidget()
+            dash_layout = QHBoxLayout(dash_w)
+            dash_layout.setContentsMargins(12, 12, 12, 12)
+            dash_layout.setSpacing(16)
 
-            tgt_grp = QGroupBox("  Target Configuration")
-            tgt_grp.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
-            )
+            # Left Column of Dashboard
+            left_col = QVBoxLayout()
+            left_col.setSpacing(12)
+
+            # Left Card 1: Target Configuration
+            tgt_grp = QGroupBox("TARGET CONFIGURATION")
             tgt_f = QFormLayout(tgt_grp)
             tgt_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            tgt_f.setFormAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            tgt_f.setHorizontalSpacing(12)
-            tgt_f.setVerticalSpacing(12)
+            tgt_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            tgt_f.setHorizontalSpacing(10)
+            tgt_f.setVerticalSpacing(8)
+            tgt_f.setContentsMargins(10, 10, 10, 10)
 
             self.url_in = QLineEdit()
             self.url_in.setPlaceholderText("https://target.com/login")
-            self.url_in.setToolTip(
-                "The full URL of the login page to attack"
-            )
+            self.url_in.setToolTip("The full URL of the login page to attack")
             tgt_f.addRow("URL:", self.url_in)
 
             user_row = QHBoxLayout()
+            user_row.setSpacing(6)
             self.user_in = QLineEdit()
             self.user_in.setPlaceholderText("admin  or  path/to/users.txt")
-            self.user_in.setToolTip(
-                "A single username OR path to a file with one username per line"
-            )
-            user_btn = QPushButton("📂")
+            self.user_in.setToolTip("A single username OR path to a file with one username per line")
+            user_btn = QPushButton("...")
             user_btn.setFixedWidth(36)
             user_btn.setToolTip("Browse for username list file")
+            user_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             user_btn.clicked.connect(lambda: self._pick_file(self.user_in))
             user_row.addWidget(self.user_in)
             user_row.addWidget(user_btn)
-            tgt_f.addRow("Username / File:", user_row)
+            tgt_f.addRow("USER LIST:", user_row)
 
             pass_row = QHBoxLayout()
+            pass_row.setSpacing(6)
             self.pass_in = QLineEdit()
             self.pass_in.setPlaceholderText("password  or  path/to/pass.txt")
-            self.pass_in.setToolTip(
-                "A single password OR path to a file with one password per line"
-            )
-            pass_btn = QPushButton("📂")
+            self.pass_in.setToolTip("A single password OR path to a file with one password per line")
+            pass_btn = QPushButton("...")
             pass_btn.setFixedWidth(36)
             pass_btn.setToolTip("Browse for password list file")
+            pass_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             pass_btn.clicked.connect(lambda: self._pick_file(self.pass_in))
             pass_row.addWidget(self.pass_in)
             pass_row.addWidget(pass_btn)
-            tgt_f.addRow("Password / File:", pass_row)
-            tgt_l.addWidget(tgt_grp)
-            tgt_l.addStretch()
-            tgt_scroll.setWidget(tgt_w)
+            tgt_f.addRow("PASS LIST:", pass_row)
+            left_col.addWidget(tgt_grp)
 
-            self.tabs.addTab(tgt_scroll, "🎯  Target")
-
-            # ═══ TAB 2 : Engine ═══
-            eng_scroll = QScrollArea()
-            eng_scroll.setWidgetResizable(True)
-            eng_scroll.setFrameShape(QFrame.Shape.NoFrame)
-            eng_w = QWidget()
-            eng_l = QVBoxLayout(eng_w)
-            eng_l.setSpacing(6)
-
-            eng_grp = QGroupBox("  Engine Settings")
-            eng_grp.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
-            )
-            eng_f = QFormLayout(eng_grp)
-            eng_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            eng_f.setFormAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            eng_f.setHorizontalSpacing(12)
-            eng_f.setVerticalSpacing(12)
-
-            self.threads_in = QSpinBox()
-            self.threads_in.setRange(1, 50)
-            self.threads_in.setValue(1)
-            self.threads_in.setToolTip(
-                "Number of parallel browser threads (more = faster but heavier)"
-            )
-
-            self.delay_in = QDoubleSpinBox()
-            self.delay_in.setRange(0, 120)
-            self.delay_in.setSingleStep(0.5)
-            self.delay_in.setToolTip(
-                "Base delay in seconds between each login attempt"
-            )
-
-            self.jitter_in = QDoubleSpinBox()
-            self.jitter_in.setRange(0, 30)
-            self.jitter_in.setSingleStep(0.5)
-            self.jitter_in.setToolTip(
-                "Random jitter added to delay to avoid pattern detection"
-            )
-
-            self.err_in = QLineEdit("incorrect")
-            self.err_in.setPlaceholderText("error text on failed login")
-            self.err_in.setToolTip(
-                "Text that appears on the page when a login fails (e.g. 'invalid password')"
-            )
-
-            self.limit_in = QLineEdit(DEFAULT_LIMIT_TEXT)
-            self.limit_in.setToolTip(
-                "Text indicating the server is rate-limiting requests"
-            )
-
-            self.cooldown_in = QSpinBox()
-            self.cooldown_in.setRange(0, 300)
-            self.cooldown_in.setValue(12)
-            self.cooldown_in.setToolTip(
-                "Seconds to wait when a rate limit is detected before retrying"
-            )
-
-            self.headless_cb = QCheckBox("Headless browsers (no visible window)")
-            self.headless_cb.setChecked(True)
-            self.headless_cb.setToolTip(
-                "Run browsers without visible windows — faster but no visual feedback"
-            )
-
-            eng_f.addRow("Threads:", self.threads_in)
-            eng_f.addRow("Delay (s):", self.delay_in)
-            eng_f.addRow("Jitter (s):", self.jitter_in)
-            eng_f.addRow("Error text:", self.err_in)
-            eng_f.addRow("Rate-limit text:", self.limit_in)
-            eng_f.addRow("Cooldown (s):", self.cooldown_in)
-            eng_f.addRow("", self.headless_cb)
-            eng_l.addWidget(eng_grp)
-
-            # ── Advanced Options GroupBox ──
-            adv_grp = QGroupBox("  Advanced Options")
-            adv_grp.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
-            )
-            adv_f = QFormLayout(adv_grp)
-            adv_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            adv_f.setFormAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            adv_f.setHorizontalSpacing(12)
-            adv_f.setVerticalSpacing(12)
-
-            self.success_in = QLineEdit()
-            self.success_in.setPlaceholderText("e.g. 'Welcome back' or 'Dashboard'")
-            self.success_in.setToolTip(
-                "Text that confirms a successful login. If set, login is only valid when this text appears."
-            )
-
-            self.max_attempts_in = QSpinBox()
-            self.max_attempts_in.setRange(0, 999999)
-            self.max_attempts_in.setValue(0)
-            self.max_attempts_in.setToolTip(
-                "Maximum total attempts before stopping (0 = unlimited)"
-            )
-
-            self.continue_cb = QCheckBox("Continue testing after finding credentials")
-            self.continue_cb.setToolTip(
-                "If checked, the attack continues even after finding valid credentials"
-            )
-
-            adv_f.addRow("Success text:", self.success_in)
-            adv_f.addRow("Max attempts:", self.max_attempts_in)
-            adv_f.addRow("", self.continue_cb)
-            eng_l.addWidget(adv_grp)
-
-            eng_l.addStretch()
-            eng_scroll.setWidget(eng_w)
-
-            self.tabs.addTab(eng_scroll, "⚙  Engine")
-
-            # ═══ TAB 3 : Network / Tor ═══
-            net_scroll = QScrollArea()
-            net_scroll.setWidgetResizable(True)
-            net_scroll.setFrameShape(QFrame.Shape.NoFrame)
-            net_w = QWidget()
-            net_l = QVBoxLayout(net_w)
-            net_l.setSpacing(6)
-
-            net_grp = QGroupBox("  Network / Tor Proxy")
-            net_grp.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
-            )
+            # Left Card 2: Bypass & Proxy
+            net_grp = QGroupBox("BYPASS & PROXY")
             net_f = QFormLayout(net_grp)
             net_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            net_f.setFormAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            net_f.setHorizontalSpacing(12)
-            net_f.setVerticalSpacing(12)
+            net_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            net_f.setHorizontalSpacing(10)
+            net_f.setVerticalSpacing(8)
+            net_f.setContentsMargins(10, 10, 10, 10)
 
-            self.tor_cb = QCheckBox("Route through Tor  (socks5://127.0.0.1:9050)")
-            self.tor_cb.setToolTip(
-                "Route all traffic through the Tor network for anonymity"
-            )
+            self.tor_cb = QCheckBox("Route through Tor (socks5://127.0.0.1:9050)")
+            self.tor_cb.setToolTip("Route all traffic through the Tor network for anonymity")
 
             self.tor_port_in = QSpinBox()
             self.tor_port_in.setRange(1024, 65535)
             self.tor_port_in.setValue(9051)
-            self.tor_port_in.setToolTip(
-                "Tor control port for requesting new identities"
-            )
+            self.tor_port_in.setToolTip("Tor control port for requesting new identities")
 
             self.tor_every_in = QSpinBox()
             self.tor_every_in.setRange(0, 9999)
             self.tor_every_in.setValue(10)
-            self.tor_every_in.setToolTip(
-                "Shift Tor IP every N attempts. 0 = never shift."
-            )
+            self.tor_every_in.setToolTip("Shift Tor IP every N attempts. 0 = never shift.")
 
             self.proxy_in = QLineEdit()
-            self.proxy_in.setPlaceholderText(
-                "http://ip:port  or  path/to/proxies.txt"
-            )
-            self.proxy_in.setToolTip(
-                "A single proxy URL or path to a file with one proxy per line"
-            )
-            proxy_btn = QPushButton("📂")
+            self.proxy_in.setPlaceholderText("http://ip:port  or  path/to/proxies.txt")
+            self.proxy_in.setToolTip("A single proxy URL or path to a file with one proxy per line")
+            proxy_btn = QPushButton("...")
             proxy_btn.setFixedWidth(36)
             proxy_btn.setToolTip("Browse for proxy list file")
+            proxy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             proxy_btn.clicked.connect(lambda: self._pick_file(self.proxy_in))
             proxy_row = QHBoxLayout()
+            proxy_row.setSpacing(6)
             proxy_row.addWidget(self.proxy_in)
             proxy_row.addWidget(proxy_btn)
 
             net_f.addRow("", self.tor_cb)
-            net_f.addRow("Tor Ctrl Port:", self.tor_port_in)
-            net_f.addRow("Shift IP every:", self.tor_every_in)
-            net_f.addRow("Proxy / File:", proxy_row)
+            net_f.addRow("TOR PORT:", self.tor_port_in)
+            net_f.addRow("SHIFT IP:", self.tor_every_in)
+            net_f.addRow("PROXIES:", proxy_row)
+            left_col.addWidget(net_grp)
+            
+            left_col.addStretch()
 
-            net_l.addWidget(net_grp)
-            net_l.addStretch()
-            net_scroll.setWidget(net_w)
+            # Right Column of Dashboard
+            right_col = QVBoxLayout()
+            right_col.setSpacing(12)
 
-            self.tabs.addTab(net_scroll, "🧅  Network")
+            # Right Card 1: Attack Engine Options
+            eng_grp = QGroupBox("ENGINE OPTIONS")
+            eng_f = QFormLayout(eng_grp)
+            eng_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+            eng_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            eng_f.setHorizontalSpacing(10)
+            eng_f.setVerticalSpacing(8)
+            eng_f.setContentsMargins(10, 10, 10, 10)
 
-            # ═══ TAB 4 : CUPP Wordlist Generator ═══
+            self.threads_in = QSpinBox()
+            self.threads_in.setRange(1, 50)
+            self.threads_in.setValue(1)
+            self.threads_in.setToolTip("Number of parallel browser threads (more = faster but heavier)")
+
+            self.delay_in = QDoubleSpinBox()
+            self.delay_in.setRange(0, 120)
+            self.delay_in.setSingleStep(0.5)
+            self.delay_in.setToolTip("Base delay in seconds between each login attempt")
+
+            self.jitter_in = QDoubleSpinBox()
+            self.jitter_in.setRange(0, 30)
+            self.jitter_in.setSingleStep(0.5)
+            self.jitter_in.setToolTip("Random jitter added to delay to avoid pattern detection")
+
+            self.err_in = QLineEdit("incorrect")
+            self.err_in.setPlaceholderText("error text on failed login")
+            self.err_in.setToolTip("Text that appears on the page when a login fails (e.g. 'invalid password')")
+
+            self.limit_in = QLineEdit(DEFAULT_LIMIT_TEXT)
+            self.limit_in.setToolTip("Text indicating the server is rate-limiting requests")
+
+            self.cooldown_in = QSpinBox()
+            self.cooldown_in.setRange(0, 300)
+            self.cooldown_in.setValue(12)
+            self.cooldown_in.setToolTip("Seconds to wait when a rate limit is detected before retrying")
+
+            self.headless_cb = QCheckBox("Headless mode (no visible browser window)")
+            self.headless_cb.setChecked(True)
+            self.headless_cb.setToolTip("Run browsers without visible windows — faster but no visual feedback")
+
+            eng_f.addRow("THREADS:", self.threads_in)
+            eng_f.addRow("DELAY (S):", self.delay_in)
+            eng_f.addRow("JITTER (S):", self.jitter_in)
+            eng_f.addRow("ERROR TEXT:", self.err_in)
+            eng_f.addRow("LIMIT TEXT:", self.limit_in)
+            eng_f.addRow("COOLDOWN:", self.cooldown_in)
+            eng_f.addRow("", self.headless_cb)
+            right_col.addWidget(eng_grp)
+
+            # Right Card 2: Advanced Limits
+            adv_grp = QGroupBox("ADVANCED LIMITS")
+            adv_f = QFormLayout(adv_grp)
+            adv_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+            adv_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            adv_f.setHorizontalSpacing(10)
+            adv_f.setVerticalSpacing(8)
+            adv_f.setContentsMargins(10, 10, 10, 10)
+
+            self.success_in = QLineEdit()
+            self.success_in.setPlaceholderText("e.g. 'Welcome back' or 'Dashboard'")
+            self.success_in.setToolTip("Text that confirms a successful login. If set, login is only valid when this text appears.")
+
+            self.max_attempts_in = QSpinBox()
+            self.max_attempts_in.setRange(0, 999999)
+            self.max_attempts_in.setValue(0)
+            self.max_attempts_in.setToolTip("Maximum total attempts before stopping (0 = unlimited)")
+
+            self.continue_cb = QCheckBox("Continue after success")
+            self.continue_cb.setToolTip("If checked, the attack continues even after finding valid credentials")
+
+            adv_f.addRow("SUCCESS TXT:", self.success_in)
+            adv_f.addRow("MAX ATTEMPTS:", self.max_attempts_in)
+            adv_f.addRow("", self.continue_cb)
+            right_col.addWidget(adv_grp)
+            
+            right_col.addStretch()
+
+            dash_layout.addLayout(left_col, stretch=1)
+            dash_layout.addLayout(right_col, stretch=1)
+            
+            dash_scroll.setWidget(dash_w)
+            self.tabs.addTab(dash_scroll, "DASHBOARD")
+
+            # ═══ TAB 2 : CUPP (Common User Passwords Profiler) ═══
             cupp_scroll = QScrollArea()
             cupp_scroll.setWidgetResizable(True)
             cupp_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            
             cupp_w = QWidget()
-            cupp_l = QVBoxLayout(cupp_w)
-            cupp_l.setSpacing(6)
+            cupp_layout = QVBoxLayout(cupp_w)
+            cupp_layout.setContentsMargins(12, 12, 12, 12)
+            cupp_layout.setSpacing(12)
 
-            cupp_grp = QGroupBox("  CUPP — Common User Passwords Profiler")
-            cupp_f = QFormLayout(cupp_grp)
-            cupp_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            cupp_f.setFormAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            cupp_f.setHorizontalSpacing(12)
-            cupp_f.setVerticalSpacing(8)
+            columns_layout = QHBoxLayout()
+            columns_layout.setSpacing(16)
+
+            # Column 1: Target details
+            col1_grp = QGroupBox("TARGET DETAILS")
+            col1_f = QFormLayout(col1_grp)
+            col1_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+            col1_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            col1_f.setHorizontalSpacing(10)
+            col1_f.setVerticalSpacing(8)
+            col1_f.setContentsMargins(10, 10, 10, 10)
 
             self.cupp_name = QLineEdit()
             self.cupp_name.setPlaceholderText("Required")
@@ -1569,6 +2034,38 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self.cupp_bday = QLineEdit()
             self.cupp_bday.setPlaceholderText("DDMMYYYY")
             self.cupp_bday.setToolTip("Target's birthdate in DDMMYYYY format")
+            self.cupp_company = QLineEdit()
+            self.cupp_company.setToolTip("Target's company or employer name")
+            self.cupp_keywords = QLineEdit()
+            self.cupp_keywords.setPlaceholderText("hacker,juice,black")
+            self.cupp_keywords.setToolTip("Comma-separated keywords related to the target")
+
+            self.cupp_specchars = QCheckBox("Add special chars")
+            self.cupp_specchars.setToolTip("Append special characters to generated passwords")
+            self.cupp_randnum = QCheckBox("Add random numbers")
+            self.cupp_randnum.setToolTip("Append random numbers to generated passwords")
+            self.cupp_leet = QCheckBox("Leet mode (1337)")
+            self.cupp_leet.setToolTip("Convert letters to leet-speak equivalents")
+
+            col1_f.addRow("FIRST NAME *:", self.cupp_name)
+            col1_f.addRow("SURNAME:", self.cupp_surname)
+            col1_f.addRow("NICKNAME:", self.cupp_nick)
+            col1_f.addRow("BIRTHDATE:", self.cupp_bday)
+            col1_f.addRow("COMPANY:", self.cupp_company)
+            col1_f.addRow("KEYWORDS:", self.cupp_keywords)
+            col1_f.addRow("", self.cupp_specchars)
+            col1_f.addRow("", self.cupp_randnum)
+            col1_f.addRow("", self.cupp_leet)
+
+            # Column 2: Relations
+            col2_grp = QGroupBox("RELATIONS & FAMILY")
+            col2_f = QFormLayout(col2_grp)
+            col2_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+            col2_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            col2_f.setHorizontalSpacing(10)
+            col2_f.setVerticalSpacing(8)
+            col2_f.setContentsMargins(10, 10, 10, 10)
+
             self.cupp_partner = QLineEdit()
             self.cupp_partner.setToolTip("Name of target's partner/spouse")
             self.cupp_partner_nick = QLineEdit()
@@ -1585,52 +2082,23 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self.cupp_child_bday.setToolTip("Child's birthdate in DDMMYYYY format")
             self.cupp_pet = QLineEdit()
             self.cupp_pet.setToolTip("Name of target's pet")
-            self.cupp_company = QLineEdit()
-            self.cupp_company.setToolTip("Target's company or employer name")
-            self.cupp_keywords = QLineEdit()
-            self.cupp_keywords.setPlaceholderText("hacker,juice,black")
-            self.cupp_keywords.setToolTip(
-                "Comma-separated keywords related to the target"
-            )
-            self.cupp_specchars = QCheckBox("Add special chars")
-            self.cupp_specchars.setToolTip("Append special characters to generated passwords")
-            self.cupp_randnum = QCheckBox("Add random numbers")
-            self.cupp_randnum.setToolTip("Append random numbers to generated passwords")
-            self.cupp_leet = QCheckBox("1337 mode")
-            self.cupp_leet.setToolTip("Convert letters to leet-speak equivalents")
 
-            cupp_f.addRow("First Name *:", self.cupp_name)
-            cupp_f.addRow("Surname:", self.cupp_surname)
-            cupp_f.addRow("Nickname:", self.cupp_nick)
-            cupp_f.addRow("Birthdate:", self.cupp_bday)
-            cupp_f.addRow("Partner Name:", self.cupp_partner)
-            cupp_f.addRow("Partner Nick:", self.cupp_partner_nick)
-            cupp_f.addRow("Partner Bday:", self.cupp_partner_bday)
-            cupp_f.addRow("Child Name:", self.cupp_child)
-            cupp_f.addRow("Child Nick:", self.cupp_child_nick)
-            cupp_f.addRow("Child Bday:", self.cupp_child_bday)
-            cupp_f.addRow("Pet Name:", self.cupp_pet)
-            cupp_f.addRow("Company:", self.cupp_company)
-            cupp_f.addRow("Keywords:", self.cupp_keywords)
-            cupp_f.addRow("", self.cupp_specchars)
-            cupp_f.addRow("", self.cupp_randnum)
-            cupp_f.addRow("", self.cupp_leet)
-            cupp_l.addWidget(cupp_grp)
+            col2_f.addRow("PARTNER NAME:", self.cupp_partner)
+            col2_f.addRow("PARTNER NICK:", self.cupp_partner_nick)
+            col2_f.addRow("PARTNER BDAY:", self.cupp_partner_bday)
+            col2_f.addRow("CHILD NAME:", self.cupp_child)
+            col2_f.addRow("CHILD NICK:", self.cupp_child_nick)
+            col2_f.addRow("CHILD BDAY:", self.cupp_child_bday)
+            col2_f.addRow("PET NAME:", self.cupp_pet)
 
-            # Number Sequence generator
-            seq_grp = QGroupBox(
-                "  Number Sequence Generator (e.g. 2015001 to 2015002)"
-            )
-            seq_grp.setSizePolicy(
-                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
-            )
-            seq_f = QFormLayout(seq_grp)
-            seq_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-            seq_f.setFormAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            seq_f.setHorizontalSpacing(12)
-            seq_f.setVerticalSpacing(8)
+            # Column 3: Number Sequence
+            col3_grp = QGroupBox("NUMBER SEQUENCE")
+            col3_f = QFormLayout(col3_grp)
+            col3_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+            col3_f.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            col3_f.setHorizontalSpacing(10)
+            col3_f.setVerticalSpacing(8)
+            col3_f.setContentsMargins(10, 10, 10, 10)
 
             self.seq_prefix = QLineEdit()
             self.seq_prefix.setPlaceholderText("Prefix (optional)")
@@ -1645,54 +2113,57 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self.seq_end.setToolTip("Ending number of the sequence (inclusive)")
             self.seq_pad = QSpinBox()
             self.seq_pad.setRange(0, 20)
-            self.seq_pad.setToolTip(
-                "Pad numbers with leading zeros to this width"
-            )
+            self.seq_pad.setToolTip("Pad numbers with leading zeros to this width")
             self.seq_suffix = QLineEdit()
             self.seq_suffix.setPlaceholderText("Suffix (optional)")
             self.seq_suffix.setToolTip("Text appended after each number")
 
-            seq_f.addRow("Prefix:", self.seq_prefix)
-            seq_f.addRow("Start Number:", self.seq_start)
-            seq_f.addRow("End Number:", self.seq_end)
-            seq_f.addRow("Zero Padding:", self.seq_pad)
-            seq_f.addRow("Suffix:", self.seq_suffix)
-            cupp_l.addWidget(seq_grp)
+            col3_f.addRow("PREFIX:", self.seq_prefix)
+            col3_f.addRow("START:", self.seq_start)
+            col3_f.addRow("END:", self.seq_end)
+            col3_f.addRow("PADDING:", self.seq_pad)
+            col3_f.addRow("SUFFIX:", self.seq_suffix)
+
+            columns_layout.addWidget(col1_grp, stretch=1)
+            columns_layout.addWidget(col2_grp, stretch=1)
+            columns_layout.addWidget(col3_grp, stretch=1)
+            cupp_layout.addLayout(columns_layout)
 
             cupp_btns = QHBoxLayout()
-            self.cupp_gen_btn = QPushButton("🧠  Generate CUPP Profile")
-            self.cupp_gen_btn.setStyleSheet(
-                "background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #b388ff, stop:1 #7c4dff);"
-                " color: white; padding: 10px; font-size: 14px; border-radius: 8px; font-weight: bold;"
-            )
+            cupp_btns.setSpacing(10)
+
+            self.cupp_gen_btn = QPushButton("GENERATE PROFILE")
+            self.cupp_gen_btn.setObjectName("cuppGenBtn")
+            self.cupp_gen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.cupp_gen_btn.clicked.connect(self._run_cupp)
 
-            self.seq_gen_btn = QPushButton("🔢  Generate Sequence")
-            self.seq_gen_btn.setStyleSheet(
-                "background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #4f8cff, stop:1 #1d4ed8);"
-                " color: white; padding: 10px; font-size: 14px; border-radius: 8px; font-weight: bold;"
-            )
+            self.seq_gen_btn = QPushButton("GENERATE SEQUENCE")
+            self.seq_gen_btn.setObjectName("seqGenBtn")
+            self.seq_gen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.seq_gen_btn.clicked.connect(self._run_sequence)
 
-            self.cupp_use_btn = QPushButton("📋  Use as Password List")
+            self.cupp_use_btn = QPushButton("USE AS PASSWORD LIST")
             self.cupp_use_btn.setEnabled(False)
+            self.cupp_use_btn.setObjectName("cuppUseBtn")
+            self.cupp_use_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.cupp_use_btn.clicked.connect(self._use_cupp_result)
 
             cupp_btns.addWidget(self.cupp_gen_btn)
             cupp_btns.addWidget(self.seq_gen_btn)
             cupp_btns.addWidget(self.cupp_use_btn)
-            cupp_l.addLayout(cupp_btns)
-            cupp_l.addStretch()
-            cupp_scroll.setWidget(cupp_w)
 
-            self.tabs.addTab(cupp_scroll, "🧠  CUPP")
+            cupp_layout.addLayout(cupp_btns)
+            cupp_layout.addStretch()
+
+            cupp_scroll.setWidget(cupp_w)
+            self.tabs.addTab(cupp_scroll, "CUPP")
 
             self.splitter.addWidget(self.tabs)
 
             # ── Log area ──
             self.log_txt = QTextEdit()
             self.log_txt.setReadOnly(True)
-            self.log_txt.setMinimumHeight(80)
+            self.log_txt.setMinimumHeight(120)
             self.splitter.addWidget(self.log_txt)
 
             self.splitter.setStretchFactor(0, 3)
@@ -1701,44 +2172,26 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             # ═══ Bottom Controls ═══
             ctrl_row = QHBoxLayout()
-            self.start_btn = QPushButton("🚀  START ATTACK")
-            self.start_btn.setStyleSheet(
-                "QPushButton {"
-                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #00e676, stop:1 #00c853);"
-                "  color: white; padding: 12px 28px; font-size: 15px;"
-                "  font-weight: bold; border-radius: 10px; border: none;"
-                "}"
-                "QPushButton:hover {"
-                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #00c853, stop:1 #00a844);"
-                "}"
-                "QPushButton:disabled {"
-                "  background: rgba(0, 230, 118, 0.2); color: rgba(255,255,255,0.3);"
-                "}"
-            )
+            ctrl_row.setSpacing(10)
+
+            self.start_btn = QPushButton("START ATTACK")
+            self.start_btn.setObjectName("startBtn")
+            self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.start_btn.clicked.connect(self._start_attack)
 
-            self.stop_btn = QPushButton("⛔  STOP")
-            self.stop_btn.setStyleSheet(
-                "QPushButton {"
-                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #ff5252, stop:1 #d32f2f);"
-                "  color: white; padding: 12px 28px; font-size: 15px;"
-                "  font-weight: bold; border-radius: 10px; border: none;"
-                "}"
-                "QPushButton:hover {"
-                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #d32f2f, stop:1 #b71c1c);"
-                "}"
-                "QPushButton:disabled {"
-                "  background: rgba(255, 82, 82, 0.2); color: rgba(255,255,255,0.3);"
-                "}"
-            )
+            self.stop_btn = QPushButton("STOP")
+            self.stop_btn.setObjectName("stopBtn")
+            self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.stop_btn.setEnabled(False)
             self.stop_btn.clicked.connect(self._stop_attack)
 
-            self.clear_btn = QPushButton("🗑  Clear Log")
+            self.clear_btn = QPushButton("CLEAR LOG")
+            self.clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.clear_btn.setToolTip("Clear all log output")
             self.clear_btn.clicked.connect(lambda: self.log_txt.clear())
 
-            self.export_btn = QPushButton("💾  Export Log")
+            self.export_btn = QPushButton("EXPORT LOG")
+            self.export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.export_btn.setToolTip("Save the current log contents to a file")
             self.export_btn.clicked.connect(self._export_log)
 
@@ -1756,50 +2209,45 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             # ── Live Stats Footer ──
             footer_frame = QFrame()
-            footer_frame.setStyleSheet(
-                "QFrame {"
-                "  background: rgba(15, 23, 42, 0.6);"
-                "  border: 1px solid rgba(148, 163, 184, 0.1);"
-                "  border-radius: 8px;"
-                "  padding: 4px 8px;"
-                "}"
-            )
+            footer_frame.setObjectName("footerFrame")
             footer_layout = QHBoxLayout(footer_frame)
-            footer_layout.setContentsMargins(12, 6, 12, 6)
-            footer_layout.setSpacing(24)
+            footer_layout.setContentsMargins(0, 0, 0, 0)
+            footer_layout.setSpacing(12)
 
-            def _make_stat(label_text: str, value_text: str) -> Tuple[QLabel, QLabel]:
-                lbl = QLabel(label_text)
+            def _make_stat_box(title: str, default_val: str) -> Tuple[QFrame, QLabel]:
+                frame = QFrame()
+                frame.setObjectName("statBox")
+                box_layout = QVBoxLayout(frame)
+                box_layout.setContentsMargins(8, 8, 8, 8)
+                box_layout.setSpacing(4)
+
+                lbl = QLabel(title.upper())
                 lbl.setObjectName("statLabel")
-                val = QLabel(value_text)
+                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                val = QLabel(default_val)
                 val.setObjectName("statValue")
-                return lbl, val
+                val.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            elapsed_lbl, self.elapsed_val = _make_stat("⏱ Elapsed:", "00:00:00")
-            speed_lbl, self.speed_val = _make_stat("⚡ Speed:", "0.0/s")
-            eta_lbl, self.eta_val = _make_stat("📊 ETA:", "--:--:--")
-            hits_lbl, self.hits_val = _make_stat("🎯 Hits:", "0")
+                box_layout.addWidget(lbl)
+                box_layout.addWidget(val)
+                return frame, val
 
-            for lbl, val in [
-                (elapsed_lbl, self.elapsed_val),
-                (speed_lbl, self.speed_val),
-                (eta_lbl, self.eta_val),
-                (hits_lbl, self.hits_val),
-            ]:
-                pair = QHBoxLayout()
-                pair.setSpacing(2)
-                pair.addWidget(lbl)
-                pair.addWidget(val)
-                footer_layout.addLayout(pair)
+            elapsed_box, self.elapsed_val = _make_stat_box("ELAPSED", "00:00:00")
+            speed_box, self.speed_val = _make_stat_box("SPEED", "0.0/s")
+            eta_box, self.eta_val = _make_stat_box("ETA", "--:--:--")
+            hits_box, self.hits_val = _make_stat_box("HITS", "0")
 
-            footer_layout.addStretch()
+            footer_layout.addWidget(elapsed_box, stretch=1)
+            footer_layout.addWidget(speed_box, stretch=1)
+            footer_layout.addWidget(eta_box, stretch=1)
+            footer_layout.addWidget(hits_box, stretch=1)
+            
             root.addWidget(footer_frame)
 
             # ── Status bar line ──
             self.status_lbl = QLabel("Ready.")
-            self.status_lbl.setStyleSheet(
-                "color: #94a3b8; font-size: 11px; padding: 4px;"
-            )
+            self.status_lbl.setObjectName("statusLabel")
             root.addWidget(self.status_lbl)
 
             # ── Stats Timer ──
@@ -1832,11 +2280,11 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 return
             if self._is_dark:
                 app_inst.setStyleSheet(LIGHT_STYLE)
-                self.theme_btn.setText("🌙")
+                self.theme_btn.setText("☾")
                 self._is_dark = False
             else:
                 app_inst.setStyleSheet(DARK_STYLE)
-                self.theme_btn.setText("☀")
+                self.theme_btn.setText("☼")
                 self._is_dark = True
 
         def _export_log(self) -> None:
@@ -1910,7 +2358,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 "leetmode": "y" if self.cupp_leet.isChecked() else "n",
             }
             self.cupp_gen_btn.setEnabled(False)
-            self.cupp_gen_btn.setText("⏳ Generating...")
+            self.cupp_gen_btn.setText("GENERATING...")
             self._cupp_thread = CuppWorkerThread(profile)
             self._cupp_thread.log_signal.connect(self._log)
             self._cupp_thread.finished_signal.connect(self._cupp_done)
@@ -1919,7 +2367,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
         def _cupp_done(self, path: str) -> None:
             """Handle CUPP generation completion."""
             self.cupp_gen_btn.setEnabled(True)
-            self.cupp_gen_btn.setText("🧠  Generate CUPP Profile")
+            self.cupp_gen_btn.setText("GENERATE PROFILE")
             self._cupp_result_path = path
             if path:
                 self.cupp_use_btn.setEnabled(True)
@@ -1942,7 +2390,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 return
 
             self.seq_gen_btn.setEnabled(False)
-            self.seq_gen_btn.setText("⏳ Generating...")
+            self.seq_gen_btn.setText("GENERATING...")
 
             try:
                 out_path = os.path.abspath("sequence_wordlist.txt")
@@ -1961,7 +2409,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 self._log(f"[-] Sequence generation error: {e}")
             finally:
                 self.seq_gen_btn.setEnabled(True)
-                self.seq_gen_btn.setText("🔢  Generate Sequence")
+                self.seq_gen_btn.setText("GENERATE SEQUENCE")
 
         def _use_cupp_result(self) -> None:
             """Copy the CUPP result path to the password input field."""
@@ -2098,15 +2546,15 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             if found:
                 self.progress.setStyleSheet(
                     "QProgressBar::chunk { background: qlineargradient("
-                    "x1:0,y1:0,x2:1,y2:0, stop:0 #00e676, stop:1 #00c853);"
-                    " border-radius: 9px; }"
+                    "x1:0,y1:0,x2:1,y2:0, stop:0 #10b981, stop:1 #059669);"
+                    " border-radius: 7px; }"
                 )
                 QMessageBox.information(self, "Success", msg)
             else:
                 self.progress.setStyleSheet(
                     "QProgressBar::chunk { background: qlineargradient("
-                    "x1:0,y1:0,x2:1,y2:0, stop:0 #ff5252, stop:1 #d32f2f);"
-                    " border-radius: 9px; }"
+                    "x1:0,y1:0,x2:1,y2:0, stop:0 #ef4444, stop:1 #dc2626);"
+                    " border-radius: 7px; }"
                 )
                 QMessageBox.warning(self, "Finished", msg)
 
