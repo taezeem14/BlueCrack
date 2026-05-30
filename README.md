@@ -11,7 +11,6 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge)
 
 **BlueCrack** is a Hydra-style browser-based login tester built with Selenium and PyQt6. It automates credential testing against web login forms using real browser sessions, supporting multi-threaded execution, Tor proxy integration, and intelligent rate-limit evasion — all wrapped in a modern glassmorphism dark-themed GUI.
 
@@ -197,7 +196,7 @@ python demo_server.py --port 8080 --max-attempts 5 --rate-window 30
 
 ---
 
-## 📊 What's New in v2.0.0
+## 📊 What's New
 
 - 🎨 **Complete GUI redesign** with glassmorphism dark theme and gradient accents
 - 📊 **Live stats dashboard** — elapsed time, speed (attempts/sec), ETA, and hit counter
@@ -213,9 +212,7 @@ python demo_server.py --port 8080 --max-attempts 5 --rate-window 30
 - 🌈 **Colored CLI output** with progress counter and status indicators
 - 🖥️ **New CLI flags:** `--max-attempts`, `--continue-after-success`, `--output`, `--json-report`
 - 🧪 **Enhanced demo server:** multiple accounts, CSRF simulation, JSON API, glassmorphism theme
-- 📄 **Added CHANGELOG.md** for version tracking
-
-See [CHANGELOG.md](CHANGELOG.md) for the full list of changes, fixes, and improvements.
+- 📄 **Added Changelog** for update tracking
 
 ---
 

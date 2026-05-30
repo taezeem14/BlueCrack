@@ -6,8 +6,6 @@ Hydra-style brute-force tester powered by Selenium WebDriver.
 Supports both a PyQt6 GUI and a full-featured CLI with interactive wizard.
 """
 
-__version__ = "2.0.0"
-
 # ═══════════════════════════════════════════════════════════════════
 # IMPORTS
 # ═══════════════════════════════════════════════════════════════════
@@ -295,7 +293,6 @@ def _save_json_report(
         end_time: Unix timestamp when attack ended.
     """
     report = {
-        "version": __version__,
         "target_url": target_url,
         "start_time": datetime.fromtimestamp(start_time).isoformat(),
         "end_time": datetime.fromtimestamp(end_time).isoformat(),
@@ -1256,7 +1253,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             self._cupp_result_path: str = ""
             self._attack_start_time: float = 0.0
             self._is_dark: bool = True
-            self.setWindowTitle(f"BlueCrack v{__version__}")
+            self.setWindowTitle("BlueCrack")
             self.setMinimumSize(960, 780)
             self._build_ui()
 
@@ -1279,7 +1276,7 @@ if args.gui or (len(sys.argv) == 1 and HAS_PYQT):
             title.setObjectName("titleLabel")
             title.setAlignment(Qt.AlignmentFlag.AlignLeft)
             sub = QLabel(
-                f"v{__version__}  ·  Advanced Browser Penetration Framework"
+                "Advanced Browser Penetration Framework"
             )
             sub.setObjectName("subtitleLabel")
             sub.setAlignment(Qt.AlignmentFlag.AlignLeft)
