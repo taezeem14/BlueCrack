@@ -154,6 +154,8 @@ secrets/
 *.cert
 *.crt
 *_gui_report.json
+bluecrack_report.json
+bluecrack_cli_report.json
 *.json.bak
 *.bak
 

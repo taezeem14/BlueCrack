@@ -2,5 +2,5 @@ selenium>=4.15
 stem>=1.8
 keyboard>=0.13
 flask>=3.0
-PyQt6>=6.5
+flask-socketio>=5.3
 requests>=2.31

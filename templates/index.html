@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueCrack — Advanced Browser Penetration Framework</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Socket.IO Client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- ════════════════════════════════════════════
+         HEADER
+         ════════════════════════════════════════════ -->
+    <header class="header">
+      <div class="header-text">
+        <h1 class="header-title">BLUECRACK</h1>
+        <p class="header-subtitle">Advanced Browser Penetration Framework</p>
+      </div>
+      <div class="header-badge">
+        <span class="status-dot" id="connectionDot"></span>
+        <span class="status-label" id="connectionLabel">Connecting…</span>
+      </div>
+    </header>
+
+    <!-- ════════════════════════════════════════════
+         TAB NAVIGATION
+         ════════════════════════════════════════════ -->
+    <nav class="tabs-nav" role="tablist">
+      <button class="tab-btn active" data-tab="target" role="tab" aria-selected="true">Target Config</button>
+      <button class="tab-btn" data-tab="engine" role="tab" aria-selected="false">Engine Settings</button>
+      <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false">Tor &amp; Proxy</button>
+      <button class="tab-btn" data-tab="cupp" role="tab" aria-selected="false">CUPP Generator</button>
+      <button class="tab-btn" data-tab="sequence" role="tab" aria-selected="false">Sequence Generator</button>
+    </nav>
+
+    <!-- ════════════════════════════════════════════
+         TAB PANELS
+         ════════════════════════════════════════════ -->
+    <div class="tabs-container">
+
+      <!-- ── Target Config ── -->
+      <section class="tab-content active" id="tab-target" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">Target Configuration</h2>
+
+          <div class="form-group">
+            <label for="targetUrl">Target URL</label>
+            <input type="url" id="targetUrl" placeholder="https://example.com/login" autocomplete="off" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="username">Username <span class="hint">(single user or file path)</span></label>
+              <input type="text" id="username" placeholder="admin  or  /path/to/users.txt" />
+            </div>
+            <div class="form-group">
+              <label for="password">Password <span class="hint">(single password or file path)</span></label>
+              <div class="input-with-btn">
+                <input type="text" id="password" placeholder="password123  or  /path/to/wordlist.txt" />
+                <button class="btn btn-ghost btn-sm" id="btnBrowsePasswords" type="button">Browse</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="errorString">Error String <span class="hint">(indicates failed login)</span></label>
+              <input type="text" id="errorString" placeholder="Invalid credentials" />
+            </div>
+            <div class="form-group">
+              <label for="successString">Success String <span class="hint">(confirms valid login)</span></label>
+              <input type="text" id="successString" placeholder="Welcome" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Engine Settings ── -->
+      <section class="tab-content" id="tab-engine" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">Engine Settings</h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="threads">Threads</label>
+              <input type="number" id="threads" min="1" max="50" value="1" />
+            </div>
+            <div class="form-group">
+              <label for="delay">Delay <span class="hint">(seconds)</span></label>
+              <input type="number" id="delay" min="0" step="0.1" value="0" />
+            </div>
+            <div class="form-group">
+              <label for="jitter">Jitter <span class="hint">(seconds)</span></label>
+              <input type="number" id="jitter" min="0" step="0.1" value="0" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="rateLimit">Rate-Limit Text</label>
+              <input type="text" id="rateLimit" value="too many requests" />
+            </div>
+            <div class="form-group">
+              <label for="cooldown">Cooldown <span class="hint">(seconds)</span></label>
+              <input type="number" id="cooldown" min="0" value="12" />
+            </div>
+            <div class="form-group">
+              <label for="maxAttempts">Max Attempts <span class="hint">(0 = unlimited)</span></label>
+              <input type="number" id="maxAttempts" min="0" value="0" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="headless" checked />
+                <span class="checkmark"></span>
+                Headless Mode
+              </label>
+            </div>
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="continueAfterSuccess" />
+                <span class="checkmark"></span>
+                Continue After Success
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Tor & Proxy ── -->
+      <section class="tab-content" id="tab-proxy" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">Tor &amp; Proxy Configuration</h2>
+
+          <div class="form-row">
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="enableTor" />
+                <span class="checkmark"></span>
+                Enable Tor
+              </label>
+            </div>
+            <div class="form-group">
+              <label for="torControlPort">Tor Control Port</label>
+              <input type="number" id="torControlPort" min="1" max="65535" value="9051" />
+            </div>
+            <div class="form-group">
+              <label for="torShiftEvery">Shift Identity Every N Attempts</label>
+              <input type="number" id="torShiftEvery" min="1" value="10" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="proxy">Proxy <span class="hint">(single URL or file path)</span></label>
+            <input type="text" id="proxy" placeholder="socks5://127.0.0.1:9050  or  /path/to/proxies.txt" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CUPP Generator ── -->
+      <section class="tab-content" id="tab-cupp" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">CUPP — Common User Passwords Profiler</h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cuppFirstName">First Name</label>
+              <input type="text" id="cuppFirstName" placeholder="John" />
+            </div>
+            <div class="form-group">
+              <label for="cuppLastName">Last Name</label>
+              <input type="text" id="cuppLastName" placeholder="Doe" />
+            </div>
+            <div class="form-group">
+              <label for="cuppNickname">Nickname</label>
+              <input type="text" id="cuppNickname" placeholder="johnd" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cuppBirthdate">Birthdate</label>
+              <input type="text" id="cuppBirthdate" placeholder="01011990" />
+            </div>
+            <div class="form-group">
+              <label for="cuppPartnerName">Partner Name</label>
+              <input type="text" id="cuppPartnerName" placeholder="Jane" />
+            </div>
+            <div class="form-group">
+              <label for="cuppPartnerNickname">Partner Nickname</label>
+              <input type="text" id="cuppPartnerNickname" placeholder="janey" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cuppPartnerBirthdate">Partner Birthdate</label>
+              <input type="text" id="cuppPartnerBirthdate" placeholder="15051992" />
+            </div>
+            <div class="form-group">
+              <label for="cuppChildName">Child Name</label>
+              <input type="text" id="cuppChildName" placeholder="Alex" />
+            </div>
+            <div class="form-group">
+              <label for="cuppChildBirthdate">Child Birthdate</label>
+              <input type="text" id="cuppChildBirthdate" placeholder="20032015" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cuppPetName">Pet Name</label>
+              <input type="text" id="cuppPetName" placeholder="Buddy" />
+            </div>
+            <div class="form-group">
+              <label for="cuppCompany">Company Name</label>
+              <input type="text" id="cuppCompany" placeholder="Acme Corp" />
+            </div>
+            <div class="form-group">
+              <label for="cuppKeywords">Keywords <span class="hint">(comma-separated)</span></label>
+              <input type="text" id="cuppKeywords" placeholder="hacker, security, 2024" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="cuppSpecialChars" />
+                <span class="checkmark"></span>
+                Special Characters
+              </label>
+            </div>
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="cuppRandomNumbers" />
+                <span class="checkmark"></span>
+                Random Numbers
+              </label>
+            </div>
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="cuppLeet" />
+                <span class="checkmark"></span>
+                Leet Mode
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" id="btnGenerateCupp" type="button">Generate Wordlist</button>
+            <button class="btn btn-secondary" id="btnUseCupp" type="button" disabled>Use Result</button>
+            <span class="cupp-status" id="cuppStatus"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Sequence Generator ── -->
+      <section class="tab-content" id="tab-sequence" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">Numeric Sequence Generator</h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="seqStart">Start Number</label>
+              <input type="number" id="seqStart" value="0" />
+            </div>
+            <div class="form-group">
+              <label for="seqEnd">End Number</label>
+              <input type="number" id="seqEnd" value="9999" />
+            </div>
+            <div class="form-group">
+              <label for="seqPadding">Zero-Padding Width</label>
+              <input type="number" id="seqPadding" min="0" value="4" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="seqPrefix">Prefix</label>
+              <input type="text" id="seqPrefix" placeholder="user_" />
+            </div>
+            <div class="form-group">
+              <label for="seqSuffix">Suffix</label>
+              <input type="text" id="seqSuffix" placeholder="@mail.com" />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" id="btnGenerateSeq" type="button">Generate Sequence</button>
+            <button class="btn btn-primary" id="btnUseSeq" type="button" disabled>Use Result</button>
+            <span class="seq-status" id="seqStatus"></span>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /.tabs-container -->
+
+    <!-- ════════════════════════════════════════════
+         CONTROL BAR
+         ════════════════════════════════════════════ -->
+    <div class="controls-bar">
+      <button class="btn btn-start" id="btnStart" type="button">▶ Start Attack</button>
+      <button class="btn btn-stop" id="btnStop" type="button" disabled>■ Stop</button>
+      <div class="controls-spacer"></div>
+      <button class="btn btn-ghost" id="btnExport" type="button">Export Logs</button>
+      <button class="btn btn-ghost" id="btnClear" type="button">Clear Logs</button>
+    </div>
+
+    <!-- ════════════════════════════════════════════
+         STATS DASHBOARD
+         ════════════════════════════════════════════ -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Elapsed Time</span>
+        <span class="stat-value" id="statElapsed">00:00:00</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Speed</span>
+        <span class="stat-value" id="statSpeed">0.0 att/s</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">ETA</span>
+        <span class="stat-value" id="statEta">--:--:--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Hits</span>
+        <span class="stat-value stat-hits" id="statHits">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Attempted</span>
+        <span class="stat-value" id="statAttempted">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Errors</span>
+        <span class="stat-value stat-errors" id="statErrors">0</span>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════
+         PROGRESS BAR
+         ════════════════════════════════════════════ -->
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%">
+          <span class="progress-text" id="progressText">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════
+         TERMINAL CONSOLE
+         ════════════════════════════════════════════ -->
+    <div class="terminal-wrapper">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">Console Output</span>
+      </div>
+      <div class="terminal" id="terminal">
+        <div class="log-line log-system">[~] BlueCrack v2.0 — Web Interface Ready</div>
+      </div>
+    </div>
+
+  </div><!-- /.container -->
+
+  <!-- App JavaScript -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
