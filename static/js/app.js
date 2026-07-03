@@ -144,17 +144,53 @@ function getLogClass(message) {
   return '';
 }
 
+// Log buffering to prevent lag on rapid emissions
+let logQueue = [];
+let isLoggingScheduled = false;
+const MAX_LOG_LINES = 500;
+
+function flushLogs() {
+  if (logQueue.length === 0) {
+    isLoggingScheduled = false;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const linesToRender = logQueue.splice(0, 100);
+
+  linesToRender.forEach(message => {
+    const line = document.createElement('div');
+    line.className = `log-line ${getLogClass(message)}`;
+    line.textContent = message;
+    fragment.appendChild(line);
+  });
+
+  DOM.terminal.appendChild(fragment);
+
+  // Keep DOM clean by pruning old lines
+  while (DOM.terminal.childNodes.length > MAX_LOG_LINES) {
+    DOM.terminal.removeChild(DOM.terminal.firstChild);
+  }
+
+  // Scroll to bottom once per batch
+  DOM.terminal.scrollTop = DOM.terminal.scrollHeight;
+
+  if (logQueue.length > 0) {
+    requestAnimationFrame(flushLogs);
+  } else {
+    isLoggingScheduled = false;
+  }
+}
+
 /**
  * Append a log line to the terminal and auto-scroll.
  */
 function appendLog(message) {
-  const line = document.createElement('div');
-  line.className = `log-line ${getLogClass(message)}`;
-  line.textContent = message;
-  DOM.terminal.appendChild(line);
-
-  // Auto-scroll to bottom
-  DOM.terminal.scrollTop = DOM.terminal.scrollHeight;
+  logQueue.push(message);
+  if (!isLoggingScheduled) {
+    isLoggingScheduled = true;
+    requestAnimationFrame(flushLogs);
+  }
 }
 
 /**
@@ -175,13 +211,15 @@ function updateStats(metrics) {
     const el = DOM[id];
     if (!el) continue;
 
-    // Only pulse if value actually changed
+    // Only update and pulse if value actually changed
     if (el.textContent !== value) {
       el.textContent = value;
-      el.classList.remove('pulse');
-      // Force reflow to restart animation
-      void el.offsetWidth;
-      el.classList.add('pulse');
+      // Only pulse Hits and Errors to avoid excessive layout calculations
+      if (id === 'statHits' || id === 'statErrors') {
+        el.classList.remove('pulse');
+        void el.offsetWidth; // Force reflow only for high priority highlights
+        el.classList.add('pulse');
+      }
     }
   }
 }
@@ -450,7 +488,7 @@ socket.on('log', (data) => {
 });
 
 socket.on('progress', (data) => {
-  const percent = parseFloat(data.percent) || 0;
+  const percent = data.total ? (data.current / data.total) * 100 : 0;
   setProgress(percent);
 });
 

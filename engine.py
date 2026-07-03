@@ -324,18 +324,38 @@ class AttackEngine:
         if self._progress_callback:
             self._progress_callback(current, total)
 
+    def _build_metrics_snapshot(self) -> Dict[str, Any]:
+        """Build the full metrics snapshot including speed, eta, and hits."""
+        m = dict(self.metrics)
+        elapsed = time.time() - self._start_time if self._start_time else 0
+        m["elapsed"] = elapsed
+
+        # Calculate speed (attempts per second)
+        speed = 0.0
+        if elapsed > 0:
+            speed = self.metrics.get("attempted", 0) / elapsed
+        m["speed"] = speed
+
+        # Calculate ETA (seconds remaining)
+        eta = 0
+        total = getattr(self, "total", 0)
+        if speed > 0 and total:
+            left = total - self.metrics.get("attempted", 0)
+            eta = left / speed
+        m["eta"] = eta
+
+        # Map successes to hits for frontend compatibility
+        m["hits"] = self.metrics.get("successes", 0)
+        return m
+
     def _emit_metrics(self) -> None:
         """Emit current metrics snapshot."""
         if self._metrics_callback:
-            m = dict(self.metrics)
-            m["elapsed"] = time.time() - self._start_time if self._start_time else 0
-            self._metrics_callback(m)
+            self._metrics_callback(self._build_metrics_snapshot())
 
     def get_metrics(self) -> Dict[str, Any]:
         """Return a copy of current metrics."""
-        m = dict(self.metrics)
-        m["elapsed"] = time.time() - self._start_time if self._start_time else 0
-        return m
+        return self._build_metrics_snapshot()
 
     def get_logs(self) -> List[str]:
         """Return a copy of all log messages."""
@@ -372,6 +392,7 @@ class AttackEngine:
         self._logs.clear()
         self._running = True
         self._start_time = time.time()
+        self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
 
         self.metrics = {
             "attempted": 0,
