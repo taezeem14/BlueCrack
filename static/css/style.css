@@ -38,6 +38,30 @@
   --transition:     0.2s ease;
 }
 
+/* ── Eco-Astral Mode Overrides ────────────────────────────── */
+body.eco-astral-mode {
+  --bg-deep:        #060212;
+  --bg-card:        #0d0720;
+  --bg-input:       #130a2e;
+  --bg-terminal:    #03010a;
+  
+  --accent-indigo:  #c084fc; /* cosmic violet */
+  --accent-cyan:    #34d399; /* cosmic emerald */
+  
+  background-image: radial-gradient(circle at 15% 40%, rgba(192, 132, 252, 0.08) 0%, transparent 60%),
+                    radial-gradient(circle at 85% 70%, rgba(52, 211, 153, 0.08) 0%, transparent 60%);
+}
+
+body.eco-astral-mode .header-title {
+  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+body.eco-astral-mode .progress-fill {
+  background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+}
+
 /* ── Reset ─────────────────────────────────────────────────── */
 *,
 *::before,
@@ -79,6 +103,12 @@ body {
   margin-bottom: 28px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border-default);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-title {

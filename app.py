@@ -11,6 +11,10 @@ import os
 import sys
 import json
 import threading
+import time
+import subprocess
+import socket
+import atexit
 from typing import Any, Dict, List, Optional
 
 from flask import Flask, render_template, request, jsonify, Response
@@ -294,6 +298,110 @@ def handle_connect():
 def handle_disconnect():
     """Handle client disconnection."""
     pass
+
+
+# Global tracking of the demo server process
+demo_process: Optional[subprocess.Popen] = None
+demo_port: Optional[int] = None
+demo_lock = threading.Lock()
+
+def _cleanup_demo_server() -> None:
+    """Terminate the demo server process on exit."""
+    global demo_process
+    with demo_lock:
+        if demo_process is not None:
+            try:
+                demo_process.terminate()
+                demo_process.wait(timeout=2)
+            except Exception:
+                try:
+                    demo_process.kill()
+                except Exception:
+                    pass
+            demo_process = None
+
+atexit.register(_cleanup_demo_server)
+
+def is_port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+def find_free_port(start_port: int = 5001) -> int:
+    port = start_port
+    while port < 65535:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+                return port
+            except socket.error:
+                port += 1
+    return start_port
+
+@app.route("/api/demo/start", methods=["POST"])
+def start_demo_server():
+    """Start the local demo login server in a background process if not already running."""
+    global demo_process, demo_port
+    
+    with demo_lock:
+        if demo_process is not None:
+            poll = demo_process.poll()
+            if poll is None:
+                return jsonify({
+                    "status": "ok",
+                    "message": "Demo server is already running.",
+                    "url": f"http://127.0.0.1:{demo_port}/login",
+                    "port": demo_port,
+                    "default_username": "demo",
+                    "default_password_file": os.path.abspath("pass.txt"),
+                    "default_error_msg": "Invalid credentials",
+                    "default_success_msg": "Successful"
+                })
+        
+        port = find_free_port(5001)
+        try:
+            demo_process = subprocess.Popen(
+                [sys.executable, "demo_server.py", "--port", str(port)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            demo_port = port
+            
+            started = False
+            for _ in range(20):
+                time.sleep(0.1)
+                if is_port_in_use(port):
+                    started = True
+                    break
+                if demo_process.poll() is not None:
+                    break
+            
+            if not started:
+                demo_process = None
+                return jsonify({
+                    "status": "error",
+                    "error": "failed_to_bind",
+                    "message": f"Demo server failed to start on port {port}."
+                }), 500
+                
+            return jsonify({
+                "status": "ok",
+                "message": "Demo server launched successfully.",
+                "url": f"http://127.0.0.1:{port}/login",
+                "port": port,
+                "default_username": "demo",
+                "default_password_file": os.path.abspath("pass.txt"),
+                "default_error_msg": "Invalid credentials",
+                "default_success_msg": "Successful"
+            })
+            
+        except Exception as e:
+            demo_process = None
+            return jsonify({
+                "status": "error",
+                "error": "exception",
+                "message": f"Failed to launch demo server: {str(e)}"
+            }), 500
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -9,6 +9,10 @@ const socket = io();
 
 // ─── DOM References ────────────────────────────────────────────
 const DOM = {
+  // New Header Actions
+  btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
+  btnToggleAstral: document.getElementById('btnToggleAstral'),
+
   // Connection status
   connectionDot:   document.getElementById('connectionDot'),
   connectionLabel: document.getElementById('connectionLabel'),
@@ -460,6 +464,56 @@ function useSequenceResult() {
 }
 
 /**
+ * Start the demo login server and auto-fill the target credentials settings.
+ */
+async function launchDemoMode() {
+  if (!DOM.btnLaunchDemo) return;
+  DOM.btnLaunchDemo.disabled = true;
+  DOM.btnLaunchDemo.textContent = '⏳ Starting...';
+  appendLog('[*] Contacting server to launch demo environment...');
+
+  try {
+    const result = await postJSON('/api/demo/start', {});
+    if (result.status === 'ok') {
+      appendLog(`[+] Demo server is running on port ${result.port}!`);
+      
+      // Auto-fill form inputs
+      DOM.targetUrl.value = result.url;
+      DOM.username.value = result.default_username;
+      DOM.password.value = result.default_password_file;
+      DOM.errorString.value = result.default_error_msg;
+      DOM.successString.value = result.default_success_msg;
+      
+      appendLog(`[~] Credentials and target configured: ${result.default_username} / ${result.default_password_file}`);
+      switchTab('target');
+    } else {
+      appendLog(`[-] Demo launch error: ${result.message || 'Unknown error'}`);
+    }
+  } catch (err) {
+    appendLog(`[-] Demo server request failed: ${err.message}`);
+  } finally {
+    DOM.btnLaunchDemo.disabled = false;
+    DOM.btnLaunchDemo.textContent = '🚀 Demo Mode';
+  }
+}
+
+/**
+ * Toggle the cosmic Eco-Astral theme.
+ */
+function toggleEcoAstralTheme() {
+  const isAstral = document.body.classList.toggle('eco-astral-mode');
+  if (isAstral) {
+    localStorage.setItem('theme', 'eco-astral');
+    if (DOM.btnToggleAstral) DOM.btnToggleAstral.classList.add('active');
+    appendLog('[~] Eco-Astral theme activated. Cosmic vibes enabled.');
+  } else {
+    localStorage.setItem('theme', 'standard');
+    if (DOM.btnToggleAstral) DOM.btnToggleAstral.classList.remove('active');
+    appendLog('[~] Standard cyber dark theme activated.');
+  }
+}
+
+/**
  * Export logs by opening the export endpoint in a new tab.
  */
 function exportLogs() {
@@ -540,10 +594,26 @@ socket.on('sequence_done', (data) => {
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // Initialize theme from storage
+  if (localStorage.getItem('theme') === 'eco-astral') {
+    document.body.classList.add('eco-astral-mode');
+    if (DOM.btnToggleAstral) {
+      DOM.btnToggleAstral.classList.add('active');
+    }
+  }
+
   // ── Tab buttons ──
   DOM.tabButtons.forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
+
+  // ── Header Actions ──
+  if (DOM.btnLaunchDemo) {
+    DOM.btnLaunchDemo.addEventListener('click', launchDemoMode);
+  }
+  if (DOM.btnToggleAstral) {
+    DOM.btnToggleAstral.addEventListener('click', toggleEcoAstralTheme);
+  }
 
   // ── Control buttons ──
   DOM.btnStart.addEventListener('click', startAttack);
