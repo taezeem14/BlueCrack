@@ -11,7 +11,7 @@ const socket = io();
 const DOM = {
   // New Header Actions
   btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
-  btnToggleAstral: document.getElementById('btnToggleAstral'),
+  btnToggleEco:    document.getElementById('btnToggleEco'),
 
   // Connection status
   connectionDot:   document.getElementById('connectionDot'),
@@ -497,19 +497,115 @@ async function launchDemoMode() {
   }
 }
 
+// ─── Starfield Canvas Background Animation Loop ─────────────────
+let starfieldCanvas = null;
+let starfieldCtx = null;
+let stars = [];
+const numStars = 100;
+let animationId = null;
+let isEcoMode = false;
+
+function initStarfield() {
+  starfieldCanvas = document.getElementById('starfield');
+  if (!starfieldCanvas) return;
+  starfieldCtx = starfieldCanvas.getContext('2d');
+  resizeStarfield();
+  
+  window.addEventListener('resize', resizeStarfield);
+  
+  // Initialize stars
+  stars = [];
+  for (let i = 0; i < numStars; i++) {
+    stars.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      z: Math.random() * window.innerWidth,
+      color: Math.random() > 0.5 ? '#c084fc' : '#34d399'
+    });
+  }
+  
+  if (!isEcoMode) {
+    startStarfieldAnimation();
+  }
+}
+
+function resizeStarfield() {
+  if (!starfieldCanvas) return;
+  starfieldCanvas.width = window.innerWidth;
+  starfieldCanvas.height = window.innerHeight;
+}
+
+function startStarfieldAnimation() {
+  if (animationId) cancelAnimationFrame(animationId);
+  
+  function draw() {
+    if (isEcoMode) return;
+    
+    starfieldCtx.clearRect(0, 0, starfieldCanvas.width, starfieldCanvas.height);
+    
+    // Draw and update stars
+    for (let i = 0; i < stars.length; i++) {
+      let star = stars[i];
+      star.z -= 1.2;
+      
+      if (star.z <= 0) {
+        star.z = window.innerWidth;
+        star.x = Math.random() * window.innerWidth;
+        star.y = Math.random() * window.innerHeight;
+      }
+      
+      // 3D Projection
+      let k = 128.0 / star.z;
+      let px = (star.x - window.innerWidth / 2) * k + window.innerWidth / 2;
+      let py = (star.y - window.innerHeight / 2) * k + window.innerHeight / 2;
+      
+      if (px >= 0 && px <= window.innerWidth && py >= 0 && py <= window.innerHeight) {
+        let size = (1 - star.z / window.innerWidth) * 3;
+        starfieldCtx.beginPath();
+        starfieldCtx.fillStyle = star.color;
+        starfieldCtx.globalAlpha = 1 - star.z / window.innerWidth;
+        starfieldCtx.arc(px, py, size, 0, Math.PI * 2);
+        starfieldCtx.fill();
+      }
+    }
+    
+    animationId = requestAnimationFrame(draw);
+  }
+  
+  animationId = requestAnimationFrame(draw);
+}
+
+function stopStarfieldAnimation() {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  if (starfieldCanvas && starfieldCtx) {
+    starfieldCtx.clearRect(0, 0, starfieldCanvas.width, starfieldCanvas.height);
+  }
+}
+
 /**
- * Toggle the cosmic Eco-Astral theme.
+ * Toggle the Performance Eco-Astral Mode (Lag Fix).
  */
-function toggleEcoAstralTheme() {
-  const isAstral = document.body.classList.toggle('eco-astral-mode');
-  if (isAstral) {
-    localStorage.setItem('theme', 'eco-astral');
-    if (DOM.btnToggleAstral) DOM.btnToggleAstral.classList.add('active');
-    appendLog('[~] Eco-Astral theme activated. Cosmic vibes enabled.');
+function toggleEcoMode() {
+  isEcoMode = document.body.classList.toggle('eco-mode');
+  if (isEcoMode) {
+    localStorage.setItem('eco_mode', 'true');
+    stopStarfieldAnimation();
+    if (DOM.btnToggleEco) {
+      DOM.btnToggleEco.classList.add('active');
+      DOM.btnToggleEco.innerHTML = '⚡ Eco Active';
+    }
+    appendLog('[~] Eco-Astral Mode: ON. Starfield stopped, blurs disabled. Performance optimized.');
   } else {
-    localStorage.setItem('theme', 'standard');
-    if (DOM.btnToggleAstral) DOM.btnToggleAstral.classList.remove('active');
-    appendLog('[~] Standard cyber dark theme activated.');
+    localStorage.setItem('eco_mode', 'false');
+    startStarfieldAnimation();
+    if (DOM.btnToggleEco) {
+      DOM.btnToggleEco.classList.remove('active');
+      DOM.btnToggleEco.innerHTML = '🍃 Eco Mode';
+    }
+    appendLog('[~] Eco-Astral Mode: OFF. Cosmic vibes and blurs enabled.');
   }
 }
 
@@ -594,13 +690,18 @@ socket.on('sequence_done', (data) => {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Initialize theme from storage
-  if (localStorage.getItem('theme') === 'eco-astral') {
-    document.body.classList.add('eco-astral-mode');
-    if (DOM.btnToggleAstral) {
-      DOM.btnToggleAstral.classList.add('active');
+  // Initialize Eco Mode from storage
+  isEcoMode = localStorage.getItem('eco_mode') === 'true';
+  if (isEcoMode) {
+    document.body.classList.add('eco-mode');
+    if (DOM.btnToggleEco) {
+      DOM.btnToggleEco.classList.add('active');
+      DOM.btnToggleEco.innerHTML = '⚡ Eco Active';
     }
   }
+
+  // Initialize background starfield animation
+  initStarfield();
 
   // ── Tab buttons ──
   DOM.tabButtons.forEach(btn => {
@@ -611,8 +712,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (DOM.btnLaunchDemo) {
     DOM.btnLaunchDemo.addEventListener('click', launchDemoMode);
   }
-  if (DOM.btnToggleAstral) {
-    DOM.btnToggleAstral.addEventListener('click', toggleEcoAstralTheme);
+  if (DOM.btnToggleEco) {
+    DOM.btnToggleEco.addEventListener('click', toggleEcoMode);
   }
 
   // ── Control buttons ──

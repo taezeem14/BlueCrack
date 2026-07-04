@@ -4,11 +4,11 @@
 
 /* ── CSS Custom Properties ─────────────────────────────────── */
 :root {
-  /* Background palette */
-  --bg-deep:        #030712;
-  --bg-card:        #0b0f19;
-  --bg-input:       #0d1220;
-  --bg-terminal:    #020617;
+  /* Cosmic Background palette */
+  --bg-deep:        #060212;
+  --bg-card:        #0d0720;
+  --bg-input:       #130a2e;
+  --bg-terminal:    #03010a;
 
   /* Text palette */
   --text-primary:   #f9fafb;
@@ -19,9 +19,9 @@
   --border-default: #1f2937;
   --border-hover:   #374151;
 
-  /* Accent colours */
-  --accent-indigo:  #6366f1;
-  --accent-cyan:    #06b6d4;
+  /* Accent colours (Eco-Astral Cosmic) */
+  --accent-indigo:  #c084fc; /* cosmic violet */
+  --accent-cyan:    #34d399; /* cosmic emerald */
 
   /* Semantic colours */
   --success:        #10b981;
@@ -38,28 +38,40 @@
   --transition:     0.2s ease;
 }
 
-/* ── Eco-Astral Mode Overrides ────────────────────────────── */
-body.eco-astral-mode {
-  --bg-deep:        #060212;
-  --bg-card:        #0d0720;
-  --bg-input:       #130a2e;
-  --bg-terminal:    #03010a;
+/* ── Eco-Astral Mode (Performance Lag Fix) ─────────────────── */
+body.eco-mode {
+  --bg-deep:        #030712;
+  --bg-card:        #0b0f19;
+  --bg-input:       #0d1220;
+  --bg-terminal:    #020617;
   
-  --accent-indigo:  #c084fc; /* cosmic violet */
-  --accent-cyan:    #34d399; /* cosmic emerald */
+  --accent-indigo:  #6366f1; /* standard indigo */
+  --accent-cyan:    #06b6d4; /* standard cyan */
   
-  background-image: radial-gradient(circle at 15% 40%, rgba(192, 132, 252, 0.08) 0%, transparent 60%),
-                    radial-gradient(circle at 85% 70%, rgba(52, 211, 153, 0.08) 0%, transparent 60%);
+  background-image: none !important;
+  background: var(--bg-deep) !important;
 }
 
-body.eco-astral-mode .header-title {
-  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
-  -webkit-background-clip: text;
-  background-clip: text;
+body.eco-mode #starfield {
+  display: none !important;
 }
 
-body.eco-astral-mode .progress-fill {
-  background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+body.eco-mode .card {
+  background: var(--bg-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+#starfield {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -2;
+  pointer-events: none;
+  background: transparent;
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -79,8 +91,8 @@ html {
 
 body {
   background: var(--bg-deep);
-  background-image: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+  background-image: radial-gradient(circle at 15% 40%, rgba(192, 132, 252, 0.04) 0%, transparent 60%),
+                    radial-gradient(circle at 85% 70%, rgba(52, 211, 153, 0.04) 0%, transparent 60%);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-ui);
@@ -216,11 +228,13 @@ body {
 
 /* ── Cards (Glass Effect) ──────────────────────────────────── */
 .card {
-  background: var(--bg-card);
+  background: rgba(13, 7, 32, 0.65); /* Translucent cosmic dark */
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   padding: 24px 28px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: fadeIn 0.3s ease;
 }
 

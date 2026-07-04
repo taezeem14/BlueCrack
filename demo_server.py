@@ -588,13 +588,13 @@ def api_login():
 
 if __name__ == "__main__":
     print(f"\n  BlueCrack Demo Server v2.0")
-    print(f"  ─────────────────────────────────────")
+    print(f"  -------------------------------------")
     print(f"  Port:          {cli_args.port}")
     print(f"  Max attempts:  {MAX_ATTEMPTS}")
     print(f"  Rate window:   {RATE_LIMIT_WINDOW}s")
     print(f"  Accounts:      {', '.join(DEMO_ACCOUNTS.keys())}")
     print(f"  JSON API:      POST /api/login")
-    print(f"  ─────────────────────────────────────\n")
+    print(f"  -------------------------------------\n")
 
     # WARNING: Run only locally for demo purposes
-    app.run(host="127.0.0.1", port=cli_args.port, debug=True)
+    app.run(host="127.0.0.1", port=cli_args.port, debug=False)
