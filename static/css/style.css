@@ -55,9 +55,13 @@ html {
 
 body {
   background: var(--bg-deep);
+  background-image: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-ui);
   line-height: 1.6;
+  min-height: 100vh;
 }
 
 /* ── Container ─────────────────────────────────────────────── */
@@ -163,6 +167,7 @@ body {
   color: var(--accent-indigo);
   background: rgba(99, 102, 241, 0.1);
   border-bottom-color: var(--accent-indigo);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
 }
 
 /* ── Tab Content ───────────────────────────────────────────── */
@@ -185,8 +190,7 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   padding: 24px 28px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.03);
   animation: fadeIn 0.3s ease;
 }
 
@@ -196,7 +200,11 @@ body {
   color: var(--text-primary);
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: none;
+  background-image: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan), transparent);
+  background-size: 100% 1px;
+  background-position: bottom;
+  background-repeat: no-repeat;
 }
 
 /* ── Form Elements ─────────────────────────────────────────── */
@@ -341,8 +349,12 @@ input::placeholder {
   white-space: nowrap;
 }
 
-.btn:active {
-  transform: scale(0.97);
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .btn:disabled {
@@ -439,6 +451,10 @@ input::placeholder {
   flex: 1;
 }
 
+.controls-bar .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
 /* ── Stats Grid ────────────────────────────────────────────── */
 .stats-grid {
   display: grid;
@@ -458,6 +474,12 @@ input::placeholder {
   border-radius: var(--radius);
   text-align: center;
   animation: fadeIn 0.3s ease;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.stat-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.06);
 }
 
 .stat-label {
@@ -552,6 +574,8 @@ input::placeholder {
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   z-index: 1;
+  min-width: max-content;
+  padding: 0 8px;
 }
 
 /* ── Terminal Console ──────────────────────────────────────── */
@@ -598,7 +622,7 @@ input::placeholder {
   color: var(--accent-cyan);
   max-height: 400px;
   overflow-y: auto;
-  scroll-behavior: smooth;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .log-line {
@@ -642,6 +666,27 @@ input::placeholder {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Footer ────────────────────────────────────────────────── */
+.footer {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-default);
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.footer a {
+  color: var(--accent-indigo);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.footer a:hover {
+  color: var(--accent-cyan);
 }
 
 /* ── Responsive ────────────────────────────────────────────── */

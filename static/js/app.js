@@ -271,22 +271,22 @@ async function startAttack() {
     target_url:     DOM.targetUrl.value.trim(),
     username:       DOM.username.value.trim(),
     password:       DOM.password.value.trim(),
-    error_string:   DOM.errorString.value.trim(),
-    success_string: DOM.successString.value.trim(),
+    error_msg:      DOM.errorString.value.trim(),
+    success_msg:    DOM.successString.value.trim(),
 
     // Engine
     threads:                parseInt(DOM.threads.value, 10)   || 1,
     delay:                  parseFloat(DOM.delay.value)       || 0,
     jitter:                 parseFloat(DOM.jitter.value)      || 0,
-    rate_limit_text:        DOM.rateLimit.value.trim(),
+    limit_text:             DOM.rateLimit.value.trim(),
     cooldown:               parseInt(DOM.cooldown.value, 10)  || 12,
     max_attempts:           parseInt(DOM.maxAttempts.value, 10) || 0,
     headless:               DOM.headless.checked,
     continue_after_success: DOM.continueAfterSuccess.checked,
 
     // Tor & Proxy
-    enable_tor:       DOM.enableTor.checked,
-    tor_control_port: parseInt(DOM.torControlPort.value, 10) || 9051,
+    use_tor:          DOM.enableTor.checked,
+    tor_port:         parseInt(DOM.torControlPort.value, 10) || 9051,
     tor_shift_every:  parseInt(DOM.torShiftEvery.value, 10)  || 10,
     proxy:            DOM.proxy.value.trim(),
   };
@@ -294,6 +294,17 @@ async function startAttack() {
   // Validate minimum fields
   if (!config.target_url) {
     appendLog('[-] Target URL is required.');
+    DOM.targetUrl.focus();
+    return;
+  }
+  if (!config.username) {
+    appendLog('[-] Username is required.');
+    DOM.username.focus();
+    return;
+  }
+  if (!config.password) {
+    appendLog('[-] Password / wordlist is required.');
+    DOM.password.focus();
     return;
   }
 
@@ -459,6 +470,7 @@ function exportLogs() {
  * Clear all lines from the terminal.
  */
 function clearLogs() {
+  logQueue.length = 0;
   DOM.terminal.innerHTML = '';
   appendLog('[~] Console cleared.');
 }
@@ -511,6 +523,14 @@ socket.on('cupp_done', (data) => {
   DOM.btnUseCupp.disabled    = false;
   DOM.btnGenerateCupp.disabled = false;
   appendLog(`[+] CUPP wordlist ready: ${cuppResultPath}`);
+});
+
+socket.on('sequence_done', (data) => {
+  sequenceResultPath = data?.path || '';
+  DOM.seqStatus.textContent = 'Sequence ready';
+  DOM.btnUseSeq.disabled = false;
+  DOM.btnGenerateSeq.disabled = false;
+  appendLog(`[+] Sequence wordlist ready: ${sequenceResultPath}`);
 });
 
 
