@@ -14,264 +14,248 @@
 ![Selenium](https://img.shields.io/badge/Selenium-WebDriver-43B02A?style=for-the-badge&logo=selenium&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**BlueCrack** is a Hydra-style browser-based login tester built with Selenium and Flask. It automates credential testing against web login forms using real browser sessions, supporting multi-threaded execution, Tor proxy integration, and intelligent rate-limit evasion — all wrapped in a premium dark-themed web interface with real-time updates.
+**BlueCrack** is an advanced, Hydra-style browser-based login tester powered by Selenium and Flask. By driving actual Google Chrome instances in parallel, BlueCrack automates credential auditing against complex authentication portals that traditional HTTP-based brute-forcers cannot handle. It is wrapped in a premium, ultra-responsive dark web console streaming real-time statistics and execution logs.
 
 ---
 
 > ## ⚠️ Responsible Use Warning
 >
-> **BlueCrack is designed strictly for authorized security testing, educational research, and penetration testing with explicit permission.** Unauthorized access to computer systems is illegal under laws including the CFAA (US), Computer Misuse Act (UK), and equivalent legislation worldwide. The authors assume **no liability** for misuse. Always obtain written authorization before testing any system you do not own.
+> **BlueCrack is designed strictly for authorized security testing, educational research, and infrastructure auditing.** Unauthorized access to computer systems is illegal under international computer misuse laws (including the US CFAA and UK Computer Misuse Act). The developers assume **no liability** for misuse. Always obtain explicit written authorization before testing target environments.
 
 ---
 
-## 🎯 Project Purpose
+## 🏗️ Architecture & Topology
 
-BlueCrack was created to provide security researchers and penetration testers with a browser-based credential testing tool that operates through real browser sessions rather than raw HTTP requests. This approach allows it to:
+Unlike simple script-based brute-forcers, BlueCrack implements a decoupled **Client-Server-Worker** model. The backend serves REST APIs and WebSockets to synchronize states, while thread-safe worker queues drive isolated automated browsers.
 
-- **Handle JavaScript-heavy login pages** that traditional tools like Hydra cannot interact with
-- **Bypass client-side protections** such as dynamic CSRF tokens, JavaScript form validation, and CAPTCHAs (with manual intervention)
-- **Simulate realistic user behavior** with configurable delays, jitter, and user-agent rotation
-- **Detect and adapt to rate limiting** by automatically cooling down or rotating Tor circuits
+### System Topology Map
 
-Unlike protocol-level brute forcers, BlueCrack drives actual Chrome browser instances, making it effective against modern web applications with complex authentication flows.
+The diagram below illustrates the relationship between the client dashboard, the Flask server, the background attack engine, and the automation instances:
+
+```mermaid
+graph TD
+    subgraph Client ["Client Browser (Frontend)"]
+        UI["Web Dashboard (HTML5/CSS3)"]
+        JS["app.js (Socket.IO client & state)"]
+        UI <--> JS
+    end
+
+    subgraph Backend ["Python Server (Backend)"]
+        App["app.py (Flask Web Server)"]
+        Engine["engine.py (AttackEngine & callbacks)"]
+        App <--> Engine
+    end
+
+    subgraph BrowserWorkers ["Browser Automation"]
+        Driver1["Chrome WebDriver (Thread 1)"]
+        Driver2["Chrome WebDriver (Thread 2)"]
+        DriverN["Chrome WebDriver (Thread N)"]
+    end
+
+    subgraph TargetSystem ["Target Environment"]
+        Target["Target Login Form"]
+        DemoSrv["demo_server.py (Subprocess)"]
+    end
+
+    JS <-->|Socket.IO & REST APIs| App
+    Engine -->|Spawns| Driver1
+    Engine -->|Spawns| Driver2
+    Engine -->|Spawns| DriverN
+
+    Driver1 -->|Automates Login| Target
+    Driver2 -->|Automates Login| Target
+    DriverN -->|Automates Login| Target
+
+    App -.->|Subprocess Popen| DemoSrv
+    Driver1 -.->|Optionally tests| DemoSrv
+```
+
+### Attack Execution Data Flow
+
+This sequence chart outlines the step-by-step lifecycle of an active credential audit:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Security Tester
+    participant UI as Web Dashboard
+    participant App as app.py (Flask)
+    participant Queue as Thread-Safe Queue
+    participant Engine as AttackEngine (engine.py)
+    participant Worker as WebDriver Worker Thread
+    participant Target as Target Login Webpage
+
+    User->>UI: Input Target URL, Credentials & hit Start
+    UI->>App: POST /api/attack/start (JSON config)
+    App->>Engine: start(ctx)
+    activate Engine
+    Engine->>Queue: Populate (User, Pass) combos
+    Engine->>Worker: Spawn N worker threads
+    activate Worker
+
+    loop Until Queue is empty or Stopped
+        Queue->>Worker: Get next combo (user, pwd)
+        Worker->>Target: Load login URL
+        Worker->>Target: Auto-detect & inject User/Pass inputs
+        Worker->>Target: Click Submit Button
+        Worker->>Target: Inspect result page (DOM / Redirect)
+        alt Success Detected
+            Worker->>Engine: Log credentials found
+            Engine->>App: Emit "log" & "finished"
+            App->>UI: Stream live credentials & success sound
+        else Rate Limit Detected
+            Worker->>Engine: Report rate limit hit
+            Engine->>App: Emit "log" & cooldown metrics
+            App->>UI: Stream status & cooldown timer
+            Note over Worker: Cooldown sleep or Tor circuit shift
+        else Failure/Error
+            Worker->>Engine: Record failure/error metric
+            Engine->>App: Emit "progress" & "metrics"
+            App->>UI: Update live ETA & counter stats
+        end
+    end
+
+    deactivate Worker
+    deactivate Engine
+    Engine->>App: finished(success_flag)
+    App->>UI: Socket.IO finished event (Enable buttons)
+```
 
 ---
 
-## ✨ Core Features
+## 🎯 Features
 
-| Feature | Description |
-|---|---|
-| 🌐 **Web-Based Dark UI** | Premium Flask web interface with glassmorphism dark theme, gradient accents, and real-time SocketIO updates |
-| 📊 **Live Stats Dashboard** | Real-time metrics — elapsed time, attempts/sec, ETA, hit counter, attempted, errors |
-| 🔍 **Auto CSS Selector Detection** | Automatically identifies username/password fields and submit buttons on any login page |
-| ⚡ **Multi-Threaded Execution** | Parallel browser workers with configurable thread count (1–50) |
-| 🔄 **Retry Budgets** | Per-credential retry limits (max 3) to prevent infinite loops on transient failures |
-| ✅ **Success/Error Validation** | Detect login outcomes via configurable success strings, error messages, or URL redirects |
-| 📋 **JSON Session Reports** | Auto-generated JSON reports with full session metadata, results, and timing data |
-| 📝 **Export Logs** | One-click log export from the web UI for post-analysis |
-| 🔑 **CUPP Wordlist Generator** | Built-in Common User Passwords Profiler for targeted wordlist generation |
-| 🔢 **Sequence Generator** | Generate numeric/pattern-based wordlists with configurable ranges |
-| 🧅 **Tor Proxy + Auto IP Rotation** | Route traffic through Tor with automatic circuit renewal every N attempts |
-| 🛡️ **Rate-Limit Evasion** | Configurable cooldown timers, jitter, and proxy rotation on rate-limit detection |
-| 🖥️ **Triple Mode Operation** | Web UI (default), full CLI with all flags, and interactive wizard for guided setup |
-| 🚀 **Continue After Success** | Multi-user mode: keep testing remaining users after finding valid credentials |
+### Core Capabilities
+* **Full JavaScript Compatibility**: Handles React, Angular, Vue, and vanilla JS portals by rendering pages in full browser sessions.
+* **Auto-Selector Engine**: Employs heuristic-based JS injection to automatically identify input fields for usernames, passwords, and submit buttons.
+* **Tor Proxy & IP Shift**: Rotates IP addresses automatically using Tor circuits by communicating with the Tor Control Port.
+* **Thread-Safe Concurrent Workers**: Run up to 50 concurrent headless or GUI browser instances with synchronized queue mechanisms.
+* **Dynamic Rate-Limit Evasion**: Pause testing, add jitter, or cycle proxy gateways when encountering rate-limiting string triggers.
+* **CUPP & Sequence Profilers**: Built-in credential profiling and sequential zero-padded range wordlist generators.
+
+### Premium UI Enhancements
+* **Lag-Free Logging**: Handles high-frequency console updates using `requestAnimationFrame` queue batching and `DocumentFragment` inserts to eliminate layout thrashing.
+* **Cosmic Eco-Astral Theme**: Includes a stunning forest-green and celestial-purple space aesthetic toggle with persistent `LocalStorage` preferences.
+* **Local Sandbox Mode**: Instantly launches a secure mock login server in the background and populates the dashboard for immediate training.
 
 ---
 
-## 📁 Architecture
+## 📁 Project Structure
 
 ```
 BlueCrack/
-├── app.py                 # Flask server with SocketIO real-time events
-├── engine.py              # Core Selenium attack engine (shared by Web & CLI)
-├── bluecrack.py           # CLI entry point + web UI launcher
-├── templates/
-│   └── index.html         # Single-page dark-themed web interface
+├── app.py                 # Flask app + SocketIO WebSocket bridge
+├── engine.py              # Core Selenium penetration engine & queue managers
+├── bluecrack.py           # Multi-mode unified entry point (CLI/Web/Interactive)
+├── demo_server.py         # Mock authentication server with CSRF & rate limit simulation
+├── requirements.txt       # Unified project dependency manifests
+├── LICENSE                # MIT Open Source License
+├── cupp.py                # Profiling wordlist generator module
+├── cupp.cfg               # Wordlist rules database
 ├── static/
 │   ├── css/
-│   │   └── style.css      # Premium glassmorphism stylesheet
+│   │   └── style.css      # Custom stylesheet (Standard and Eco-Astral themes)
 │   └── js/
-│       └── app.js         # Frontend logic + SocketIO client
-├── cupp.py                # Common User Passwords Profiler
-├── demo_server.py         # Local Flask test server
-├── requirements.txt       # Python dependencies
-└── README.md
+│       └── app.js         # SocketIO integration & UI event loop controls
+└── templates/
+    └── index.html         # Glassmorphism HTML dashboard template
 ```
 
 ---
 
-## 🛠 Installation
+## 🛠️ Installation
 
-### Prerequisites
+### 1. Prerequisites
+Ensure you have the following components installed:
+* **Python 3.10+**
+* **Google Chrome Browser**
+* **ChromeDriver** (Selenium 4+ handles automatic driver management, but local installation works too)
 
-- **Python 3.10+**
-- **Google Chrome** (latest stable)
-- **ChromeDriver** (matching your Chrome version — auto-managed by Selenium 4.15+)
-
-### Install Dependencies
-
+### 2. Setup Codebase
+Clone the repository and install all dependencies:
 ```bash
+git clone https://github.com/taezeem14/BlueCrack.git
+cd BlueCrack
 pip install -r requirements.txt
 ```
 
-Or install individually:
-
-```bash
-pip install selenium>=4.15 stem>=1.8 keyboard>=0.13 flask>=3.0 flask-socketio>=5.3 requests>=2.31
-```
-
-### Optional: Tor Setup
-
-For Tor proxy support, install and configure Tor with a control port:
-
-```bash
-# Linux/macOS
-sudo apt install tor    # or brew install tor
-# Enable ControlPort 9051 in /etc/tor/torrc
-```
+### 3. Optional: Tor Configuration
+To enable Tor IP rotation:
+1. Install Tor: `sudo apt install tor` (Linux) or `brew install tor` (macOS).
+2. Edit your `/etc/tor/torrc` (or local config) to enable the control port:
+   ```text
+   ControlPort 9051
+   CookieAuthentication 0
+   ```
+3. Restart the Tor service.
 
 ---
 
-## ▶ Usage
+## ▶️ Usage Modes
 
-### 🌐 Web UI Mode (Default)
+BlueCrack offers three operating interfaces: Web UI, command-line flags, and an interactive CLI setup wizard.
 
-Launch the web-based graphical interface:
-
+### 1. 🌐 Web UI Mode (Recommended)
+Launch the graphical dashboard:
 ```bash
 python bluecrack.py
 ```
+This serves the application locally. Navigate to `http://127.0.0.1:5000` to configure settings, generate passwords via CUPP, choose custom themes, or spin up the sandbox.
 
-Or explicitly:
-
-```bash
-python bluecrack.py --web
-```
-
-This opens a Flask server at `http://127.0.0.1:5000`. Open this URL in your browser to access the full BlueCrack interface with:
-
-- **Tabbed Configuration**: Target setup, engine settings, Tor/proxy, CUPP, and sequence generators
-- **Live Dashboard**: Real-time stats — elapsed time, speed, ETA, hits, attempted, errors
-- **Terminal Console**: Color-coded log output with auto-scroll
-- **Progress Bar**: Animated gradient progress with percentage
-
-You can also specify a custom host and port:
-
+To run it exposed on your local network (e.g., to access from a tablet):
 ```bash
 python bluecrack.py --web --host 0.0.0.0 --port 8080
 ```
 
-### ⌨️ CLI Mode
-
-Run fully from the command line with Hydra-style flags:
-
+### 2. ⌨️ CLI Mode
+Execute high-speed brute forcing directly in your terminal:
 ```bash
-# Single username, single password
-python bluecrack.py -u admin -p password123 --url https://target.com/login --error "incorrect"
+# Basic single login test
+python bluecrack.py -u admin -p admin123 --url http://target.local/login --error "wrong password"
 
-# Username file + password file, 4 threads, headless
-python bluecrack.py -U users.txt -P passwords.txt --url https://target.com/login \
-    --error "invalid" --threads 4 --headless
-
-# With success string validation
-python bluecrack.py -u admin -P rockyou.txt --url https://target.com/login \
-    --success "dashboard" --threads 2
-
-# With delay, jitter, and rate-limit handling
-python bluecrack.py -U users.txt -P pass.txt --url https://target.com/login \
-    --error "failed" --delay 1.5 --jitter 0.5 --limit-text "too many requests" --cooldown 15
-
-# With Tor proxy
-python bluecrack.py -u admin -P pass.txt --url https://target.com/login \
-    --error "incorrect" --proxy socks5://127.0.0.1:9050
-
-# With max attempts and continue-after-success
-python bluecrack.py -U users.txt -P pass.txt --url https://target.com/login \
-    --error "failed" --max-attempts 100 --continue-after-success
-
-# Export results
-python bluecrack.py -u admin -P pass.txt --url https://target.com/login \
-    --error "invalid" --output results.txt --json-report
+# Multi-threaded dictionary attack with Tor proxying
+python bluecrack.py -U users.txt -P rockyou.txt --url http://target.local/login \
+    --success "Welcome" --threads 4 --headless --proxy socks5://127.0.0.1:9050
 ```
 
-#### All CLI Flags
-
-| Flag | Description |
-|---|---|
-| `-u`, `--user` | Single username to test |
-| `-U`, `--userfile` | File containing usernames (one per line) |
-| `-p`, `--passw` | Single password to test |
-| `-P`, `--passlist` | File containing passwords (one per line) |
-| `--url` | Target login page URL |
-| `--error` | Error string to detect failed logins |
-| `--success` | Success string to confirm valid logins |
-| `--threads` | Number of parallel browser threads (default: 1) |
-| `--headless` | Run browsers in headless mode (no visible window) |
-| `--delay` | Delay between attempts in seconds (default: 0) |
-| `--jitter` | Random jitter added to delay (default: 0) |
-| `--limit-text` | Text indicating rate limiting (default: "too many requests") |
-| `--cooldown` | Seconds to wait after rate limit hit (default: 12) |
-| `--proxy` | Single proxy URL (e.g., `http://12.34.56.78:8080`) |
-| `--proxy-list` | File containing proxy URLs to rotate |
-| `--max-attempts` | Maximum total attempts before stopping |
-| `--continue-after-success` | Keep testing after finding valid credentials |
-| `--output` | Save found credentials to specified file |
-| `--json-report` | Generate JSON session report |
-| `--web` / `--gui` | Launch the Flask web UI |
-| `--host` | Web UI bind address (default: 127.0.0.1) |
-| `--port` | Web UI port number (default: 5000) |
-| `-i`, `--interactive` | Launch the interactive setup wizard |
-
-### 🧙 Interactive Wizard
-
-For guided setup with step-by-step prompts:
-
+### 3. 🧙 Interactive Wizard Mode
+For guided CLI setup, walk through settings step-by-step:
 ```bash
 python bluecrack.py -i
 ```
 
-The wizard will walk you through configuring the target URL, credentials, engine settings, and optional Tor/proxy configuration.
+---
 
-### 🧪 Demo Server
+## ⚙️ CLI Flag Reference
 
-Start the included Flask demo server for safe, local testing:
-
-```bash
-# Default settings (port 5000, 3 max attempts, 10s rate window)
-python demo_server.py
-
-# Custom configuration
-python demo_server.py --port 8080 --max-attempts 5 --rate-window 30
-```
-
-**Demo accounts:** `demo/password99`, `admin/admin123`, `test/test456`
-
-**Endpoints:**
-- `GET /login` — Glassmorphism-themed login page with CSRF token
-- `POST /login` — Form-based login (validates CSRF token)
-- `POST /api/login` — JSON API endpoint (`{"username": "...", "password": "..."}`)
+| Flag | Parameter | Description |
+|---|---|---|
+| `-u`, `--user` | `TEXT` | Single target username |
+| `-U`, `--userfile` | `FILE` | File containing list of usernames |
+| `-p`, `--passw` | `TEXT` | Single password to test |
+| `-P`, `--passlist` | `FILE` | File containing list of passwords |
+| `--url` | `URL` | Web URL containing target login form |
+| `--error` | `TEXT` | Substring on page indicating login failure |
+| `--success` | `TEXT` | Substring on page indicating login success |
+| `--threads` | `INT` | Parallel browser workers (default: 1) |
+| `--headless` | `FLAG` | Runs browser without rendering UI windows |
+| `--delay` | `FLOAT` | Throttling time delay in seconds |
+| `--jitter` | `FLOAT` | Randomized variance added to the delay |
+| `--limit-text` | `TEXT` | Substring indicating rate limits |
+| `--cooldown` | `INT` | Wait time in seconds when rate limited |
+| `--proxy` | `URL` | Single SOCKS/HTTP proxy server url |
+| `--proxy-list` | `FILE` | File containing multiple proxy IPs |
+| `--output` | `FILE` | Saves found credentials to output file |
+| `--json-report` | `FLAG` | Exports full execution run history to JSON |
 
 ---
 
-## 📊 What's New
-
-- 🌐 **Complete migration to Flask web UI** with real-time SocketIO communication
-- 🎨 **Premium dark glassmorphism theme** with gradient accents and micro-animations
-- 📊 **Real-time dashboard** — elapsed time, speed, ETA, hits, attempted, errors
-- 🏗️ **Modular architecture** — separated engine, Flask app, and CLI entry point
-- 🔌 **WebSocket-powered** live updates for logs, progress, and metrics
-- ✅ **Success-string validation** for reliable login outcome detection
-- 🔄 **Retry budgets** (max 3 retries per credential) to prevent infinite loops
-- 🧵 **Thread-safe credential tracking** with `threading.Event` for the `found` state
-- 🔁 **Graceful WebDriver restart** with exponential backoff on crashes
-- 🔗 **URL redirect detection** heuristic for login success verification
-- 📝 **JSON session reports** with full metadata, timing, and results
-- 📋 **Export log button** for one-click log file download
-- 🎯 **Max attempts limiter** to cap total credential tests
-- ▶️ **Continue-after-success mode** for multi-user testing campaigns
-- 🌈 **Colored CLI output** with progress counter and status indicators
-- 🧪 **Enhanced demo server** with multiple accounts, CSRF simulation, and JSON API
-
----
-
-## 🔐 Responsible Use Policy
-
-BlueCrack is a security research tool. By using this software, you agree to:
-
-1. **Only test systems you own** or have **explicit written authorization** to test
-2. **Never use this tool for unauthorized access** to any computer system or network
-3. **Comply with all applicable laws** in your jurisdiction, including but not limited to:
-   - Computer Fraud and Abuse Act (CFAA) — United States
-   - Computer Misuse Act 1990 — United Kingdom
-   - StGB §202a–c — Germany
-   - Equivalent legislation in your country
-4. **Accept full responsibility** for any actions taken using this tool
-5. **Report vulnerabilities responsibly** through proper disclosure channels
-
-The developers of BlueCrack:
-- Provide this tool **"as-is"** for educational and authorized testing purposes only
-- Accept **no liability** for damages resulting from misuse
-- Actively **discourage** any illegal or unethical use
+## 🧪 Local Sandbox Testing
+To practice or demonstrate credential testing safely without hitting live servers:
+1. Open the Web UI (`http://127.0.0.1:5000`).
+2. Click **`🚀 Demo Mode`** at the top right.
+3. The server will spin up `demo_server.py` in the background and auto-populate all target URLs and fields.
+4. Click **`▶ Start Attack`** to watch the worker threads execute live!
 
 ---
 
