@@ -82,13 +82,13 @@ def change_tor_ip(control_port: int = 9051, password: Optional[str] = None) -> b
 
 
 def build_chrome_options(ctx: Dict[str, Any]) -> webdriver.ChromeOptions:
-    """Build ChromeOptions from the given context dictionary.
+    """Build ChromeOptions from the given context dictionary with performance tuning.
 
     Args:
         ctx: Configuration dictionary with keys like 'headless', 'use_tor', 'proxies', etc.
 
     Returns:
-        Configured ChromeOptions instance.
+        Configured ChromeOptions instance optimized for low-end hardware.
     """
     options = webdriver.ChromeOptions()
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -98,6 +98,40 @@ def build_chrome_options(ctx: Dict[str, Any]) -> webdriver.ChromeOptions:
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument(f"user-agent={random.choice(DEFAULT_USER_AGENTS)}")
 
+    # ── Ultra Performance Tweaks for 2-Core CPUs ──
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-plugins")
+    options.add_argument("--mute-audio")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-background-timer-throttling")
+    options.add_argument("--disable-backgrounding-occluded-windows")
+    options.add_argument("--disable-breakpad")
+    options.add_argument("--disable-client-side-phishing-detection")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-hang-monitor")
+    options.add_argument("--disable-ipc-flooding-protection")
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--disable-prompt-on-repost")
+    options.add_argument("--disable-renderer-backgrounding")
+    options.add_argument("--disable-sync")
+    options.add_argument("--force-device-scale-factor=1")
+    options.add_argument("--num-raster-threads=1")
+    options.add_argument("--disk-cache-size=1")
+    options.add_argument("--media-cache-size=1")
+
+    # Limit V8 engine memory usage to reduce CPU thrashing / RAM usage per process
+    options.add_argument('--js-flags="--max-semi-space-size=2 --max-old-space-size=256"')
+
+    # Block images to save bandwidth and dramatically speed up rendering time
+    chrome_prefs = {
+        "profile.default_content_settings.images": 2,
+        "profile.managed_default_content_settings.images": 2,
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.managed_default_content_setting_values.notifications": 2
+    }
+    options.add_experimental_option("prefs", chrome_prefs)
+
     if ctx.get("use_tor"):
         options.add_argument("--proxy-server=socks5://127.0.0.1:9050")
     elif ctx.get("proxies"):
@@ -106,9 +140,13 @@ def build_chrome_options(ctx: Dict[str, Any]) -> webdriver.ChromeOptions:
     if ctx.get("headless"):
         options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920x1080")
+        options.add_argument("--window-size=1280x720")  # Smaller resolution = less render work
+    else:
+        # If running in windowed mode, make it small to minimize render overhead
+        options.add_argument("--window-size=800x600")
 
     return options
+
 
 
 def create_driver_safe(
