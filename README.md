@@ -9,10 +9,12 @@
 ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
 ```
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-Web_UI-000000?style=for-the-badge&logo=flask&logoColor=white)
-![Selenium](https://img.shields.io/badge/Selenium-WebDriver-43B02A?style=for-the-badge&logo=selenium&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+[![PyPI Version](https://img.shields.io/pypi/v/bluecrack.svg?style=flat-square)](https://pypi.org/project/bluecrack/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/bluecrack.svg?style=flat-square)](https://pypi.org/project/bluecrack/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/bluecrack.svg?style=flat-square)](https://pypi.org/project/bluecrack/)
+[![License](https://img.shields.io/pypi/l/bluecrack.svg?style=flat-square)](https://github.com/taezeem14/BlueCrack/blob/main/LICENSE)
+[![CI Status](https://github.com/taezeem14/BlueCrack/actions/workflows/publish.yml/badge.svg?branch=main)](https://github.com/taezeem14/BlueCrack/actions/workflows/publish.yml)
+
 
 **BlueCrack** is an advanced, Hydra-style browser-based login tester powered by Selenium and Flask. By driving actual Google Chrome instances in parallel, BlueCrack automates credential auditing against complex authentication portals that traditional HTTP-based brute-forcers cannot handle. It is wrapped in a premium, ultra-responsive dark web console streaming real-time statistics and execution logs.
 
