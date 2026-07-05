@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
 """
 BlueCrack Web UI — Flask Application
-======================================
+====================================
 Serves the BlueCrack web interface with real-time WebSocket updates
 via Flask-SocketIO. Bridges the Selenium attack engine with the
 browser-based frontend.
@@ -9,11 +8,6 @@ browser-based frontend.
 
 import os
 import sys
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8")
-
 import json
 import threading
 import time
@@ -25,17 +19,24 @@ from typing import Any, Dict, List, Optional
 from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 
-from engine import (
-    AttackEngine,
+from .engine import AttackEngine
+from .utils import (
+    print_banner,
     generate_cupp_wordlist,
     generate_sequence_wordlist,
-    print_banner,
+    get_package_data_path,
 )
 
 # ═══════════════════════════════════════════════════════════════════
 # APP INITIALIZATION
 # ═══════════════════════════════════════════════════════════════════
-app = Flask(__name__)
+_PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(_PKG_DIR, "templates"),
+    static_folder=os.path.join(_PKG_DIR, "static"),
+)
 app.config["SECRET_KEY"] = os.urandom(24).hex()
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
 
@@ -93,10 +94,7 @@ def index():
 # ═══════════════════════════════════════════════════════════════════
 @app.route("/api/attack/start", methods=["POST"])
 def start_attack():
-    """Start a brute-force attack with the given configuration.
-
-    Expects JSON body with attack configuration fields.
-    """
+    """Start a brute-force attack with the given configuration."""
     if engine.is_running:
         return jsonify({"status": "error", "message": "Attack already running."}), 409
 
@@ -242,11 +240,14 @@ def generate_sequence():
     global _last_wordlist_path
     data = request.get_json(silent=True) or {}
 
-    start = int(data.get("start", 0))
-    end = int(data.get("end", 100))
-    prefix = data.get("prefix", "").strip()
-    suffix = data.get("suffix", "").strip()
-    pad_width = int(data.get("pad_width", 0))
+    try:
+        start = int(data.get("start", 0))
+        end = int(data.get("end", 100))
+        prefix = data.get("prefix", "").strip()
+        suffix = data.get("suffix", "").strip()
+        pad_width = int(data.get("pad_width", 0))
+    except (ValueError, TypeError) as e:
+        return jsonify({"status": "error", "message": f"Invalid sequence parameters: {e}"}), 400
 
     def _run_seq():
         global _last_wordlist_path
@@ -310,6 +311,7 @@ demo_process: Optional[subprocess.Popen] = None
 demo_port: Optional[int] = None
 demo_lock = threading.Lock()
 
+
 def _cleanup_demo_server() -> None:
     """Terminate the demo server process on exit."""
     global demo_process
@@ -325,11 +327,14 @@ def _cleanup_demo_server() -> None:
                     pass
             demo_process = None
 
+
 atexit.register(_cleanup_demo_server)
+
 
 def is_port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("127.0.0.1", port)) == 0
+
 
 def find_free_port(start_port: int = 5001) -> int:
     port = start_port
@@ -342,12 +347,14 @@ def find_free_port(start_port: int = 5001) -> int:
                 port += 1
     return start_port
 
+
 @app.route("/api/demo/start", methods=["POST"])
 def start_demo_server():
     """Start the local demo login server in a background process if not already running."""
     global demo_process, demo_port
-    
+
     with demo_lock:
+        pass_file_path = get_package_data_path("pass.txt")
         if demo_process is not None:
             poll = demo_process.poll()
             if poll is None:
@@ -357,21 +364,21 @@ def start_demo_server():
                     "url": f"http://127.0.0.1:{demo_port}/login",
                     "port": demo_port,
                     "default_username": "demo",
-                    "default_password_file": os.path.abspath("pass.txt"),
+                    "default_password_file": pass_file_path,
                     "default_error_msg": "Invalid credentials",
-                    "default_success_msg": "Successful"
+                    "default_success_msg": "Successful",
                 })
-        
+
         port = find_free_port(5001)
         try:
             demo_process = subprocess.Popen(
-                [sys.executable, "demo_server.py", "--port", str(port)],
+                [sys.executable, "-m", "bluecrack.demo", "--port", str(port)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
             )
             demo_port = port
-            
+
             started = False
             for _ in range(20):
                 time.sleep(0.1)
@@ -380,58 +387,37 @@ def start_demo_server():
                     break
                 if demo_process.poll() is not None:
                     break
-            
+
             if not started:
                 demo_process = None
                 return jsonify({
                     "status": "error",
                     "error": "failed_to_bind",
-                    "message": f"Demo server failed to start on port {port}."
+                    "message": f"Demo server failed to start on port {port}.",
                 }), 500
-                
+
             return jsonify({
                 "status": "ok",
                 "message": "Demo server launched successfully.",
                 "url": f"http://127.0.0.1:{port}/login",
                 "port": port,
                 "default_username": "demo",
-                "default_password_file": os.path.abspath("pass.txt"),
+                "default_password_file": pass_file_path,
                 "default_error_msg": "Invalid credentials",
-                "default_success_msg": "Successful"
+                "default_success_msg": "Successful",
             })
-            
+
         except Exception as e:
             demo_process = None
             return jsonify({
                 "status": "error",
                 "error": "exception",
-                "message": f"Failed to launch demo server: {str(e)}"
+                "message": f"Failed to launch demo server: {str(e)}",
             }), 500
 
 
-# ═══════════════════════════════════════════════════════════════════
-# MAIN
-# ═══════════════════════════════════════════════════════════════════
 def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> None:
-    """Start the Flask-SocketIO server.
-
-    Args:
-        host: Bind address (default: 127.0.0.1).
-        port: Port number (default: 5000).
-        debug: Enable Flask debug mode.
-    """
+    """Start the Flask-SocketIO server."""
     print_banner()
     print(f"\n\033[36m[*] BlueCrack Web UI starting at http://{host}:{port}\033[0m\n")
     socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="BlueCrack Web UI Server")
-    parser.add_argument("--host", default="127.0.0.1", help="bind address")
-    parser.add_argument("--port", type=int, default=5000, help="port number")
-    parser.add_argument("--debug", action="store_true", help="enable debug mode")
-    args = parser.parse_args()
-
-    run_server(host=args.host, port=args.port, debug=args.debug)

@@ -1,0 +1,18 @@
+# MANIFEST.in — Include package data in source distributions
+include LICENSE
+include README.md
+include pyproject.toml
+
+# Package data files
+recursive-include src/bluecrack/templates *
+recursive-include src/bluecrack/static *
+recursive-include src/bluecrack/data *
+recursive-include src/bluecrack/vendor *.py *.cfg
+
+# Exclude development/test files
+exclude .gitignore
+prune tests
+prune .github
+prune __pycache__
+global-exclude *.pyc
+global-exclude __pycache__

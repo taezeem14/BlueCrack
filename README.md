@@ -144,89 +144,113 @@ sequenceDiagram
 
 ```
 BlueCrack/
-├── app.py                 # Flask app + SocketIO WebSocket bridge
-├── engine.py              # Core Selenium penetration engine & queue managers
-├── bluecrack.py           # Multi-mode unified entry point (CLI/Web/Interactive)
-├── demo_server.py         # Mock authentication server with CSRF & rate limit simulation
-├── requirements.txt       # Unified project dependency manifests
+├── pyproject.toml         # PEP 621 metadata & entry point definitions
+├── MANIFEST.in            # Bundles static web templates & configuration data
 ├── LICENSE                # MIT Open Source License
-├── cupp.py                # Profiling wordlist generator module
-├── cupp.cfg               # Wordlist rules database
-├── static/
-│   ├── css/
-│   │   └── style.css      # Custom stylesheet (Standard and Eco-Astral themes)
-│   └── js/
-│       └── app.js         # SocketIO integration & UI event loop controls
-└── templates/
-    └── index.html         # Glassmorphism HTML dashboard template
+├── requirements.txt       # Unified project dependency manifests
+│
+├── src/
+│   └── bluecrack/         # Source code package
+│       ├── __init__.py    # Version and API initialization
+│       ├── __main__.py    # Entry point for python -m bluecrack
+│       ├── cli.py         # Subcommand dispatcher
+│       ├── web.py         # Flask Web UI & SocketIO bridge
+│       ├── engine.py      # Core Selenium AttackEngine
+│       ├── attack.py      # CLI brute-force execution flow
+│       ├── demo.py        # Sandbox authentication server
+│       ├── doctor.py      # System diagnostic check utility
+│       ├── constants.py   # Shared scripts & ANSI styling
+│       ├── utils.py       # Tor rotation, chromedriver & wordlist generation
+│       │
+│       ├── data/          # Embedded package configuration
+│       │   ├── cupp.cfg   # Wordlist rules database
+│       │   └── pass.txt   # Demo password list
+│       │
+│       ├── templates/     # Web templates
+│       │   └── index.html # Glassmorphism dashboard
+│       │
+│       └── static/        # Static stylesheets & JS
+│           ├── css/style.css
+│           └── js/app.js
 ```
 
 ---
 
 ## 🛠️ Installation
 
-### 1. Prerequisites
-Ensure you have the following components installed:
-* **Python 3.10+**
-* **Google Chrome Browser**
-* **ChromeDriver** (Selenium 4+ handles automatic driver management, but local installation works too)
+### 1. From PyPI (Recommended)
+You can install BlueCrack directly as an executable package:
+```bash
+pip install bluecrack
+```
 
-### 2. Setup Codebase
-Clone the repository and install all dependencies:
+### 2. From Source (Development Mode)
+Clone the repository and install it in editable mode:
 ```bash
 git clone https://github.com/taezeem14/BlueCrack.git
 cd BlueCrack
-pip install -r requirements.txt
+pip install -e .
 ```
 
-### 3. Optional: Tor Configuration
-To enable Tor IP rotation:
-1. Install Tor: `sudo apt install tor` (Linux) or `brew install tor` (macOS).
-2. Edit your `/etc/tor/torrc` (or local config) to enable the control port:
-   ```text
-   ControlPort 9051
-   CookieAuthentication 0
-   ```
-3. Restart the Tor service.
+### 3. Prerequisites
+* **Python 3.9+**
+* **Google Chrome Browser**
+* **ChromeDriver** (Selenium Manager automatically fetches the correct version for you)
 
 ---
 
-## ▶️ Usage Modes
+## ▶️ Usage Subcommands
 
-BlueCrack offers three operating interfaces: Web UI, command-line flags, and an interactive CLI setup wizard.
+After installation, the unified `bluecrack` binary is added to your terminal PATH.
 
-### 1. 🌐 Web UI Mode (Recommended)
+### 1. 🌐 Web UI (Default)
 Launch the graphical dashboard:
 ```bash
-python bluecrack.py
+bluecrack
+# or explicitly
+bluecrack web --port 5000
 ```
-This serves the application locally. Navigate to `http://127.0.0.1:5000` to configure settings, generate passwords via CUPP, choose custom themes, or spin up the sandbox.
+Navigate to `http://127.0.0.1:5000` in your web browser.
 
-To run it exposed on your local network (e.g., to access from a tablet):
-```bash
-python bluecrack.py --web --host 0.0.0.0 --port 8080
-```
-
-### 2. ⌨️ CLI Mode
-Execute high-speed brute forcing directly in your terminal:
+### 2. ⌨️ CLI Attack Mode
+Run dictionary attacks directly inside the terminal:
 ```bash
 # Basic single login test
-python bluecrack.py -u admin -p admin123 --url http://target.local/login --error "wrong password"
+bluecrack attack -u admin -p admin123 --url http://target.local/login --error "wrong password"
 
-# Multi-threaded dictionary attack with Tor proxying
-python bluecrack.py -U users.txt -P rockyou.txt --url http://target.local/login \
-    --success "Welcome" --threads 4 --headless --proxy socks5://127.0.0.1:9050
+# Multi-threaded dictionary attack
+bluecrack attack -U users.txt -P rockyou.txt --url http://target.local/login \
+    --success "Welcome" --threads 4 --headless
 ```
 
 ### 3. 🧙 Interactive Wizard Mode
-For guided CLI setup, walk through settings step-by-step:
+Let the system guide you through setup step-by-step:
 ```bash
-python bluecrack.py -i
+bluecrack attack -i
+```
+
+### 4. 🧪 Local Sandbox
+Launch the demo login server on an isolated port:
+```bash
+bluecrack demo --port 5001 --max-attempts 3
+```
+
+### 5. 🩺 Doctor Diagnostic Tool
+Check system dependencies, browser version, and chromedriver availability:
+```bash
+bluecrack doctor
+```
+
+### 6. 🔌 Plugin CLI Utilities
+Generate sequences or run CUPP interactively:
+```bash
+bluecrack plugin cupp
+bluecrack plugin sequence --start 1000 --end 9999 --output sequence.txt
 ```
 
 ---
 
-## ⚙️ CLI Flag Reference
+## ⚙️ CLI Flag Reference (`bluecrack attack`)
 
 | Flag | Parameter | Description |
 |---|---|---|
@@ -252,12 +276,13 @@ python bluecrack.py -i
 
 ## 🧪 Local Sandbox Testing
 To practice or demonstrate credential testing safely without hitting live servers:
-1. Open the Web UI (`http://127.0.0.1:5000`).
+1. Open the Web UI (`bluecrack`).
 2. Click **`🚀 Demo Mode`** at the top right.
-3. The server will spin up `demo_server.py` in the background and auto-populate all target URLs and fields.
+3. The server will spin up `bluecrack demo` in the background and auto-populate all target URLs and fields.
 4. Click **`▶ Start Attack`** to watch the worker threads execute live!
 
 ---
+
 
 ## 📄 License
 

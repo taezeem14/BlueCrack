@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "bluecrack"
+dynamic = ["version"]
+description = "Hydra-style browser-based credential auditing framework powered by Selenium WebDriver"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Muhammad Taezeem Tariq", email = "taezeem14@gmail.com"},
+]
+keywords = [
+    "security", "pentesting", "brute-force", "selenium",
+    "credential-auditing", "flask", "websocket",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+]
+dependencies = [
+    "selenium>=4.15",
+    "flask>=3.0",
+    "flask-socketio>=5.3",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+tor = ["stem>=1.8"]
+keyboard = ["keyboard>=0.13"]
+all = ["stem>=1.8", "keyboard>=0.13"]
+dev = [
+    "build",
+    "twine",
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+bluecrack = "bluecrack.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/taezeem14/BlueCrack"
+Repository = "https://github.com/taezeem14/BlueCrack"
+Issues = "https://github.com/taezeem14/BlueCrack/issues"
+Documentation = "https://github.com/taezeem14/BlueCrack#readme"
+
+[tool.setuptools.dynamic]
+version = {attr = "bluecrack._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bluecrack = [
+    "templates/**/*",
+    "templates/*",
+    "static/**/*",
+    "static/*",
+    "data/*",
+    "vendor/*.py",
+    "vendor/*.cfg",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

