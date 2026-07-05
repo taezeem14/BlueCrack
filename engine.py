@@ -128,8 +128,9 @@ _BOLD = "\033[1m"
 # ═══════════════════════════════════════════════════════════════════
 def print_banner() -> None:
     """Print the BlueCrack ASCII art banner."""
-    print(
-        """
+    try:
+        print(
+            """
 \033[34m██████╗ ██╗     ██╗   ██╗███████╗\033[0m \033[31m ██████╗██████╗  █████╗  ██████╗██╗  ██╗\033[0m
 \033[34m██╔══██╗██║     ██║   ██║██╔════╝\033[0m \033[31m██╔════╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝\033[0m
 \033[34m██████╔╝██║     ██║   ██║█████╗  \033[0m \033[31m██║     ██████╔╝███████║██║     █████╔╝ \033[0m
@@ -137,7 +138,9 @@ def print_banner() -> None:
 \033[34m██████╔╝███████╗╚██████╔╝███████╗\033[0m \033[31m╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗\033[0m
 \033[34m╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝\033[0m \033[31m ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[0m
 """
-    )
+        )
+    except Exception:
+        print("\n  === BLUECRACK — Advanced Browser Penetration Framework ===\n")
 
 
 def change_tor_ip(control_port: int = 9051, password: Optional[str] = None) -> bool:
@@ -211,12 +214,8 @@ def create_driver_safe(
         try:
             wd = webdriver.Chrome(options=options)
             return wd
-        except WebDriverException:
-            if attempt < max_retries - 1:
-                time.sleep(1)
-            else:
-                return None
-        except Exception:
+        except Exception as e:
+            print(f"[-] WebDriver creation attempt {attempt+1} failed: {e}")
             if attempt < max_retries - 1:
                 time.sleep(1)
             else:
