@@ -4,8 +4,9 @@ BlueCrack Engine
 Core brute-force attack engine powered by Selenium WebDriver.
 """
 
-import time
+import random
 import threading
+import time
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -20,15 +21,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .constants import (
-    CSS_PATH_JS,
     AUTO_DETECT_JS,
     CLICK_LISTENER_JS,
+    CSS_PATH_JS,
     HAS_KEYBOARD,
 )
 from .utils import (
     build_chrome_options,
-    create_driver_safe,
     change_tor_ip,
+    create_driver_safe,
     save_json_report,
 )
 

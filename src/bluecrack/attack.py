@@ -4,13 +4,13 @@ BlueCrack CLI Attack Module
 Brute-force attack controller for CLI and Interactive Wizard modes.
 """
 
-import sys
+import argparse
 import os
 import random
-import time
 import signal
+import sys
 import threading
-import argparse
+import time
 from queue import Queue
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -23,22 +23,21 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 from .constants import (
-    CSS_PATH_JS,
-    AUTO_DETECT_JS,
-    CLICK_LISTENER_JS,
-    HAS_KEYBOARD,
+    _BLUE,
+    _BOLD,
+    _CYAN,
     _GREEN,
     _RED,
-    _YELLOW,
-    _CYAN,
-    _BLUE,
     _RESET,
-    _BOLD,
+    _YELLOW,
+    AUTO_DETECT_JS,
+    CLICK_LISTENER_JS,
+    CSS_PATH_JS,
+    HAS_KEYBOARD,
 )
 from .utils import (
     build_chrome_options,
     create_driver_safe,
-    change_tor_ip,
     save_json_report,
 )
 
@@ -526,7 +525,7 @@ def run_attack_cli(args: argparse.Namespace) -> None:
                                 with _cli_metrics_lock:
                                     _cli_metrics["failures"] += 1
 
-                        except (NoSuchElementException, WebDriverException) as e:
+                        except (NoSuchElementException, WebDriverException):
                             with _cli_metrics_lock:
                                 _cli_metrics["errors"] += 1
                             print(

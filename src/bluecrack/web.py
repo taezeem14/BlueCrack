@@ -6,25 +6,24 @@ via Flask-SocketIO. Bridges the Selenium attack engine with the
 browser-based frontend.
 """
 
+import atexit
 import os
+import socket
+import subprocess
 import sys
-import json
 import threading
 import time
-import subprocess
-import socket
-import atexit
 from typing import Any, Dict, List, Optional
 
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, Response, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
 from .engine import AttackEngine
 from .utils import (
-    print_banner,
     generate_cupp_wordlist,
     generate_sequence_wordlist,
     get_package_data_path,
+    print_banner,
 )
 
 # ═══════════════════════════════════════════════════════════════════

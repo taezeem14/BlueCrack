@@ -5,22 +5,22 @@ Checks system dependencies, Chrome installation, and networking capabilities
 to verify that BlueCrack can run successfully.
 """
 
-import sys
 import os
 import shutil
 import socket
 import subprocess
+import sys
 
 from selenium import webdriver
 
 from ._version import __version__
 from .constants import (
+    _BOLD,
+    _CYAN,
     _GREEN,
     _RED,
-    _YELLOW,
-    _CYAN,
     _RESET,
-    _BOLD,
+    _YELLOW,
     HAS_KEYBOARD,
     HAS_STEM,
 )
@@ -94,9 +94,10 @@ def run_doctor() -> None:
 
     # 3. Selenium & Driver check
     try:
-        from selenium.webdriver.chrome.service import Service
+        import selenium  # noqa: F401
         print(f"  [+] Selenium library: Installed ({webdriver.__version__}) {_GREEN}✔{_RESET}")
         passed_checks += 1
+
     except ImportError:
         print(f"  [-] Selenium library: Not found! Run: pip install selenium {_RED}✘{_RESET}")
 
@@ -153,7 +154,7 @@ def run_doctor() -> None:
     else:
         optional_features.append(f"Keyboard Setup ({_YELLOW}Disabled — missing keyboard package{_RESET})")
 
-    print(f"  [+] Optional features:")
+    print("  [+] Optional features:")
     for f in optional_features:
         print(f"      - {f}")
     passed_checks += 1  # Optional, always passes

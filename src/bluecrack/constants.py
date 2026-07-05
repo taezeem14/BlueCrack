@@ -81,13 +81,14 @@ _RESET = "\033[0m"
 _BOLD = "\033[1m"
 
 try:
-    import keyboard
+    import keyboard  # noqa: F401
     HAS_KEYBOARD = True
 except ImportError:
     HAS_KEYBOARD = False
 
 try:
-    import stem
+    import stem  # noqa: F401
     HAS_STEM = True
 except ImportError:
     HAS_STEM = False
+

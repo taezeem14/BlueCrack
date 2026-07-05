@@ -5,24 +5,21 @@ Helper functions for browser driver creation, reports, targeted wordlist
 generation, Tor proxy control, and output formatting.
 """
 
-import sys
+import builtins
+import json
 import os
 import random
+import sys
 import time
-import json
-import builtins
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from selenium import webdriver
 
 from .constants import (
-    DEFAULT_USER_AGENTS,
     _RED,
-    _GREEN,
-    _YELLOW,
-    _CYAN,
     _RESET,
+    DEFAULT_USER_AGENTS,
     HAS_STEM,
 )
 

@@ -9,7 +9,8 @@ multiple demo accounts, JSON API endpoint, and configurable rate limits.
 import argparse
 import time
 import uuid
-from flask import Flask, request, render_template_string, redirect, url_for, jsonify
+
+from flask import Flask, jsonify, redirect, render_template_string, request, url_for
 
 # ═══════════════════════════════════════════════════════════════════
 # GLOBALS & APP INITIALIZATION
@@ -214,20 +215,20 @@ LOGIN_PAGE = (
         <div class="icon">🔒</div>
         <h2>Access Portal</h2>
         <p class="lead">Audit Environment Login Page</p>
-        
+
         <form action="/login" method="POST" id="loginForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            
+
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" name="username" class="form-control" placeholder="Audit target..." required autocomplete="off">
             </div>
-            
+
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="off">
             </div>
-            
+
             <button type="submit" class="btn-glass">Sign In</button>
         </form>
     </div>
@@ -472,14 +473,14 @@ def run_demo(port: int = 5001, max_attempts: int = 3, rate_window: int = 10) -> 
     MAX_ATTEMPTS = max_attempts
     RATE_LIMIT_WINDOW = rate_window
 
-    print(f"\n  BlueCrack Demo Server")
-    print(f"  -------------------------------------")
+    print("\n  BlueCrack Demo Server")
+    print("  -------------------------------------")
     print(f"  Port:          {port}")
     print(f"  Max attempts:  {MAX_ATTEMPTS}")
     print(f"  Rate window:   {RATE_LIMIT_WINDOW}s")
     print(f"  Accounts:      {', '.join(DEMO_ACCOUNTS.keys())}")
-    print(f"  JSON API:      POST /api/login")
-    print(f"  -------------------------------------\n")
+    print("  JSON API:      POST /api/login")
+    print("  -------------------------------------\n")
 
     # Run app locally only
     app.run(host="127.0.0.1", port=port, debug=False)

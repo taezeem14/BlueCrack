@@ -170,7 +170,8 @@ def _build_parser() -> argparse.ArgumentParser:
     plugin_sub = plugin_parser.add_subparsers(dest="plugin_action")
 
     # plugin cupp
-    cupp_p = plugin_sub.add_parser("cupp", help="Run CUPP interactive profiler")
+    plugin_sub.add_parser("cupp", help="Run CUPP interactive profiler")
+
 
     # plugin sequence
     seq_p = plugin_sub.add_parser("sequence", help="Generate numeric sequence wordlist")
