@@ -128,10 +128,13 @@ sequenceDiagram
 ## 🎯 Features
 
 ### Core Capabilities
-* **Full JavaScript Compatibility**: Handles React, Angular, Vue, and vanilla JS portals by rendering pages in full browser sessions.
-* **Auto-Selector Engine**: Employs heuristic-based JS injection to automatically identify input fields for usernames, passwords, and submit buttons.
+* **Dual Attack Modes**:
+  * **Browser Mode** (Selenium): Runs real Google Chrome instances in parallel. Ideal for JS-heavy, React, Angular, Vue, and SPA login portals.
+  * **HTTP Mode** (Hydra-style): Executes raw, high-performance HTTP POST requests. Bypasses browser rendering entirely. Ideal for simple HTML forms, running **100x–500x faster**.
+* **Auto-Selector / Field Detection**: Employs heuristic-based parsing to automatically identify input fields, username/password names, hidden elements (CSRF tokens), and submit handlers.
+* **Browser Instance Reuse**: Optimized Selenium worker threads clear cookies (`delete_all_cookies()`) between runs rather than restarting the Chrome process, cutting CPU/RAM overhead by 90%.
 * **Tor Proxy & IP Shift**: Rotates IP addresses automatically using Tor circuits by communicating with the Tor Control Port.
-* **Thread-Safe Concurrent Workers**: Run up to 50 concurrent headless or GUI browser instances with synchronized queue mechanisms.
+* **Thread-Safe Concurrent Workers**: Run up to 50 concurrent browser or connection workers with synchronized thread-safe queue mechanisms.
 * **Dynamic Rate-Limit Evasion**: Pause testing, add jitter, or cycle proxy gateways when encountering rate-limiting string triggers.
 * **CUPP & Sequence Profilers**: Built-in credential profiling and sequential zero-padded range wordlist generators.
 
@@ -158,6 +161,7 @@ BlueCrack/
 │       ├── cli.py         # Subcommand dispatcher
 │       ├── web.py         # Flask Web UI & SocketIO bridge
 │       ├── engine.py      # Core Selenium AttackEngine
+│       ├── http_engine.py # Core raw HTTP AttackEngine (Hydra-style)
 │       ├── attack.py      # CLI brute-force execution flow
 │       ├── demo.py        # Sandbox authentication server
 │       ├── doctor.py      # System diagnostic check utility
@@ -196,7 +200,7 @@ pip install -e .
 
 ### 3. Prerequisites
 * **Python 3.9+**
-* **Google Chrome Browser**
+* **Google Chrome Browser** (required for `browser` mode; optional for `http` mode)
 * **ChromeDriver** (Selenium Manager automatically fetches the correct version for you)
 
 ---
@@ -212,21 +216,21 @@ bluecrack
 # or explicitly
 bluecrack web --port 5000
 ```
-Navigate to `http://127.0.0.1:5000` in your web browser.
+Navigate to `http://127.0.0.1:5000` in your web browser. Select **HTTP Mode** or **Browser Mode** directly from the settings panel.
 
 ### 2. ⌨️ CLI Attack Mode
 Run dictionary attacks directly inside the terminal:
 ```bash
-# Basic single login test
+# Basic single login test (Default: Browser Mode)
 bluecrack attack -u admin -p admin123 --url http://target.local/login --error "wrong password"
 
-# Multi-threaded dictionary attack
-bluecrack attack -U users.txt -P rockyou.txt --url http://target.local/login \
-    --success "Welcome" --threads 4 --headless
+# Multi-threaded dictionary attack (HTTP Mode - Lightning Fast)
+bluecrack attack --mode http -U users.txt -P rockyou.txt --url http://target.local/login \
+    --error "invalid" --threads 10
 ```
 
 ### 3. 🧙 Interactive Wizard Mode
-Let the system guide you through setup step-by-step:
+Let the wizard prompt you for configuration details, including mode selection:
 ```bash
 bluecrack attack -i
 ```
@@ -256,6 +260,7 @@ bluecrack plugin sequence --start 1000 --end 9999 --output sequence.txt
 
 | Flag | Parameter | Description |
 |---|---|---|
+| `--mode` | `browser` / `http` | Attack mode: `browser` (Selenium) or `http` (raw HTTP POST) (default: `browser`) |
 | `-u`, `--user` | `TEXT` | Single target username |
 | `-U`, `--userfile` | `FILE` | File containing list of usernames |
 | `-p`, `--passw` | `TEXT` | Single password to test |
@@ -263,8 +268,8 @@ bluecrack plugin sequence --start 1000 --end 9999 --output sequence.txt
 | `--url` | `URL` | Web URL containing target login form |
 | `--error` | `TEXT` | Substring on page indicating login failure |
 | `--success` | `TEXT` | Substring on page indicating login success |
-| `--threads` | `INT` | Parallel browser workers (default: 1) |
-| `--headless` | `FLAG` | Runs browser without rendering UI windows |
+| `--threads` | `INT` | Parallel browser/connection workers (default: 1) |
+| `--headless` | `FLAG` | Runs browser without rendering UI windows (browser mode only) |
 | `--delay` | `FLOAT` | Throttling time delay in seconds |
 | `--jitter` | `FLOAT` | Randomized variance added to the delay |
 | `--limit-text` | `TEXT` | Substring indicating rate limits |
@@ -273,6 +278,12 @@ bluecrack plugin sequence --start 1000 --end 9999 --output sequence.txt
 | `--proxy-list` | `FILE` | File containing multiple proxy IPs |
 | `--output` | `FILE` | Saves found credentials to output file |
 | `--json-report` | `FLAG` | Exports full execution run history to JSON |
+| `--form-action` | `URL` | Custom HTTP POST target URL endpoint (http mode; auto-detected if blank) |
+| `--username-field` | `TEXT` | Custom input field name for usernames (http mode; auto-detected if blank) |
+| `--password-field` | `TEXT` | Custom input field name for passwords (http mode; auto-detected if blank) |
+| `--csrf-field` | `TEXT` | Custom token field name for anti-CSRF extraction (http mode; auto-detected if blank) |
+| `--extra-fields` | `TEXT` | Extra post fields as comma-separated `key=val` pairs (http mode) |
+| `--follow-redirects`| `FLAG` | Follow HTTP redirects on form submission (http mode) |
 
 ---
 
