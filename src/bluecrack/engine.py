@@ -491,7 +491,7 @@ class AttackEngine:
                                         "credentials.txt", "a", encoding="utf-8"
                                     ) as cf:
                                         cf.write(
-                                            f"{ctx['target_url']} - {user}:{pwd}\n"
+                                            f"{user}:{pwd}\n"
                                         )
                                 except Exception:
                                     pass

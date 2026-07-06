@@ -734,7 +734,7 @@ def _run_browser_attack(
 
                             try:
                                 with open(OUTPUT_FILE, "a", encoding="utf-8") as cf:
-                                    cf.write(f"{target_url} - {user}:{pwd}\n")
+                                    cf.write(f"{user}:{pwd}\n")
                             except Exception as e:
                                 print(f"{_RED}[-] Could not save credential: {e}{_RESET}")
 

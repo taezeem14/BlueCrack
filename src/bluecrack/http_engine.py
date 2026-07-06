@@ -691,7 +691,7 @@ class HTTPAttackEngine:
                                         "credentials.txt", "a", encoding="utf-8"
                                     ) as cf:
                                         cf.write(
-                                            f"{target_url} - {user}:{pwd}\n"
+                                            f"{user}:{pwd}\n"
                                         )
                                 except Exception:
                                     pass
