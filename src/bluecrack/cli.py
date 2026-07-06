@@ -115,6 +115,13 @@ def _build_parser() -> argparse.ArgumentParser:
     atk = subparsers.add_parser(
         "attack", help="Run CLI brute-force attack",
     )
+
+    # Attack mode
+    atk.add_argument(
+        "--mode", choices=["browser", "http"], default="browser",
+        help="attack mode: 'browser' (Selenium, default) or 'http' (raw HTTP, Hydra-style — much faster)",
+    )
+
     # Username input
     atk.add_argument("-u", "--user", dest="username", help="single username to test")
     atk.add_argument("-U", "--userfile", dest="userfile", help="file containing list of usernames")
@@ -128,7 +135,7 @@ def _build_parser() -> argparse.ArgumentParser:
     atk.add_argument("--url", help="login page URL", required=False)
     atk.add_argument("--error", default="", help="error message string for failed login detection")
     atk.add_argument("--success", default="", help="success message string for login verification")
-    atk.add_argument("--headless", action="store_true", help="run browsers in headless mode")
+    atk.add_argument("--headless", action="store_true", help="run browsers in headless mode (browser mode only)")
     atk.add_argument("--delay", type=float, default=0.0, help="delay between attempts (seconds)")
     atk.add_argument("--limit-text", default="too many requests", help="text indicating rate limit")
     atk.add_argument("--cooldown", type=int, default=12, help="cooldown timer for rate-limit bypass")
@@ -146,6 +153,20 @@ def _build_parser() -> argparse.ArgumentParser:
     atk.add_argument("--continue-after-success", action="store_true", help="continue testing after finding credentials")
     atk.add_argument("--output", type=str, default="credentials.txt", help="output file for found credentials")
     atk.add_argument("--json-report", action="store_true", help="save a JSON report when finished")
+
+    # HTTP-mode-specific options
+    atk.add_argument("--form-action", default="", help="POST endpoint URL (HTTP mode; auto-detected if omitted)")
+    atk.add_argument("--username-field", default="", help="form field name for username (HTTP mode; auto-detected)")
+    atk.add_argument("--password-field", default="", help="form field name for password (HTTP mode; auto-detected)")
+    atk.add_argument("--csrf-field", default="", help="CSRF token field name for auto-extraction (HTTP mode)")
+    atk.add_argument(
+        "--extra-fields", default="",
+        help="additional POST fields as key=value,key2=value2 (HTTP mode)",
+    )
+    atk.add_argument(
+        "--follow-redirects", action="store_true",
+        help="follow HTTP redirects (HTTP mode; default: don't follow)",
+    )
     atk.set_defaults(func=_cmd_attack)
 
     # ── bluecrack demo ─────────────────────────────────────────────

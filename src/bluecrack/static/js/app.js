@@ -29,6 +29,9 @@ const DOM = {
   successString: document.getElementById('successString'),
 
   // Engine Settings
+  attackMode:           document.getElementById('attackMode'),
+  httpModeOptions:      document.getElementById('httpModeOptions'),
+  headlessGroup:        document.getElementById('headlessGroup'),
   threads:              document.getElementById('threads'),
   delay:                document.getElementById('delay'),
   jitter:               document.getElementById('jitter'),
@@ -37,6 +40,13 @@ const DOM = {
   maxAttempts:          document.getElementById('maxAttempts'),
   headless:             document.getElementById('headless'),
   continueAfterSuccess: document.getElementById('continueAfterSuccess'),
+
+  // HTTP Mode Options
+  formAction:      document.getElementById('formAction'),
+  usernameField:   document.getElementById('usernameField'),
+  passwordField:   document.getElementById('passwordField'),
+  csrfField:       document.getElementById('csrfField'),
+  followRedirects: document.getElementById('followRedirects'),
 
   // Tor & Proxy
   enableTor:      document.getElementById('enableTor'),
@@ -278,6 +288,9 @@ async function startAttack() {
     error_msg:      DOM.errorString.value.trim(),
     success_msg:    DOM.successString.value.trim(),
 
+    // Attack mode
+    mode:           DOM.attackMode.value,
+
     // Engine
     threads:                parseInt(DOM.threads.value, 10)   || 1,
     delay:                  parseFloat(DOM.delay.value)       || 0,
@@ -294,6 +307,15 @@ async function startAttack() {
     tor_shift_every:  parseInt(DOM.torShiftEvery.value, 10)  || 10,
     proxy:            DOM.proxy.value.trim(),
   };
+
+  // Add HTTP-mode-specific fields
+  if (config.mode === 'http') {
+    config.form_action     = DOM.formAction.value.trim();
+    config.username_field  = DOM.usernameField.value.trim();
+    config.password_field  = DOM.passwordField.value.trim();
+    config.csrf_field      = DOM.csrfField.value.trim();
+    config.follow_redirects = DOM.followRedirects.checked;
+  }
 
   // Validate minimum fields
   if (!config.target_url) {
@@ -707,6 +729,25 @@ document.addEventListener('DOMContentLoaded', () => {
   DOM.tabButtons.forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
+
+  // ── Attack Mode Toggle ──
+  function onModeChange() {
+    const mode = DOM.attackMode.value;
+    const isHttp = mode === 'http';
+
+    // Show/hide HTTP-specific options
+    DOM.httpModeOptions.style.display = isHttp ? 'block' : 'none';
+
+    // Hide headless toggle in HTTP mode (irrelevant)
+    DOM.headlessGroup.style.display = isHttp ? 'none' : '';
+
+    // Default higher threads for HTTP mode
+    if (isHttp && parseInt(DOM.threads.value, 10) <= 1) {
+      DOM.threads.value = '4';
+    }
+  }
+
+  DOM.attackMode.addEventListener('change', onModeChange);
 
   // ── Header Actions ──
   if (DOM.btnLaunchDemo) {

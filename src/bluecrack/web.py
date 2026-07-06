@@ -19,6 +19,7 @@ from flask import Flask, Response, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
 from .engine import AttackEngine
+from .http_engine import HTTPAttackEngine
 from .utils import (
     generate_cupp_wordlist,
     generate_sequence_wordlist,
@@ -39,8 +40,8 @@ app = Flask(
 app.config["SECRET_KEY"] = os.urandom(24).hex()
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
 
-# Global engine instance
-engine = AttackEngine()
+# Global engine instance (switchable between AttackEngine and HTTPAttackEngine)
+engine: Any = AttackEngine()
 
 # Store last generated wordlist path
 _last_wordlist_path: str = ""
@@ -70,13 +71,18 @@ def _on_finished(found: bool, message: str) -> None:
     socketio.emit("finished", {"found": found, "message": message})
 
 
+def _wire_callbacks(eng: Any) -> None:
+    """Wire the SocketIO callbacks onto the given engine instance."""
+    eng.set_callbacks(
+        log_cb=_on_log,
+        progress_cb=_on_progress,
+        metrics_cb=_on_metrics,
+        finished_cb=_on_finished,
+    )
+
+
 # Wire up engine callbacks
-engine.set_callbacks(
-    log_cb=_on_log,
-    progress_cb=_on_progress,
-    metrics_cb=_on_metrics,
-    finished_cb=_on_finished,
-)
+_wire_callbacks(engine)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -94,10 +100,17 @@ def index():
 @app.route("/api/attack/start", methods=["POST"])
 def start_attack():
     """Start a brute-force attack with the given configuration."""
+    global engine
+
     if engine.is_running:
         return jsonify({"status": "error", "message": "Attack already running."}), 409
 
     data = request.get_json(silent=True) or {}
+
+    # Parse attack mode
+    attack_mode = data.get("mode", "browser").strip().lower()
+    if attack_mode not in ("browser", "http"):
+        attack_mode = "browser"
 
     # Parse target URL
     target_url = data.get("target_url", "").strip()
@@ -142,6 +155,13 @@ def start_attack():
         else:
             proxies = [proxy_input]
 
+    # Switch engine based on mode
+    if attack_mode == "http":
+        engine = HTTPAttackEngine()
+    else:
+        engine = AttackEngine()
+    _wire_callbacks(engine)
+
     # Build context
     ctx: Dict[str, Any] = {
         "target_url": target_url,
@@ -163,13 +183,32 @@ def start_attack():
         "continue_after_success": bool(data.get("continue_after_success", False)),
     }
 
+    # Add HTTP-mode-specific fields
+    if attack_mode == "http":
+        ctx["form_action"] = data.get("form_action", "").strip()
+        ctx["username_field"] = data.get("username_field", "").strip()
+        ctx["password_field"] = data.get("password_field", "").strip()
+        ctx["csrf_field"] = data.get("csrf_field", "").strip()
+        ctx["follow_redirects"] = bool(data.get("follow_redirects", False))
+        # Parse extra_fields from comma-separated key=value pairs
+        extra_raw = data.get("extra_fields", "").strip()
+        extra_fields: Dict[str, str] = {}
+        if extra_raw:
+            for pair in extra_raw.split(","):
+                if "=" in pair:
+                    k, v = pair.split("=", 1)
+                    extra_fields[k.strip()] = v.strip()
+        ctx["extra_fields"] = extra_fields
+
     total = len(users) * len(passwords)
+    mode_label = "⚡ HTTP" if attack_mode == "http" else "🌐 Browser"
     engine.start(ctx)
 
     return jsonify({
         "status": "ok",
-        "message": f"Attack started: {len(users)} user(s) × {len(passwords)} password(s) = {total} combos",
+        "message": f"{mode_label} attack started: {len(users)} user(s) × {len(passwords)} password(s) = {total} combos",
         "total": total,
+        "mode": attack_mode,
     })
 
 

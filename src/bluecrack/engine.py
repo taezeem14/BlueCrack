@@ -506,18 +506,11 @@ class AttackEngine:
                                         q.queue.clear()
                                     break
 
-                                # Restart browser for clean state
+                                # Clear browser state for clean session (reuse browser)
                                 try:
-                                    wd.quit()
+                                    wd.delete_all_cookies()
                                 except Exception:
                                     pass
-                                wd = create_driver_safe(options)
-                                if wd is None:
-                                    self._log(
-                                        "[-] Could not restart browser after success"
-                                    )
-                                    break
-                                continue
                             else:
                                 with self._metrics_lock:
                                     self.metrics["failures"] += 1

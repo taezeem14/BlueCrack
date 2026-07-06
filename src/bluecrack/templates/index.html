@@ -101,6 +101,15 @@
         <div class="card">
           <h2 class="card-title">Engine Settings</h2>
 
+          <!-- Attack Mode Selector -->
+          <div class="form-group">
+            <label for="attackMode">Attack Mode</label>
+            <select id="attackMode">
+              <option value="browser">🌐 Browser Mode (Selenium — for JS-heavy sites)</option>
+              <option value="http">⚡ HTTP Mode (Hydra-style — 100x faster)</option>
+            </select>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
               <label for="threads">Threads</label>
@@ -132,7 +141,7 @@
           </div>
 
           <div class="form-row">
-            <div class="form-group checkbox-group">
+            <div class="form-group checkbox-group" id="headlessGroup">
               <label class="checkbox-label">
                 <input type="checkbox" id="headless" checked />
                 <span class="checkmark"></span>
@@ -147,6 +156,43 @@
               </label>
             </div>
           </div>
+
+          <!-- HTTP Mode Options (shown when HTTP mode selected) -->
+          <div id="httpModeOptions" style="display: none;">
+            <hr style="border-color: rgba(255,255,255,0.08); margin: 20px 0;" />
+            <h3 style="color: var(--accent-primary, #4f46e5); font-size: 0.95rem; margin-bottom: 12px;">⚡ HTTP Mode Options</h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="formAction">Form Action URL <span class="hint">(auto-detected if blank)</span></label>
+                <input type="text" id="formAction" placeholder="https://target.com/api/login" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="usernameField">Username Field Name <span class="hint">(auto-detected)</span></label>
+                <input type="text" id="usernameField" placeholder="username" />
+              </div>
+              <div class="form-group">
+                <label for="passwordField">Password Field Name <span class="hint">(auto-detected)</span></label>
+                <input type="text" id="passwordField" placeholder="password" />
+              </div>
+              <div class="form-group">
+                <label for="csrfField">CSRF Field Name <span class="hint">(auto-detected)</span></label>
+                <input type="text" id="csrfField" placeholder="csrf_token" />
+              </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="followRedirects" />
+                <span class="checkmark"></span>
+                Follow HTTP Redirects
+              </label>
+            </div>
+          </div>
+
         </div>
       </section>
 
