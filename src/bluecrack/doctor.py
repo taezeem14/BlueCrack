@@ -11,8 +11,6 @@ import socket
 import subprocess
 import sys
 
-from selenium import webdriver
-
 from ._version import __version__
 from .constants import (
     _BOLD,
@@ -93,35 +91,41 @@ def run_doctor() -> None:
         print(f"  [-] Chrome browser: Not detected! Selenium requires Google Chrome. {_RED}✘{_RESET}")
 
     # 3. Selenium & Driver check
+    webdriver = None
     try:
-        import selenium  # noqa: F401
-        print(f"  [+] Selenium library: Installed ({webdriver.__version__}) {_GREEN}✔{_RESET}")
+        import selenium
+        from selenium import webdriver as _wd
+        webdriver = _wd
+        sel_ver = getattr(selenium, '__version__', 'unknown')
+        print(f"  [+] Selenium library: Installed ({sel_ver}) {_GREEN}✔{_RESET}")
         passed_checks += 1
-
     except ImportError:
         print(f"  [-] Selenium library: Not found! Run: pip install selenium {_RED}✘{_RESET}")
 
     # 4. Headless WebDriver Creation Check
-    print("  [*] Testing headless Chrome driver creation...")
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-dev-shm-usage")
-    driver = None
-    try:
-        driver = webdriver.Chrome(options=options)
-        print(f"  [+] WebDriver test: Headless driver created successfully {_GREEN}✔{_RESET}")
-        passed_checks += 1
-    except Exception as e:
-        print(f"  [-] WebDriver test: Failed to create driver! Details: {e} {_RED}✘{_RESET}")
-        print("      Ensure Chrome is updated and no conflicting driver version exists.")
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception:
-                pass
+    if webdriver is not None:
+        print("  [*] Testing headless Chrome driver creation...")
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-dev-shm-usage")
+        driver = None
+        try:
+            driver = webdriver.Chrome(options=options)
+            print(f"  [+] WebDriver test: Headless driver created successfully {_GREEN}✔{_RESET}")
+            passed_checks += 1
+        except Exception as e:
+            print(f"  [-] WebDriver test: Failed to create driver! Details: {e} {_RED}✘{_RESET}")
+            print("      Ensure Chrome is updated and no conflicting driver version exists.")
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+    else:
+        print(f"  [-] WebDriver test: Skipped (Selenium not installed) {_YELLOW}⚠{_RESET}")
 
     # 5. Core web UI libraries (Flask / Flask-SocketIO)
     flask_ok = True
@@ -133,8 +137,6 @@ def run_doctor() -> None:
         print(f"  [-] Web UI dependencies: Missing module: {e} {_RED}✘{_RESET}")
 
     if flask_ok:
-        import flask
-        import flask_socketio
         fs_ver = getattr(flask_socketio, "__version__", "installed")
         print(f"  [+] Web UI libraries: Flask ({flask.__version__}) & Flask-SocketIO ({fs_ver}) {_GREEN}✔{_RESET}")
         passed_checks += 1
@@ -162,13 +164,16 @@ def run_doctor() -> None:
     # 7. Network checks
     print("  [*] Checking network connectivity...")
     net_ok = False
+    _orig_timeout = socket.getdefaulttimeout()
     try:
         socket.setdefaulttimeout(3.0)
         host = socket.gethostbyname("google.com")
         socket.create_connection((host, 80), 2.0)
         net_ok = True
-    except Exception:
+    except (OSError, socket.gaierror):
         pass
+    finally:
+        socket.setdefaulttimeout(_orig_timeout)
 
     if net_ok:
         print(f"  [+] Internet connectivity: Online {_GREEN}✔{_RESET}")

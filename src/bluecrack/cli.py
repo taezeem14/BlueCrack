@@ -58,9 +58,9 @@ def _cmd_doctor(args: argparse.Namespace) -> None:
 
 def _cmd_plugin(args: argparse.Namespace) -> None:
     """Run CUPP or wordlist plugin utilities."""
-    import os
+    import subprocess
     if args.plugin_action == "cupp":
-        os.system(f"{sys.executable} -m bluecrack.vendor.cupp -i")
+        subprocess.run([sys.executable, "-m", "bluecrack.vendor.cupp", "-i"])
     elif args.plugin_action == "sequence":
         from bluecrack.utils import generate_sequence_wordlist
         path = generate_sequence_wordlist(

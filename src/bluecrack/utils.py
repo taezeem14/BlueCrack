@@ -203,8 +203,8 @@ def save_json_report(
     try:
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[-] Warning: Failed to save JSON report to {report_path}: {e}")
 
 
 def get_package_data_path(filename: str) -> str:
@@ -270,7 +270,7 @@ def generate_cupp_wordlist(
 
         outfile = profile["name"] + ".txt"
         if os.path.exists(outfile):
-            with open(outfile) as f:
+            with open(outfile, encoding="utf-8") as f:
                 cnt = sum(1 for _ in f)
             if log_callback:
                 log_callback(f"[+] CUPP done! {cnt} passwords → {outfile}")

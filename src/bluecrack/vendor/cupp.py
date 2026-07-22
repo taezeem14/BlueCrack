@@ -117,15 +117,11 @@ def komb(seq, start, special=""):
 
 
 def print_to_file(filename, unique_list_finished):
-    f = open(filename, "w")
+    f = open(filename, "w", encoding="utf-8")
     unique_list_finished.sort()
     f.write(os.linesep.join(unique_list_finished))
     f.close()
-    f = open(filename, "r")
-    lines = 0
-    for line in f:
-        lines += 1
-    f.close()
+    lines = len(unique_list_finished)
     print(
         "[+] Saving dictionary to \033[1;31m"
         + filename

@@ -43,8 +43,8 @@ graph TD
     end
 
     subgraph Backend ["Python Server (Backend)"]
-        App["app.py (Flask Web Server)"]
-        Engine["engine.py (AttackEngine & callbacks)"]
+        App["web.py (Flask Web Server)"]
+        Engine["engine.py & http_engine.py (AttackEngine)"]
         App <--> Engine
     end
 
@@ -56,7 +56,7 @@ graph TD
 
     subgraph TargetSystem ["Target Environment"]
         Target["Target Login Form"]
-        DemoSrv["demo_server.py (Subprocess)"]
+        DemoSrv["demo.py (Subprocess)"]
     end
 
     JS <-->|Socket.IO & REST APIs| App
@@ -81,9 +81,9 @@ sequenceDiagram
     autonumber
     actor User as Security Tester
     participant UI as Web Dashboard
-    participant App as app.py (Flask)
+    participant App as web.py (Flask)
     participant Queue as Thread-Safe Queue
-    participant Engine as AttackEngine (engine.py)
+    participant Engine as AttackEngine
     participant Worker as WebDriver Worker Thread
     participant Target as Target Login Webpage
 
@@ -198,8 +198,16 @@ cd BlueCrack
 pip install -e .
 ```
 
-### 3. Prerequisites
-* **Python 3.9+**
+### 3. Optional Features
+Install extras for Tor circuit rotation and keyboard selector:
+```bash
+pip install bluecrack[tor]       # Tor IP rotation (stem)
+pip install bluecrack[keyboard]  # Manual CSS selector mode
+pip install bluecrack[all]       # Everything
+```
+
+### 4. Prerequisites
+* **Python 3.10+**
 * **Google Chrome Browser** (required for `browser` mode; optional for `http` mode)
 * **ChromeDriver** (Selenium Manager automatically fetches the correct version for you)
 
@@ -215,6 +223,8 @@ Launch the graphical dashboard:
 bluecrack
 # or explicitly
 bluecrack web --port 5000
+# Listen on all interfaces with debug mode
+bluecrack web --host 0.0.0.0 --port 8080 --debug
 ```
 Navigate to `http://127.0.0.1:5000` in your web browser. Select **HTTP Mode** or **Browser Mode** directly from the settings panel.
 
@@ -284,6 +294,9 @@ bluecrack plugin sequence --start 1000 --end 9999 --output sequence.txt
 | `--csrf-field` | `TEXT` | Custom token field name for anti-CSRF extraction (http mode; auto-detected if blank) |
 | `--extra-fields` | `TEXT` | Extra post fields as comma-separated `key=val` pairs (http mode) |
 | `--follow-redirects`| `FLAG` | Follow HTTP redirects on form submission (http mode) |
+| `-i`, `--interactive` | `FLAG` | Launch the interactive setup wizard |
+| `--max-attempts` | `INT` | Maximum total attempts before stopping (0 = unlimited, default: 0) |
+| `--continue-after-success` | `FLAG` | Continue testing remaining credentials after a successful login |
 
 ---
 
@@ -293,6 +306,59 @@ To practice or demonstrate credential testing safely without hitting live server
 2. Click **`🚀 Demo Mode`** at the top right.
 3. The server will spin up `bluecrack demo` in the background and auto-populate all target URLs and fields.
 4. Click **`▶ Start Attack`** to watch the worker threads execute live!
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+For development setup:
+```bash
+pip install -e ".[dev]"
+ruff check src/
+python -m pytest
+```
+
+---
+
+## 📋 Changelog
+
+### v3.2.0
+* Fixed critical `doctor` command crash when selenium is not installed
+* Fixed CVE-2024-35195 by bumping `requests` minimum to ≥2.32
+* Fixed Windows encoding crash when reading CUPP wordlists
+* Updated Chrome user agent strings to v131
+* Bumped minimum Python version to 3.10 (3.9 reached EOL)
+* Bumped all dependency minimum versions
+* Added `--max-attempts`, `--continue-after-success`, `-i` to CLI docs
+* Added optional dependency installation instructions
+* Fixed `os.system()` path-with-spaces bug in CLI plugin runner
+* Improved error reporting in JSON report saving
+
+### v3.1.4
+* Raw HTTP attack mode (Hydra-style)
+* Demo login server with CSRF, rate limiting, and multi-account support
+* Doctor diagnostic command
+* PyPI package restructuring
+
+---
+
+## ❓ FAQ
+
+**Q: Do I need Chrome for HTTP mode?**
+A: No. HTTP mode uses raw `requests` and does not require Chrome or Selenium.
+
+**Q: `bluecrack doctor` crashes with ModuleNotFoundError?**
+A: Update to v3.2.0+ where this is fixed. Run `pip install -U bluecrack`.
+
+**Q: Dependencies not installed with `pip install bluecrack`?**
+A: Clear your pip cache and reinstall: `pip install --no-cache-dir -U bluecrack`.
 
 ---
 

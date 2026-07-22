@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 
@@ -8,8 +8,8 @@ name = "bluecrack"
 dynamic = ["version"]
 description = "Hydra-style browser-based credential auditing framework powered by Selenium WebDriver"
 readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.9"
+license = "MIT"
+requires-python = ">=3.10"
 authors = [
     {name = "Muhammad Taezeem Tariq", email = "taezeem14@gmail.com"},
 ]
@@ -24,10 +24,8 @@ classifiers = [
     "Framework :: Flask",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -37,10 +35,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "selenium>=4.15",
-    "flask>=3.0",
-    "flask-socketio>=5.3",
-    "requests>=2.31",
+    "selenium>=4.25",
+    "flask>=3.1",
+    "flask-socketio>=5.5",
+    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
@@ -81,7 +79,7 @@ bluecrack = [
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 120
 exclude = [
     "src/bluecrack/vendor/**",
