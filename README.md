@@ -329,6 +329,11 @@ python -m pytest
 
 ## 📋 Changelog
 
+### v3.3.0
+* Bumped all dependencies to latest: selenium ≥4.46, flask ≥3.1.3, flask-socketio ≥5.6, requests ≥2.34
+* Bumped build-system setuptools to ≥83.0
+* Synced requirements.txt with pyproject.toml
+
 ### v3.2.0
 * Fixed critical `doctor` command crash when selenium is not installed
 * Fixed CVE-2024-35195 by bumping `requests` minimum to ≥2.32
