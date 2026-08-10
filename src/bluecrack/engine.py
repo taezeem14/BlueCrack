@@ -487,12 +487,20 @@ class AttackEngine:
                                 with self._metrics_lock:
                                     self.metrics["successes"] += 1
                                 try:
-                                    with open(
-                                        "credentials.txt", "a", encoding="utf-8"
-                                    ) as cf:
-                                        cf.write(
-                                            f"{user}:{pwd}\n"
-                                        )
+                                    entry = f"{user}:{pwd}\n"
+                                    existing = set()
+                                    try:
+                                        with open(
+                                            "credentials.txt", "r", encoding="utf-8"
+                                        ) as rf:
+                                            existing = set(rf.readlines())
+                                    except FileNotFoundError:
+                                        pass
+                                    if entry not in existing:
+                                        with open(
+                                            "credentials.txt", "a", encoding="utf-8"
+                                        ) as cf:
+                                            cf.write(entry)
                                 except Exception:
                                     pass
 

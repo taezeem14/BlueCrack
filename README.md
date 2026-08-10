@@ -329,6 +329,14 @@ python -m pytest
 
 ## 📋 Changelog
 
+### v3.4.0
+* Fixed duplicate credential entries in `credentials.txt` output — entries are now deduplicated before writing
+* Fixed credential ordering: output file entries are no longer appended out of order across concurrent workers
+* Bumped `flask-socketio` minimum to ≥5.6.1
+* Bumped `requests` minimum to ≥2.34.2
+* Bumped build-system `setuptools` to ≥84.0
+* Added Python 3.14 support to CI matrix and classifiers
+
 ### v3.3.0
 * Bumped all dependencies to latest: selenium ≥4.46, flask ≥3.1.3, flask-socketio ≥5.6, requests ≥2.34
 * Bumped build-system setuptools to ≥83.0
