@@ -162,24 +162,35 @@ def start_attack():
         engine = AttackEngine()
     _wire_callbacks(engine)
 
-    # Build context
+    # Build context safely
+    try:
+        threads = max(1, min(50, int(data.get("threads", 1))))
+        delay = float(data.get("delay", 0))
+        jitter = float(data.get("jitter", 0))
+        cooldown = int(data.get("cooldown", 12))
+        tor_port = int(data.get("tor_port", 9051))
+        tor_shift_every = int(data.get("tor_shift_every", 10))
+        max_attempts = int(data.get("max_attempts", 0))
+    except (ValueError, TypeError) as e:
+        return jsonify({"status": "error", "message": f"Invalid configuration parameter: {e}"}), 400
+
     ctx: Dict[str, Any] = {
         "target_url": target_url,
         "users": users,
         "passwords": passwords,
-        "threads": max(1, min(50, int(data.get("threads", 1)))),
-        "delay": float(data.get("delay", 0)),
-        "jitter": float(data.get("jitter", 0)),
+        "threads": threads,
+        "delay": delay,
+        "jitter": jitter,
         "error_msg": data.get("error_msg", "").strip().lower(),
         "success_msg": data.get("success_msg", "").strip(),
         "limit_text": data.get("limit_text", "too many requests").strip().lower(),
-        "cooldown": int(data.get("cooldown", 12)),
+        "cooldown": cooldown,
         "headless": bool(data.get("headless", False)),
         "proxies": proxies,
         "use_tor": bool(data.get("use_tor", False)),
-        "tor_port": int(data.get("tor_port", 9051)),
-        "tor_shift_every": int(data.get("tor_shift_every", 10)),
-        "max_attempts": int(data.get("max_attempts", 0)),
+        "tor_port": tor_port,
+        "tor_shift_every": tor_shift_every,
+        "max_attempts": max_attempts,
         "continue_after_success": bool(data.get("continue_after_success", False)),
     }
 
@@ -427,6 +438,10 @@ def start_demo_server():
                     break
 
             if not started:
+                try:
+                    demo_process.terminate()
+                except Exception:
+                    pass
                 demo_process = None
                 return jsonify({
                     "status": "error",

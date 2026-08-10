@@ -217,30 +217,43 @@ def run_attack_cli(args: argparse.Namespace) -> None:
         if args.username:
             users.append(args.username)
         if args.userfile:
-            with open(args.userfile, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    users.append(line.strip())
+            try:
+                with open(args.userfile, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        if line.strip():
+                            users.append(line.strip())
+            except Exception as e:
+                print(f"{_RED}[-] Failed to read username file '{args.userfile}': {e}{_RESET}")
+                sys.exit(1)
 
         # LOAD PASSWORDS
         passwords: List[str] = []
         if args.password:
             passwords.append(args.password)
         if args.passfile:
-            with open(args.passfile, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    px = line.strip()
-                    if px:
-                        passwords.append(px)
+            try:
+                with open(args.passfile, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        px = line.strip()
+                        if px:
+                            passwords.append(px)
+            except Exception as e:
+                print(f"{_RED}[-] Failed to read password file '{args.passfile}': {e}{_RESET}")
+                sys.exit(1)
 
         # LOAD PROXIES
         proxies: List[str] = []
         if getattr(args, "proxy", None):
             proxies.append(args.proxy)
         if getattr(args, "proxyfile", None):
-            with open(args.proxyfile, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    if line.strip():
-                        proxies.append(line.strip())
+            try:
+                with open(args.proxyfile, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        if line.strip():
+                            proxies.append(line.strip())
+            except Exception as e:
+                print(f"{_RED}[-] Failed to read proxy file '{args.proxyfile}': {e}{_RESET}")
+                sys.exit(1)
 
         TARGET_URL: str = args.url
         if (
@@ -528,8 +541,24 @@ def _run_browser_attack(
     print("\nSelectors locked! Press ENTER to launch brute...")
 
     # TEST THE SELECTORS IMMEDIATELY
-    driver.find_element(By.CSS_SELECTOR, username_selector)
-    driver.find_element(By.CSS_SELECTOR, password_selector)
+    if not username_selector or not password_selector:
+        print(f"{_RED}[-] Could not determine input selectors. Exiting...{_RESET}")
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        return
+
+    try:
+        driver.find_element(By.CSS_SELECTOR, username_selector)
+        driver.find_element(By.CSS_SELECTOR, password_selector)
+    except Exception as e:
+        print(f"{_RED}[-] Failed to find locked selectors on page: {e}{_RESET}")
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        return
 
     if HAS_KEYBOARD:
         keyboard.wait("enter")
@@ -718,8 +747,6 @@ def _run_browser_attack(
                                 continue
                         elif current_url != target_url and "login" not in current_url.lower():
                             is_success = True
-                        elif ERROR_MSG:
-                            is_success = True
 
                         if is_success:
                             print(
@@ -740,8 +767,12 @@ def _run_browser_attack(
 
                             if not CONTINUE_AFTER_SUCCESS:
                                 found_event.set()
-                                with q.mutex:
-                                    q.queue.clear()
+                                try:
+                                    while not q.empty():
+                                        q.get_nowait()
+                                        q.task_done()
+                                except Exception:
+                                    pass
                                 q.task_done()
                                 break
 
@@ -787,7 +818,7 @@ def _run_browser_attack(
         while not q.empty() and not found_event.is_set() and not global_stop.is_set():
             time.sleep(0.1)
 
-        if not found_event.is_set():
+        if not found_event.is_set() and not global_stop.is_set():
             q.join()
 
         cli_end_time = time.time()

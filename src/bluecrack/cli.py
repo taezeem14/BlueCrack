@@ -22,9 +22,9 @@ from bluecrack._version import __version__
 
 def _configure_encoding() -> None:
     """Reconfigure stdout/stderr to UTF-8 on Windows to prevent encoding crashes."""
-    if hasattr(sys.stdout, "reconfigure"):
+    if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    if hasattr(sys.stderr, "reconfigure"):
+    if sys.stderr is not None and hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
 
 
@@ -60,7 +60,10 @@ def _cmd_plugin(args: argparse.Namespace) -> None:
     """Run CUPP or wordlist plugin utilities."""
     import subprocess
     if args.plugin_action == "cupp":
-        subprocess.run([sys.executable, "-m", "bluecrack.vendor.cupp", "-i"])
+        try:
+            subprocess.run([sys.executable, "-m", "bluecrack.vendor.cupp", "-i"])
+        except Exception as e:
+            print(f"[-] Error launching CUPP plugin: {e}")
     elif args.plugin_action == "sequence":
         from bluecrack.utils import generate_sequence_wordlist
         path = generate_sequence_wordlist(

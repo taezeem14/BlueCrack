@@ -329,6 +329,15 @@ python -m pytest
 
 ## 📋 Changelog
 
+### v3.4.1
+* Fixed `q.join()` deadlock when attack is interrupted or cancelled
+* Fixed thread-safety race condition on concurrent `credentials.txt` writes
+* Fixed false-positive success detection in CLI mode when error message parameter is set
+* Fixed unhandled `FileNotFoundError` exceptions when loading user/password/proxy files
+* Added safe non-null check for `sys.stdout` encoding configuration
+* Fixed type conversion error handling in Flask Web API endpoints
+* Fixed demo server process leak on failed port binding
+
 ### v3.4.0
 * Fixed duplicate credential entries in `credentials.txt` output — entries are now deduplicated before writing
 * Fixed credential ordering: output file entries are no longer appended out of order across concurrent workers
