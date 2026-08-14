@@ -425,6 +425,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 🔧 v4.0.2 — UI Refinement (August 2026)
+
+- **🎨 UI Restoration**: Restored the original, classic Web UI layout.
+- **✨ Icon Overhaul**: Replaced the default emojis with crisp, responsive **FontAwesome Icons** throughout the entire page.
+- **🌙 Removed Theme Switcher**: Deactivated the light/dark switcher and locked the interface permanently in the premium cosmic dark theme.
+
+---
+
 ## 🔧 v4.0.1 — Stability Patch (August 2026)
 
 - **🔴 CRITICAL FIX**: Restored 10 missing event listeners in `app.js` — Start, Stop, Export, Clear, Demo, Eco Mode, CUPP Generate/Use, Sequence Generate/Use buttons were completely non-functional
