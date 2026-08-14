@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,9 +10,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
 
   <!-- Socket.IO Client -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -37,9 +40,12 @@
         <p class="header-subtitle">Advanced Browser Penetration Framework</p>
       </div>
       <div class="header-actions">
-        <button class="btn btn-ghost btn-sm" id="btnLaunchDemo" type="button">🚀 Demo Mode</button>
-        <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button">🍃 Eco Mode</button>
-        <button class="theme-toggle" id="btnThemeToggle" type="button" title="Toggle theme">☀️</button>
+        <button class="btn btn-ghost btn-sm" id="btnLaunchDemo" type="button">
+          <i class="fa-solid fa-rocket"></i> Demo Mode
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button">
+          <i class="fa-solid fa-leaf"></i> Eco Mode
+        </button>
         <div class="header-badge">
           <span class="status-dot" id="connectionDot"></span>
           <span class="status-label" id="connectionLabel">Connecting…</span>
@@ -51,8 +57,12 @@
          SESSION RESUME BANNER
          ════════════════════════════════════════════ -->
     <div class="resume-banner" id="resumeBanner">
-      <span class="resume-text">💾 <strong>Previous session found!</strong> Resume the interrupted attack where you left off?</span>
-      <button class="btn btn-primary btn-sm" id="btnResume" type="button">▶ Resume</button>
+      <span class="resume-text">
+        <i class="fa-solid fa-floppy-disk"></i> <strong>Previous session found!</strong> Resume the interrupted attack where you left off?
+      </span>
+      <button class="btn btn-primary btn-sm" id="btnResume" type="button">
+        <i class="fa-solid fa-play"></i> Resume
+      </button>
       <button class="btn btn-ghost btn-sm" id="btnDismissResume" type="button">Dismiss</button>
     </div>
 
@@ -60,14 +70,30 @@
          TAB NAVIGATION
          ════════════════════════════════════════════ -->
     <nav class="tabs-nav" role="tablist">
-      <button class="tab-btn active" data-tab="target" role="tab" aria-selected="true">Target Config</button>
-      <button class="tab-btn" data-tab="engine" role="tab" aria-selected="false">Engine Settings</button>
-      <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false">Tor &amp; Proxy</button>
-      <button class="tab-btn" data-tab="cupp" role="tab" aria-selected="false">CUPP Generator</button>
-      <button class="tab-btn" data-tab="sequence" role="tab" aria-selected="false">Sequence Generator</button>
-      <button class="tab-btn" data-tab="targets" role="tab" aria-selected="false">🌐 Targets</button>
-      <button class="tab-btn" data-tab="schedule" role="tab" aria-selected="false">🕐 Schedule</button>
-      <button class="tab-btn" data-tab="notifications" role="tab" aria-selected="false">🔔 Alerts</button>
+      <button class="tab-btn active" data-tab="target" role="tab" aria-selected="true">
+        <i class="fa-solid fa-crosshairs"></i> Target Config
+      </button>
+      <button class="tab-btn" data-tab="engine" role="tab" aria-selected="false">
+        <i class="fa-solid fa-sliders"></i> Engine Settings
+      </button>
+      <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false">
+        <i class="fa-solid fa-shield-halved"></i> Tor &amp; Proxy
+      </button>
+      <button class="tab-btn" data-tab="cupp" role="tab" aria-selected="false">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> CUPP Generator
+      </button>
+      <button class="tab-btn" data-tab="sequence" role="tab" aria-selected="false">
+        <i class="fa-solid fa-list-ol"></i> Sequence
+      </button>
+      <button class="tab-btn" data-tab="targets" role="tab" aria-selected="false">
+        <i class="fa-solid fa-globe"></i> Targets Queue
+      </button>
+      <button class="tab-btn" data-tab="schedule" role="tab" aria-selected="false">
+        <i class="fa-solid fa-clock"></i> Schedule
+      </button>
+      <button class="tab-btn" data-tab="notifications" role="tab" aria-selected="false">
+        <i class="fa-solid fa-bell"></i> Alerts
+      </button>
     </nav>
 
     <!-- ════════════════════════════════════════════
@@ -78,7 +104,7 @@
       <!-- ── Target Config ── -->
       <section class="tab-content active" id="tab-target" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">Target Configuration</h2>
+          <h2 class="card-title"><i class="fa-solid fa-crosshairs text-indigo"></i> Target Configuration</h2>
 
           <div class="form-group">
             <label for="targetUrl">Target URL</label>
@@ -94,7 +120,9 @@
               <label for="password">Password <span class="hint">(single password or file path)</span></label>
               <div class="input-with-btn">
                 <input type="text" id="password" placeholder="password123  or  /path/to/wordlist.txt" />
-                <button class="btn btn-ghost btn-sm" id="btnBrowsePasswords" type="button">Browse</button>
+                <button class="btn btn-ghost btn-sm" id="btnBrowsePasswords" type="button">
+                  <i class="fa-solid fa-folder-open"></i> Browse
+                </button>
               </div>
             </div>
           </div>
@@ -115,7 +143,7 @@
       <!-- ── Engine Settings ── -->
       <section class="tab-content" id="tab-engine" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">Engine Settings</h2>
+          <h2 class="card-title"><i class="fa-solid fa-sliders text-indigo"></i> Engine Settings</h2>
 
           <!-- Attack Mode Selector -->
           <div class="form-group">
@@ -156,7 +184,7 @@
             </div>
           </div>
 
-          <div class="form-row">
+          <div class="form-row checkbox-row">
             <div class="form-group checkbox-group" id="headlessGroup">
               <label class="checkbox-label">
                 <input type="checkbox" id="headless" checked />
@@ -182,8 +210,8 @@
 
           <!-- HTTP Mode Options (shown when HTTP mode selected) -->
           <div id="httpModeOptions" style="display: none;">
-            <hr style="border-color: rgba(255,255,255,0.08); margin: 20px 0;" />
-            <h3 style="color: var(--accent-primary, #4f46e5); font-size: 0.95rem; margin-bottom: 12px;">⚡ HTTP Mode Options</h3>
+            <hr class="divider" />
+            <h3 class="subsection-title"><i class="fa-solid fa-bolt text-indigo"></i> HTTP Mode Options</h3>
 
             <div class="form-row">
               <div class="form-group">
@@ -222,7 +250,7 @@
       <!-- ── Tor & Proxy ── -->
       <section class="tab-content" id="tab-proxy" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">Tor &amp; Proxy Configuration</h2>
+          <h2 class="card-title"><i class="fa-solid fa-shield-halved text-indigo"></i> Tor &amp; Proxy Configuration</h2>
 
           <div class="form-row">
             <div class="form-group checkbox-group">
@@ -252,7 +280,7 @@
       <!-- ── CUPP Generator ── -->
       <section class="tab-content" id="tab-cupp" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">CUPP — Common User Passwords Profiler</h2>
+          <h2 class="card-title"><i class="fa-solid fa-wand-magic-sparkles text-indigo"></i> CUPP Generator</h2>
 
           <div class="form-row">
             <div class="form-group">
@@ -339,8 +367,12 @@
           </div>
 
           <div class="form-actions">
-            <button class="btn btn-primary" id="btnGenerateCupp" type="button">Generate Wordlist</button>
-            <button class="btn btn-secondary" id="btnUseCupp" type="button" disabled>Use Result</button>
+            <button class="btn btn-primary" id="btnGenerateCupp" type="button">
+              <i class="fa-solid fa-gears"></i> Generate Wordlist
+            </button>
+            <button class="btn btn-secondary" id="btnUseCupp" type="button" disabled>
+              <i class="fa-solid fa-circle-check"></i> Use Result
+            </button>
             <span class="cupp-status" id="cuppStatus"></span>
           </div>
         </div>
@@ -349,7 +381,7 @@
       <!-- ── Sequence Generator ── -->
       <section class="tab-content" id="tab-sequence" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">Numeric Sequence Generator</h2>
+          <h2 class="card-title"><i class="fa-solid fa-list-ol text-indigo"></i> Numeric Sequence Generator</h2>
 
           <div class="form-row">
             <div class="form-group">
@@ -378,8 +410,12 @@
           </div>
 
           <div class="form-actions">
-            <button class="btn btn-secondary" id="btnGenerateSeq" type="button">Generate Sequence</button>
-            <button class="btn btn-primary" id="btnUseSeq" type="button" disabled>Use Result</button>
+            <button class="btn btn-secondary" id="btnGenerateSeq" type="button">
+              <i class="fa-solid fa-gears"></i> Generate Sequence
+            </button>
+            <button class="btn btn-primary" id="btnUseSeq" type="button" disabled>
+              <i class="fa-solid fa-circle-check"></i> Use Result
+            </button>
             <span class="seq-status" id="seqStatus"></span>
           </div>
         </div>
@@ -388,16 +424,20 @@
       <!-- ── Targets Queue ── -->
       <section class="tab-content" id="tab-targets" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">🌐 Multi-Target Attack Queue</h2>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
+          <h2 class="card-title"><i class="fa-solid fa-globe text-indigo"></i> Multi-Target Attack Queue</h2>
+          <p class="section-description">
             Queue multiple targets and attack them sequentially. Each target uses the current configuration.
           </p>
-          <div class="form-actions" style="margin-bottom: 16px;">
-            <button class="btn btn-primary btn-sm" id="btnAddTarget" type="button">+ Add Current Config</button>
-            <button class="btn btn-start btn-sm" id="btnStartAllTargets" type="button" disabled>▶ Start All Targets</button>
+          <div class="form-actions" style="margin-bottom: 20px;">
+            <button class="btn btn-primary btn-sm" id="btnAddTarget" type="button">
+              <i class="fa-solid fa-plus"></i> Add Current Config
+            </button>
+            <button class="btn btn-start btn-sm" id="btnStartAllTargets" type="button" disabled>
+              <i class="fa-solid fa-play"></i> Start All Targets
+            </button>
           </div>
           <div class="target-list" id="targetList">
-            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No targets added yet.</p>
+            <p class="empty-message"><i class="fa-solid fa-inbox"></i> No targets added yet.</p>
           </div>
         </div>
       </section>
@@ -405,21 +445,23 @@
       <!-- ── Schedule ── -->
       <section class="tab-content" id="tab-schedule" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">🕐 Attack Scheduler</h2>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
-            Schedule attacks to run at specific times.
+          <h2 class="card-title"><i class="fa-solid fa-clock text-indigo"></i> Attack Scheduler</h2>
+          <p class="section-description">
+            Schedule attacks to run at specific dates and times.
           </p>
           <div class="form-row">
             <div class="form-group">
               <label for="scheduleTime">Run At (Date & Time)</label>
-              <input type="datetime-local" id="scheduleTime" style="padding: 10px 14px; font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-primary); background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-sm);" />
+              <input type="datetime-local" id="scheduleTime" class="datetime-input" />
             </div>
           </div>
-          <div class="form-actions" style="margin-bottom: 16px;">
-            <button class="btn btn-primary btn-sm" id="btnScheduleAttack" type="button">📅 Schedule Attack</button>
+          <div class="form-actions" style="margin-bottom: 20px;">
+            <button class="btn btn-primary btn-sm" id="btnScheduleAttack" type="button">
+              <i class="fa-solid fa-calendar-plus"></i> Schedule Attack
+            </button>
           </div>
           <div class="schedule-list" id="scheduleList">
-            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No scheduled attacks.</p>
+            <p class="empty-message"><i class="fa-solid fa-inbox"></i> No scheduled attacks.</p>
           </div>
         </div>
       </section>
@@ -427,24 +469,26 @@
       <!-- ── Notifications ── -->
       <section class="tab-content" id="tab-notifications" role="tabpanel">
         <div class="card">
-          <h2 class="card-title">🔔 Notification Alerts</h2>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
-            Get instant alerts when credentials are found.
+          <h2 class="card-title"><i class="fa-solid fa-bell text-indigo"></i> Notification Alerts</h2>
+          <p class="section-description">
+            Get instant webhook and bot notifications when valid credentials are found.
           </p>
 
           <div class="notif-section">
-            <h4>💬 Discord Webhook</h4>
+            <h4><i class="fa-brands fa-discord text-indigo"></i> Discord Webhook</h4>
             <div class="form-group">
               <label for="discordWebhook">Webhook URL</label>
               <div class="input-with-btn">
                 <input type="text" id="discordWebhook" placeholder="https://discord.com/api/webhooks/..." />
-                <button class="btn btn-ghost btn-sm" id="btnTestDiscord" type="button">Test</button>
+                <button class="btn btn-ghost btn-sm" id="btnTestDiscord" type="button">
+                  <i class="fa-solid fa-paper-plane"></i> Test
+                </button>
               </div>
             </div>
           </div>
 
           <div class="notif-section">
-            <h4>✈️ Telegram Bot</h4>
+            <h4><i class="fa-solid fa-paper-plane text-indigo"></i> Telegram Bot</h4>
             <div class="form-row">
               <div class="form-group">
                 <label for="telegramToken">Bot Token</label>
@@ -454,15 +498,19 @@
                 <label for="telegramChatId">Chat ID</label>
                 <div class="input-with-btn">
                   <input type="text" id="telegramChatId" placeholder="-100123456789" />
-                  <button class="btn btn-ghost btn-sm" id="btnTestTelegram" type="button">Test</button>
+                  <button class="btn btn-ghost btn-sm" id="btnTestTelegram" type="button">
+                    <i class="fa-solid fa-paper-plane"></i> Test
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="form-actions">
-            <button class="btn btn-primary" id="btnSaveNotifications" type="button">💾 Save Configuration</button>
-            <span id="notifStatus" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+            <button class="btn btn-primary" id="btnSaveNotifications" type="button">
+              <i class="fa-solid fa-floppy-disk"></i> Save Configuration
+            </button>
+            <span id="notifStatus" class="notif-status"></span>
           </div>
         </div>
       </section>
@@ -473,12 +521,22 @@
          CONTROL BAR
          ════════════════════════════════════════════ -->
     <div class="controls-bar">
-      <button class="btn btn-start" id="btnStart" type="button">▶ Start Attack</button>
-      <button class="btn btn-stop" id="btnStop" type="button" disabled>■ Stop</button>
+      <button class="btn btn-start" id="btnStart" type="button">
+        <i class="fa-solid fa-play"></i> Start Attack
+      </button>
+      <button class="btn btn-stop" id="btnStop" type="button" disabled>
+        <i class="fa-solid fa-stop"></i> Stop
+      </button>
       <div class="controls-spacer"></div>
-      <button class="btn btn-report btn-sm" id="btnReport" type="button">📋 Report</button>
-      <button class="btn btn-ghost" id="btnExport" type="button">Export Logs</button>
-      <button class="btn btn-ghost" id="btnClear" type="button">Clear Logs</button>
+      <button class="btn btn-report btn-sm" id="btnReport" type="button">
+        <i class="fa-solid fa-file-invoice"></i> Report
+      </button>
+      <button class="btn btn-ghost" id="btnExport" type="button">
+        <i class="fa-solid fa-download"></i> Export Logs
+      </button>
+      <button class="btn btn-ghost" id="btnClear" type="button">
+        <i class="fa-solid fa-trash-can"></i> Clear Logs
+      </button>
     </div>
 
     <!-- ════════════════════════════════════════════
@@ -486,27 +544,27 @@
          ════════════════════════════════════════════ -->
     <div class="stats-grid">
       <div class="stat-card">
-        <span class="stat-label">Elapsed Time</span>
+        <span class="stat-label"><i class="fa-solid fa-hourglass-half"></i> Elapsed Time</span>
         <span class="stat-value" id="statElapsed">00:00:00</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Speed</span>
+        <span class="stat-label"><i class="fa-solid fa-gauge-high"></i> Speed</span>
         <span class="stat-value" id="statSpeed">0.0 att/s</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">ETA</span>
+        <span class="stat-label"><i class="fa-solid fa-hourglass-end"></i> ETA</span>
         <span class="stat-value" id="statEta">--:--:--</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Hits</span>
+        <span class="stat-label"><i class="fa-solid fa-bullseye"></i> Hits</span>
         <span class="stat-value stat-hits" id="statHits">0</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Attempted</span>
+        <span class="stat-label"><i class="fa-solid fa-arrow-pointer"></i> Attempted</span>
         <span class="stat-value" id="statAttempted">0</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Errors</span>
+        <span class="stat-label"><i class="fa-solid fa-circle-exclamation"></i> Errors</span>
         <span class="stat-value stat-errors" id="statErrors">0</span>
       </div>
     </div>
@@ -516,12 +574,16 @@
          ════════════════════════════════════════════ -->
     <div class="charts-row">
       <div class="chart-container">
-        <h3>⚡ Speed Over Time</h3>
-        <canvas id="speedChart"></canvas>
+        <h3><i class="fa-solid fa-chart-line text-indigo"></i> Speed Over Time</h3>
+        <div class="canvas-wrapper">
+          <canvas id="speedChart"></canvas>
+        </div>
       </div>
       <div class="chart-container">
-        <h3>📊 Results</h3>
-        <canvas id="resultsChart"></canvas>
+        <h3><i class="fa-solid fa-chart-pie text-indigo"></i> Results Breakdowns</h3>
+        <div class="canvas-wrapper">
+          <canvas id="resultsChart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -544,7 +606,7 @@
         <span class="terminal-dot red"></span>
         <span class="terminal-dot yellow"></span>
         <span class="terminal-dot green"></span>
-        <span class="terminal-title">Console Output</span>
+        <span class="terminal-title"><i class="fa-solid fa-terminal"></i> Console Output</span>
       </div>
       <div class="terminal" id="terminal">
         <div class="log-line log-system">[~] BlueCrack — Web Interface Ready</div>
@@ -553,7 +615,7 @@
 
     <!-- FOOTER -->
     <footer class="footer">
-      BlueCrack — Built by <a href="https://github.com/taezeem14" target="_blank" rel="noopener">Muhammad Taezeem Tariq</a>
+      BlueCrack Framework &bull; Developed by <a href="https://github.com/taezeem14" target="_blank" rel="noopener">Muhammad Taezeem Tariq</a>
     </footer>
 
   </div><!-- /.container -->

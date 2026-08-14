@@ -13,7 +13,6 @@ const DOM = {
   // New Header Actions
   btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
   btnToggleEco:    document.getElementById('btnToggleEco'),
-  btnThemeToggle:  document.getElementById('btnThemeToggle'),
 
   // Connection status
   connectionDot:   document.getElementById('connectionDot'),
@@ -741,27 +740,8 @@ socket.on('sequence_done', (data) => {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  V4.0 — THEME SWITCHER (must be defined before DOMContentLoaded)
+//  EVENT LISTENERS — Wire Everything Up
 // ═══════════════════════════════════════════════════════════════
-
-const ThemeManager = {
-  init() {
-    const saved = localStorage.getItem('bluecrack-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = saved || (prefersDark ? 'dark' : 'light');
-    this.set(theme);
-  },
-  toggle() {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
-    this.set(current === 'dark' ? 'light' : 'dark');
-  },
-  set(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('bluecrack-theme', theme);
-    const btn = DOM.btnThemeToggle;
-    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-  }
-};
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -838,10 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.btnUseSeq.addEventListener('click', useSequenceResult);
   }
 
-  // ── Theme toggle ──
-  if (DOM.btnThemeToggle) {
-    DOM.btnThemeToggle.addEventListener('click', () => ThemeManager.toggle());
-  }
+
 
   // ── Session resume ──
   if (DOM.btnResume) {
@@ -883,7 +860,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initialize features
-  ThemeManager.init();
   initCharts();
   checkSessionStatus();
   refreshTargets();
