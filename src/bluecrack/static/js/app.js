@@ -18,6 +18,19 @@ const DOM = {
   connectionDot:   document.getElementById('connectionDot'),
   connectionLabel: document.getElementById('connectionLabel'),
 
+  // Floating Info & Welcome Modal
+  btnInfo:                   document.getElementById('btnInfo'),
+  tutorialModal:             document.getElementById('tutorialModal'),
+  btnCloseModal:             document.getElementById('btnCloseModal'),
+  btnAgreeDisclaimer:        document.getElementById('btnAgreeDisclaimer'),
+  btnShowTutorialFromStart:  document.getElementById('btnShowTutorialFromStart'),
+  btnBackToDisclaimer:       document.getElementById('btnBackToDisclaimer'),
+  btnFinishTutorial:         document.getElementById('btnFinishTutorial'),
+  panelDisclaimer:           document.getElementById('panelDisclaimer'),
+  panelTutorial:             document.getElementById('panelTutorial'),
+  tutTabButtons:             document.querySelectorAll('.tut-tab-btn'),
+  tutContents:               document.querySelectorAll('.tut-content'),
+
   // Tab system
   tabButtons: document.querySelectorAll('.tab-btn'),
   tabPanels:  document.querySelectorAll('.tab-content'),
@@ -857,6 +870,75 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Report ──
   if (DOM.btnReport) {
     DOM.btnReport.addEventListener('click', downloadReport);
+  }
+
+  // ── Welcome & Tutorial Modal ──
+  if (DOM.tutorialModal) {
+    // Show warning on start
+    DOM.tutorialModal.classList.add('active');
+
+    // Agree & Proceed close button
+    if (DOM.btnAgreeDisclaimer) {
+      DOM.btnAgreeDisclaimer.addEventListener('click', () => {
+        DOM.tutorialModal.classList.remove('active');
+      });
+    }
+
+    // Close buttons (&times;)
+    if (DOM.btnCloseModal) {
+      DOM.btnCloseModal.addEventListener('click', () => {
+        DOM.tutorialModal.classList.remove('active');
+      });
+    }
+
+    // Finish guide close button
+    if (DOM.btnFinishTutorial) {
+      DOM.btnFinishTutorial.addEventListener('click', () => {
+        DOM.tutorialModal.classList.remove('active');
+      });
+    }
+
+    // Stepper from disclaimer to guide
+    if (DOM.btnShowTutorialFromStart) {
+      DOM.btnShowTutorialFromStart.addEventListener('click', () => {
+        DOM.panelDisclaimer.classList.remove('active');
+        DOM.panelTutorial.classList.add('active');
+      });
+    }
+
+    // Go back to disclaimer
+    if (DOM.btnBackToDisclaimer) {
+      DOM.btnBackToDisclaimer.addEventListener('click', () => {
+        DOM.panelTutorial.classList.remove('active');
+        DOM.panelDisclaimer.classList.add('active');
+      });
+    }
+
+    // Floating Info Button triggers guide directly
+    if (DOM.btnInfo) {
+      DOM.btnInfo.addEventListener('click', () => {
+        DOM.panelDisclaimer.classList.remove('active');
+        DOM.panelTutorial.classList.add('active');
+        DOM.tutorialModal.classList.add('active');
+      });
+    }
+
+    // Tutorial tab buttons wiring
+    DOM.tutTabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        DOM.tutTabButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const targetTut = btn.dataset.tut;
+        DOM.tutContents.forEach(content => {
+          if (content.id === targetTut) {
+            content.classList.add('active');
+          } else {
+            content.classList.remove('active');
+          }
+        });
+      });
+    });
   }
 
   // Initialize features

@@ -425,6 +425,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 🚀 v4.1.0 — Welcome & User Guide System (August 2026)
+
+- **⚠️ Startup Disclaimer Warning**: Added a startup disclaimer modal that is loaded on page start to warn users that the creator is not responsible for any misuse of the framework. Users must agree to proceed to the main dashboard.
+- **📖 Layman's User Guide**: Integrated a full tabbed tutorial directly in the welcome modal explaining target configurations, web attack modes (browser vs HTTP mode), generators (CUPP and Sequence), target queuing, schedulers, and alerts in layman's terms.
+- **ℹ️ Floating Info Button**: Added a clean, floating info button in the bottom right corner of the dashboard to easily reopen the tutorial/disclaimer overlay at any time.
+
+---
+
 ## 🔧 v4.0.3 — Performance Optimization (August 2026)
 
 - **⚡ Buttery Smooth Scrolling**: Removed the performance-heavy global transition wildcard selector (`*`) from CSS, resolving layout thrashing during scroll.

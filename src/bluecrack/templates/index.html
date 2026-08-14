@@ -560,6 +560,102 @@
 
   </div><!-- /.container -->
 
+  <!-- Floating Info Button -->
+  <button class="floating-info-btn" id="btnInfo" type="button" title="View Tutorial & Disclaimer">
+    <i class="fa-solid fa-info"></i>
+  </button>
+
+  <!-- Tutorial & Disclaimer Modal -->
+  <div class="modal-overlay" id="tutorialModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle"><i class="fa-solid fa-circle-info text-indigo"></i> Welcome to BlueCrack</h3>
+        <button class="modal-close" id="btnCloseModal" type="button">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Panel 1: Disclaimer (Shown always on start) -->
+        <div class="modal-panel active" id="panelDisclaimer">
+          <div class="disclaimer-warning">
+            <i class="fa-solid fa-triangle-exclamation warning-icon"></i>
+            <h4>IMPORTANT DISCLAIMER &amp; WARNING</h4>
+            <p>This software is developed for authorized security testing, research, and educational purposes only.</p>
+            <p class="highlight-warning"><strong>The creator (Muhammad Taezeem Tariq) is not held responsible for any misuse, damage, or illegal activities conducted with this framework.</strong></p>
+            <p>By proceeding, you verify that you have explicit authorization to test the targets you configure, and you agree to use this software in complete compliance with all applicable local and international laws.</p>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btnAgreeDisclaimer" type="button">I Agree &amp; Proceed</button>
+            <button class="btn btn-ghost" id="btnShowTutorialFromStart" type="button">Read User Guide</button>
+          </div>
+        </div>
+
+        <!-- Panel 2: User Guide / Tutorial -->
+        <div class="modal-panel" id="panelTutorial">
+          <nav class="tutorial-tabs">
+            <button class="tut-tab-btn active" data-tut="tut-general" type="button">General</button>
+            <button class="tut-tab-btn" data-tut="tut-modes" type="button">Modes</button>
+            <button class="tut-tab-btn" data-tut="tut-generators" type="button">Generators</button>
+            <button class="tut-tab-btn" data-tut="tut-advanced" type="button">Advanced</button>
+          </nav>
+
+          <div class="tutorial-contents">
+            <!-- Tab: General -->
+            <div class="tut-content active" id="tut-general">
+              <h5><i class="fa-solid fa-crosshairs text-indigo"></i> Target Configuration</h5>
+              <p>Set the target URL where the login form resides. Provide a single username or point it to a text file list. Do the same for the password (or load custom wordlists via Browse).</p>
+              <p>Tell the engine what text confirms a failed login (e.g., <em>Invalid password</em>) or successful login (e.g., <em>Welcome</em>) so it can report hits accurately.</p>
+              
+              <h5><i class="fa-solid fa-gauge-high text-cyan"></i> Dashboard &amp; Console</h5>
+              <p>Once you click <strong>Start Attack</strong>, the dashboard displays live metrics: elapsed time, attempts speed, ETA, hits (successes), attempted count, and any rate-limit errors.</p>
+              <p>The <strong>Console Output</strong> at the bottom streams detailed live logs explaining exactly what background tasks are doing.</p>
+            </div>
+
+            <!-- Tab: Modes -->
+            <div class="tut-content" id="tut-modes">
+              <h5><i class="fa-solid fa-globe text-cyan"></i> Browser Mode (Selenium)</h5>
+              <p>Uses a real browser in the background. It mimics actual user keyboard actions and clicks. Ideal for modern, complex websites that rely heavily on JavaScript.</p>
+              
+              <h5><i class="fa-solid fa-bolt text-indigo"></i> HTTP Mode (Hydra-style)</h5>
+              <p>Bypasses the browser interface and sends network packets directly. It runs up to <strong>100x faster</strong>. Great for legacy portals, API endpoints, and raw speed testing.</p>
+
+              <h5><i class="fa-solid fa-spray-can text-cyan"></i> Spray Mode</h5>
+              <p>Instead of testing thousands of passwords against one username (which locks accounts), Spray Mode tests a single password against a list of multiple users. Safely bypasses lockout thresholds.</p>
+            </div>
+
+            <!-- Tab: Generators -->
+            <div class="tut-content" id="tut-generators">
+              <h5><i class="fa-solid fa-wand-magic-sparkles text-indigo"></i> CUPP Generator</h5>
+              <p>Generates target-specific password guesses based on personal profiles. Input a user's details (names, birthdates, pet names, company details, keywords) and CUPP automatically compiles a smart custom wordlist applying common formatting styles.</p>
+
+              <h5><i class="fa-solid fa-list-ol text-cyan"></i> Sequence Generator</h5>
+              <p>Quickly generates numeric sequence ranges (e.g. <code>0000</code> to <code>9999</code>) with customizable prefixes (like <code>user_</code>) or suffixes (like <code>@gmail.com</code>). Ideal for pin code or indexed username profiling.</p>
+            </div>
+
+            <!-- Tab: Advanced -->
+            <div class="tut-content" id="tut-advanced">
+              <h5><i class="fa-solid fa-shield-halved text-indigo"></i> Tor &amp; Proxy</h5>
+              <p>Enable Tor to route your traffic anonymously. Set it to shift identity after N attempts to automatically obtain a fresh IP address. You can also supply custom proxy lists.</p>
+
+              <h5><i class="fa-solid fa-globe text-cyan"></i> Targets Queue</h5>
+              <p>Queue multiple sites to be audited sequentially. Set up a target, add it to the queue, configure the next one, and start them all with one click.</p>
+
+              <h5><i class="fa-solid fa-clock text-indigo"></i> Attack Scheduler</h5>
+              <p>Schedule audits to run at a specific future date/time so they run automatically during maintenance or low-traffic windows.</p>
+
+              <h5><i class="fa-solid fa-bell text-cyan"></i> Alerts (Discord &amp; Telegram)</h5>
+              <p>Supply Discord webhook URLs or Telegram bot tokens. The framework will instantly message your chat when a valid login is discovered.</p>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 16px;">
+            <button class="btn btn-ghost" id="btnBackToDisclaimer" type="button">View Disclaimer</button>
+            <button class="btn btn-primary" id="btnFinishTutorial" type="button">Get Started</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- App JavaScript -->
   <script src="/static/js/app.js"></script>
 </body>
