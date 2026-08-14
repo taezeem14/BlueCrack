@@ -17,6 +17,9 @@
   <!-- Socket.IO Client -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
   <!-- App Stylesheet -->
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
@@ -36,12 +39,22 @@
       <div class="header-actions">
         <button class="btn btn-ghost btn-sm" id="btnLaunchDemo" type="button">🚀 Demo Mode</button>
         <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button">🍃 Eco Mode</button>
+        <button class="theme-toggle" id="btnThemeToggle" type="button" title="Toggle theme">☀️</button>
         <div class="header-badge">
           <span class="status-dot" id="connectionDot"></span>
           <span class="status-label" id="connectionLabel">Connecting…</span>
         </div>
       </div>
     </header>
+
+    <!-- ════════════════════════════════════════════
+         SESSION RESUME BANNER
+         ════════════════════════════════════════════ -->
+    <div class="resume-banner" id="resumeBanner">
+      <span class="resume-text">💾 <strong>Previous session found!</strong> Resume the interrupted attack where you left off?</span>
+      <button class="btn btn-primary btn-sm" id="btnResume" type="button">▶ Resume</button>
+      <button class="btn btn-ghost btn-sm" id="btnDismissResume" type="button">Dismiss</button>
+    </div>
 
     <!-- ════════════════════════════════════════════
          TAB NAVIGATION
@@ -52,6 +65,9 @@
       <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false">Tor &amp; Proxy</button>
       <button class="tab-btn" data-tab="cupp" role="tab" aria-selected="false">CUPP Generator</button>
       <button class="tab-btn" data-tab="sequence" role="tab" aria-selected="false">Sequence Generator</button>
+      <button class="tab-btn" data-tab="targets" role="tab" aria-selected="false">🌐 Targets</button>
+      <button class="tab-btn" data-tab="schedule" role="tab" aria-selected="false">🕐 Schedule</button>
+      <button class="tab-btn" data-tab="notifications" role="tab" aria-selected="false">🔔 Alerts</button>
     </nav>
 
     <!-- ════════════════════════════════════════════
@@ -153,6 +169,13 @@
                 <input type="checkbox" id="continueAfterSuccess" />
                 <span class="checkmark"></span>
                 Continue After Success
+              </label>
+            </div>
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label spray-toggle-label">
+                <input type="checkbox" id="sprayMode" />
+                <span class="checkmark"></span>
+                Spray Mode <span class="spray-badge">NEW</span>
               </label>
             </div>
           </div>
@@ -362,6 +385,88 @@
         </div>
       </section>
 
+      <!-- ── Targets Queue ── -->
+      <section class="tab-content" id="tab-targets" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">🌐 Multi-Target Attack Queue</h2>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
+            Queue multiple targets and attack them sequentially. Each target uses the current configuration.
+          </p>
+          <div class="form-actions" style="margin-bottom: 16px;">
+            <button class="btn btn-primary btn-sm" id="btnAddTarget" type="button">+ Add Current Config</button>
+            <button class="btn btn-start btn-sm" id="btnStartAllTargets" type="button" disabled>▶ Start All Targets</button>
+          </div>
+          <div class="target-list" id="targetList">
+            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No targets added yet.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Schedule ── -->
+      <section class="tab-content" id="tab-schedule" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">🕐 Attack Scheduler</h2>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
+            Schedule attacks to run at specific times.
+          </p>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="scheduleTime">Run At (Date & Time)</label>
+              <input type="datetime-local" id="scheduleTime" style="padding: 10px 14px; font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-primary); background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+          <div class="form-actions" style="margin-bottom: 16px;">
+            <button class="btn btn-primary btn-sm" id="btnScheduleAttack" type="button">📅 Schedule Attack</button>
+          </div>
+          <div class="schedule-list" id="scheduleList">
+            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No scheduled attacks.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Notifications ── -->
+      <section class="tab-content" id="tab-notifications" role="tabpanel">
+        <div class="card">
+          <h2 class="card-title">🔔 Notification Alerts</h2>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
+            Get instant alerts when credentials are found.
+          </p>
+
+          <div class="notif-section">
+            <h4>💬 Discord Webhook</h4>
+            <div class="form-group">
+              <label for="discordWebhook">Webhook URL</label>
+              <div class="input-with-btn">
+                <input type="text" id="discordWebhook" placeholder="https://discord.com/api/webhooks/..." />
+                <button class="btn btn-ghost btn-sm" id="btnTestDiscord" type="button">Test</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="notif-section">
+            <h4>✈️ Telegram Bot</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="telegramToken">Bot Token</label>
+                <input type="text" id="telegramToken" placeholder="123456:ABC-DEF..." />
+              </div>
+              <div class="form-group">
+                <label for="telegramChatId">Chat ID</label>
+                <div class="input-with-btn">
+                  <input type="text" id="telegramChatId" placeholder="-100123456789" />
+                  <button class="btn btn-ghost btn-sm" id="btnTestTelegram" type="button">Test</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" id="btnSaveNotifications" type="button">💾 Save Configuration</button>
+            <span id="notifStatus" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+          </div>
+        </div>
+      </section>
+
     </div><!-- /.tabs-container -->
 
     <!-- ════════════════════════════════════════════
@@ -371,6 +476,7 @@
       <button class="btn btn-start" id="btnStart" type="button">▶ Start Attack</button>
       <button class="btn btn-stop" id="btnStop" type="button" disabled>■ Stop</button>
       <div class="controls-spacer"></div>
+      <button class="btn btn-report btn-sm" id="btnReport" type="button">📋 Report</button>
       <button class="btn btn-ghost" id="btnExport" type="button">Export Logs</button>
       <button class="btn btn-ghost" id="btnClear" type="button">Clear Logs</button>
     </div>
@@ -402,6 +508,20 @@
       <div class="stat-card">
         <span class="stat-label">Errors</span>
         <span class="stat-value stat-errors" id="statErrors">0</span>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════
+         LIVE CHARTS
+         ════════════════════════════════════════════ -->
+    <div class="charts-row">
+      <div class="chart-container">
+        <h3>⚡ Speed Over Time</h3>
+        <canvas id="speedChart"></canvas>
+      </div>
+      <div class="chart-container">
+        <h3>📊 Results</h3>
+        <canvas id="resultsChart"></canvas>
       </div>
     </div>
 

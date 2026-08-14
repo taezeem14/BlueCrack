@@ -170,6 +170,30 @@ def _build_parser() -> argparse.ArgumentParser:
         "--follow-redirects", action="store_true",
         help="follow HTTP redirects (HTTP mode; default: don't follow)",
     )
+    atk.add_argument(
+        "--spray", action="store_true",
+        help="spray mode: test one password across ALL users before moving to next",
+    )
+    atk.add_argument(
+        "--resume", action="store_true",
+        help="resume a previously interrupted attack from saved session",
+    )
+    atk.add_argument(
+        "--no-session", action="store_true",
+        help="disable auto-save session (crash recovery)",
+    )
+    atk.add_argument(
+        "--discord-webhook", default="",
+        help="Discord webhook URL for credential hit notifications",
+    )
+    atk.add_argument(
+        "--telegram-token", default="",
+        help="Telegram bot token for notifications",
+    )
+    atk.add_argument(
+        "--telegram-chat-id", default="",
+        help="Telegram chat ID for notifications",
+    )
     atk.set_defaults(func=_cmd_attack)
 
     # ── bluecrack demo ─────────────────────────────────────────────

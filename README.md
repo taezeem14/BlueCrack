@@ -329,6 +329,18 @@ python -m pytest
 
 ## 📋 Changelog
 
+### v4.0.0
+* Added **📊 Live Attack Dashboard Charts** with real-time speed tracking and results distribution using Chart.js
+* Added **💾 Session Resume** for crash-proof, restorable attacks (auto-saved to `.bluecrack_session.json`)
+* Added **🎯 Credential Spray Mode** (tests one password across all users before proceeding to the next)
+* Added **📋 HTML Report Generator** producing modern, premium standalone report documents
+* Added **🌐 Multi-Target Queue** for running sequential attacks across multiple target URLs
+* Added **🔄 Smart Proxy Health Monitor** with parallel testing and latency tracking
+* Added **🧠 Response Fingerprinting** using HTML tag skeleton structures for heuristics-based success detection
+* Added **🕐 Attack Scheduler** to program and trigger timed attacks
+* Added **🎨 Dark/Light Theme Toggle** in the web dashboard with smooth transitions
+* Added **🔔 Notification Alerts** (Discord webhooks and Telegram bot API alerts for credential hits)
+
 ### v3.4.1
 * Fixed `q.join()` deadlock when attack is interrupted or cancelled
 * Fixed thread-safety race condition on concurrent `credentials.txt` writes

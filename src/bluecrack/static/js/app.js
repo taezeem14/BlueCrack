@@ -8,10 +8,12 @@
 const socket = io();
 
 // ─── DOM References ────────────────────────────────────────────
+// ─── DOM References ────────────────────────────────────────────
 const DOM = {
   // New Header Actions
   btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
   btnToggleEco:    document.getElementById('btnToggleEco'),
+  btnThemeToggle:  document.getElementById('btnThemeToggle'),
 
   // Connection status
   connectionDot:   document.getElementById('connectionDot'),
@@ -40,6 +42,7 @@ const DOM = {
   maxAttempts:          document.getElementById('maxAttempts'),
   headless:             document.getElementById('headless'),
   continueAfterSuccess: document.getElementById('continueAfterSuccess'),
+  sprayMode:            document.getElementById('sprayMode'),
 
   // HTTP Mode Options
   formAction:      document.getElementById('formAction'),
@@ -89,6 +92,7 @@ const DOM = {
   btnStop:   document.getElementById('btnStop'),
   btnExport: document.getElementById('btnExport'),
   btnClear:  document.getElementById('btnClear'),
+  btnReport: document.getElementById('btnReport'),
 
   // Stats
   statElapsed:   document.getElementById('statElapsed'),
@@ -104,6 +108,30 @@ const DOM = {
 
   // Terminal
   terminal: document.getElementById('terminal'),
+
+  // Session resume
+  resumeBanner:      document.getElementById('resumeBanner'),
+  btnResume:         document.getElementById('btnResume'),
+  btnDismissResume:  document.getElementById('btnDismissResume'),
+
+  // Multi-target queue
+  btnAddTarget:       document.getElementById('btnAddTarget'),
+  btnStartAllTargets: document.getElementById('btnStartAllTargets'),
+  targetList:         document.getElementById('targetList'),
+
+  // Scheduler
+  scheduleTime:      document.getElementById('scheduleTime'),
+  btnScheduleAttack: document.getElementById('btnScheduleAttack'),
+  scheduleList:      document.getElementById('scheduleList'),
+
+  // Alerts
+  discordWebhook:       document.getElementById('discordWebhook'),
+  btnTestDiscord:       document.getElementById('btnTestDiscord'),
+  telegramToken:        document.getElementById('telegramToken'),
+  telegramChatId:       document.getElementById('telegramChatId'),
+  btnTestTelegram:      document.getElementById('btnTestTelegram'),
+  btnSaveNotifications: document.getElementById('btnSaveNotifications'),
+  notifStatus:          document.getElementById('notifStatus'),
 };
 
 // Cached result paths for generators
@@ -236,6 +264,9 @@ function updateStats(metrics) {
       }
     }
   }
+
+  // Update Chart.js live charts
+  updateCharts(metrics);
 }
 
 /**
@@ -306,6 +337,9 @@ async function startAttack() {
     tor_port:         parseInt(DOM.torControlPort.value, 10) || 9051,
     tor_shift_every:  parseInt(DOM.torShiftEvery.value, 10)  || 10,
     proxy:            DOM.proxy.value.trim(),
+
+    // Spray mode
+    spray_mode:       DOM.sprayMode.checked,
   };
 
   // Add HTTP-mode-specific fields
@@ -749,47 +783,389 @@ document.addEventListener('DOMContentLoaded', () => {
 
   DOM.attackMode.addEventListener('change', onModeChange);
 
-  // ── Header Actions ──
-  if (DOM.btnLaunchDemo) {
-    DOM.btnLaunchDemo.addEventListener('click', launchDemoMode);
-  }
-  if (DOM.btnToggleEco) {
-    DOM.btnToggleEco.addEventListener('click', toggleEcoMode);
+  // ── Theme toggle ──
+  if (DOM.btnThemeToggle) {
+    DOM.btnThemeToggle.addEventListener('click', () => ThemeManager.toggle());
   }
 
-  // ── Control buttons ──
-  DOM.btnStart.addEventListener('click', startAttack);
-  DOM.btnStop.addEventListener('click', stopAttack);
-  DOM.btnExport.addEventListener('click', exportLogs);
-  DOM.btnClear.addEventListener('click', clearLogs);
-
-  // ── CUPP buttons ──
-  DOM.btnGenerateCupp.addEventListener('click', generateCupp);
-  DOM.btnUseCupp.addEventListener('click', useCuppResult);
-
-  // ── Sequence buttons ──
-  DOM.btnGenerateSeq.addEventListener('click', generateSequence);
-  DOM.btnUseSeq.addEventListener('click', useSequenceResult);
-
-  // ── Browse button (password file picker via hidden input) ──
-  DOM.btnBrowsePasswords = document.getElementById('btnBrowsePasswords');
-  if (DOM.btnBrowsePasswords) {
-    const fileInput = document.createElement('input');
-    fileInput.type  = 'file';
-    fileInput.style.display = 'none';
-    fileInput.accept = '.txt,.lst,.csv,.dic';
-    document.body.appendChild(fileInput);
-
-    DOM.btnBrowsePasswords.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files.length > 0) {
-        // In a web context, we display the filename;
-        // the actual file upload would be handled by the backend.
-        DOM.password.value = fileInput.files[0].name;
-        appendLog(`[*] Selected file: ${fileInput.files[0].name}`);
-      }
+  // ── Session resume ──
+  if (DOM.btnResume) {
+    DOM.btnResume.addEventListener('click', resumeAttack);
+  }
+  if (DOM.btnDismissResume) {
+    DOM.btnDismissResume.addEventListener('click', () => {
+      DOM.resumeBanner.classList.remove('visible');
     });
   }
 
+  // ── Multi-target queue ──
+  if (DOM.btnAddTarget) {
+    DOM.btnAddTarget.addEventListener('click', addTarget);
+  }
+  if (DOM.btnStartAllTargets) {
+    DOM.btnStartAllTargets.addEventListener('click', startAllTargets);
+  }
+
+  // ── Scheduler ──
+  if (DOM.btnScheduleAttack) {
+    DOM.btnScheduleAttack.addEventListener('click', scheduleAttack);
+  }
+
+  // ── Alerts ──
+  if (DOM.btnSaveNotifications) {
+    DOM.btnSaveNotifications.addEventListener('click', saveNotificationConfig);
+  }
+  if (DOM.btnTestDiscord) {
+    DOM.btnTestDiscord.addEventListener('click', testDiscordNotif);
+  }
+  if (DOM.btnTestTelegram) {
+    DOM.btnTestTelegram.addEventListener('click', testTelegramNotif);
+  }
+
+  // ── Report ──
+  if (DOM.btnReport) {
+    DOM.btnReport.addEventListener('click', downloadReport);
+  }
+
+  // Initialize features
+  ThemeManager.init();
+  initCharts();
+  checkSessionStatus();
+  refreshTargets();
+  refreshScheduled();
+
   appendLog('[~] All systems nominal. Ready.');
 });
+
+
+// ═══════════════════════════════════════════════════════════════
+//  V4.0 FEATURES IMPLEMENTATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// ── Theme Switcher ──
+const ThemeManager = {
+  init() {
+    const saved = localStorage.getItem('bluecrack-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = saved || (prefersDark ? 'dark' : 'light');
+    this.set(theme);
+  },
+  toggle() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    this.set(current === 'dark' ? 'light' : 'dark');
+  },
+  set(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('bluecrack-theme', theme);
+    const btn = DOM.btnThemeToggle;
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+};
+
+// ── Chart.js Setup ──
+let speedChart = null;
+let resultsChart = null;
+const speedHistory = [];
+
+function initCharts() {
+  const speedCtx = document.getElementById('speedChart')?.getContext('2d');
+  if (speedCtx) {
+    speedChart = new Chart(speedCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Attempts/sec',
+          data: [],
+          borderColor: '#6c5ce7',
+          backgroundColor: 'rgba(108, 92, 231, 0.1)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { display: false } },
+        animation: { duration: 300 }
+      }
+    });
+  }
+  
+  const resultsCtx = document.getElementById('resultsChart')?.getContext('2d');
+  if (resultsCtx) {
+    resultsChart = new Chart(resultsCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Success', 'Failed', 'Errors', 'Skipped'],
+        datasets: [{
+          data: [0, 0, 0, 0],
+          backgroundColor: ['#10b981', '#ef4444', '#eab308', '#6b7280']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } }
+      }
+    });
+  }
+}
+
+function updateCharts(metrics) {
+  if (!speedChart || !resultsChart) return;
+  const now = new Date().toLocaleTimeString();
+  speedHistory.push({ time: now, speed: metrics.speed || 0 });
+  if (speedHistory.length > 30) speedHistory.shift();
+  speedChart.data.labels = speedHistory.map(s => s.time);
+  speedChart.data.datasets[0].data = speedHistory.map(s => s.speed);
+  speedChart.update('none');
+  
+  resultsChart.data.datasets[0].data = [
+    metrics.successes || metrics.hits || 0,
+    metrics.failures || 0,
+    metrics.errors || 0,
+    (metrics.skipped_empty || 0) + (metrics.skipped_solved_user || 0)
+  ];
+  resultsChart.update('none');
+}
+
+// ── Session Resume ──
+async function checkSessionStatus() {
+  try {
+    const res = await fetch('/api/session/status');
+    const status = await res.json();
+    if (status.has_session) {
+      DOM.resumeBanner.classList.add('visible');
+    }
+  } catch (e) {}
+}
+
+async function resumeAttack() {
+  DOM.resumeBanner.classList.remove('visible');
+  appendLog('[*] Resuming attack...');
+  try {
+    const res = await fetch('/api/attack/resume', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      appendLog(`[+] ${data.message}`);
+      DOM.btnStart.disabled = true;
+      DOM.btnStop.disabled = false;
+    } else {
+      appendLog(`[-] Resume failed: ${data.message}`);
+    }
+  } catch (err) {
+    appendLog(`[-] Resume error: ${err.message}`);
+  }
+}
+
+// ── Target Queue ──
+let targetList = [];
+
+function getTargetConfig() {
+  return {
+    target_url: DOM.targetUrl.value.trim(),
+    username: DOM.username.value.trim(),
+    password: DOM.password.value.trim(),
+    error_msg: DOM.errorString.value.trim(),
+    success_msg: DOM.successString.value.trim(),
+    mode: DOM.attackMode.value,
+    threads: parseInt(DOM.threads.value, 10) || 1,
+    delay: parseFloat(DOM.delay.value) || 0,
+    jitter: parseFloat(DOM.jitter.value) || 0,
+    limit_text: DOM.rateLimit.value.trim(),
+    cooldown: parseInt(DOM.cooldown.value, 10) || 12,
+    max_attempts: parseInt(DOM.maxAttempts.value, 10) || 0,
+    headless: DOM.headless.checked,
+    continue_after_success: DOM.continueAfterSuccess.checked,
+    spray_mode: DOM.sprayMode.checked
+  };
+}
+
+async function addTarget() {
+  const config = getTargetConfig();
+  if (!config.target_url) {
+    appendLog('[-] Target URL is required.');
+    return;
+  }
+  try {
+    const res = await postJSON('/api/targets/add', config);
+    if (res.status === 'ok') {
+      appendLog(`[+] Target added to queue: ${config.target_url}`);
+      await refreshTargets();
+    }
+  } catch (e) {
+    appendLog(`[-] Failed to add target: ${e.message}`);
+  }
+}
+
+async function refreshTargets() {
+  try {
+    const res = await fetch('/api/targets/list');
+    const data = await res.json();
+    targetList = data.targets || [];
+    renderTargets();
+    
+    if (targetList.length > 0) {
+      DOM.btnStartAllTargets.disabled = false;
+    } else {
+      DOM.btnStartAllTargets.disabled = true;
+    }
+  } catch (e) {}
+}
+
+function renderTargets() {
+  if (targetList.length === 0) {
+    DOM.targetList.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No targets added yet.</p>`;
+    return;
+  }
+  DOM.targetList.innerHTML = targetList.map((t, idx) => `
+    <div class="target-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span class="target-url">${t.config.target_url}</span>
+      <span class="target-status ${t.status}">${t.status}</span>
+      <button class="btn btn-ghost btn-sm" onclick="removeTargetAt(${t.index})">Remove</button>
+    </div>
+  `).join('');
+}
+
+window.removeTargetAt = async function(index) {
+  try {
+    const res = await postJSON('/api/targets/remove', { index });
+    if (res.status === 'ok') {
+      appendLog('[+] Target removed from queue.');
+      await refreshTargets();
+    }
+  } catch (e) {}
+}
+
+async function startAllTargets() {
+  appendLog('[*] Starting sequential multi-target attack...');
+  for (let t of targetList) {
+    if (t.status === 'pending') {
+      DOM.targetUrl.value = t.config.target_url;
+      DOM.username.value = t.config.username;
+      DOM.password.value = t.config.password;
+      DOM.errorString.value = t.config.error_msg;
+      DOM.successString.value = t.config.success_msg;
+      DOM.attackMode.value = t.config.mode;
+      DOM.threads.value = t.config.threads;
+      DOM.delay.value = t.config.delay;
+      DOM.jitter.value = t.config.jitter;
+      DOM.rateLimit.value = t.config.limit_text;
+      DOM.cooldown.value = t.config.cooldown;
+      DOM.maxAttempts.value = t.config.max_attempts;
+      DOM.headless.checked = t.config.headless;
+      DOM.continueAfterSuccess.checked = t.config.continue_after_success;
+      DOM.sprayMode.checked = t.config.spray_mode;
+      
+      await startAttack();
+      
+      while (DOM.btnStart.disabled) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      await refreshTargets();
+    }
+  }
+  appendLog('[+] Sequential multi-target attack complete!');
+}
+
+// ── Scheduler ──
+async function scheduleAttack() {
+  const timeVal = DOM.scheduleTime.value;
+  if (!timeVal) {
+    appendLog('[-] Schedule time is required.');
+    return;
+  }
+  const config = getTargetConfig();
+  try {
+    const res = await postJSON('/api/schedule/create', { config, run_at: timeVal });
+    if (res.status === 'ok') {
+      appendLog(`[+] Attack scheduled successfully for ${timeVal}`);
+      await refreshScheduled();
+    } else {
+      appendLog(`[-] Failed to schedule: ${res.message}`);
+    }
+  } catch (e) {
+    appendLog(`[-] Schedule error: ${e.message}`);
+  }
+}
+
+async function refreshScheduled() {
+  try {
+    const res = await fetch('/api/schedule/list');
+    const data = await res.json();
+    renderScheduled(data.scheduled || []);
+  } catch (e) {}
+}
+
+function renderScheduled(list) {
+  if (list.length === 0) {
+    DOM.scheduleList.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No scheduled attacks.</p>`;
+    return;
+  }
+  DOM.scheduleList.innerHTML = list.map(s => `
+    <div class="schedule-card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span class="schedule-time">${new Date(s.run_at).toLocaleString()}</span>
+      <span class="schedule-target">${s.target_url}</span>
+      <span class="target-status ${s.status}">${s.status}</span>
+      <button class="btn btn-ghost btn-sm" onclick="cancelScheduled('${s.id}')">Cancel</button>
+    </div>
+  `).join('');
+}
+
+window.cancelScheduled = async function(id) {
+  try {
+    const res = await postJSON('/api/schedule/cancel', { id });
+    if (res.status === 'ok') {
+      appendLog('[+] Scheduled attack cancelled.');
+      await refreshScheduled();
+    }
+  } catch (e) {}
+}
+
+// ── Alerts ──
+async function saveNotificationConfig() {
+  const payload = {
+    discord_url: DOM.discordWebhook.value.trim(),
+    telegram_token: DOM.telegramToken.value.trim(),
+    telegram_chat_id: DOM.telegramChatId.value.trim()
+  };
+  try {
+    const res = await postJSON('/api/notifications/configure', payload);
+    if (res.status === 'ok') {
+      DOM.notifStatus.textContent = 'Configuration saved!';
+      setTimeout(() => DOM.notifStatus.textContent = '', 3000);
+      appendLog('[+] Notification configuration updated.');
+    }
+  } catch (e) {}
+}
+
+async function testDiscordNotif() {
+  await saveNotificationConfig();
+  try {
+    const res = await postJSON('/api/notifications/test', {});
+    if (res.results && res.results.discord) {
+      appendLog('[+] Discord test notification sent successfully!');
+    } else {
+      appendLog('[-] Discord test notification failed.');
+    }
+  } catch (e) {}
+}
+
+async function testTelegramNotif() {
+  await saveNotificationConfig();
+  try {
+    const res = await postJSON('/api/notifications/test', {});
+    if (res.results && res.results.telegram) {
+      appendLog('[+] Telegram test notification sent successfully!');
+    } else {
+      appendLog('[-] Telegram test notification failed.');
+    }
+  } catch (e) {}
+}
+
+// ── Report ──
+function downloadReport() {
+  window.open('/api/report/html', '_blank');
+}

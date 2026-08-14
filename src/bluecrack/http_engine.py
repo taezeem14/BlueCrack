@@ -21,6 +21,7 @@ from urllib.parse import urljoin
 import requests
 
 from .constants import DEFAULT_USER_AGENTS
+from .session import SessionManager
 from .utils import save_json_report
 
 # ═══════════════════════════════════════════════════════════════════
@@ -344,6 +345,8 @@ class HTTPAttackEngine:
         self._running = True
         self._start_time = time.time()
         self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
+        self._session_mgr = SessionManager() if ctx.get("enable_session", True) else None
+        self._ctx = ctx
 
         self.metrics = {
             "attempted": 0,
@@ -468,10 +471,17 @@ class HTTPAttackEngine:
             # ── Step 2: Populate the queue ─────────────────────────
             q: Queue = Queue(maxsize=2000)
 
+            spray_mode = ctx.get("spray_mode", False)
+
             def populate() -> None:
-                for u in users:
+                if spray_mode:
                     for p in passwords:
-                        q.put((u, p))
+                        for u in users:
+                            q.put((u, p))
+                else:
+                    for u in users:
+                        for p in passwords:
+                            q.put((u, p))
 
             threading.Thread(target=populate, daemon=True).start()
 
@@ -705,11 +715,37 @@ class HTTPAttackEngine:
                                 except Exception:
                                     pass
 
+                                if "notifier" in ctx:
+                                    try:
+                                        ctx["notifier"].notify(
+                                            "credential_found",
+                                            {
+                                                "username": user,
+                                                "password": pwd,
+                                                "target_url": ctx["target_url"],
+                                            },
+                                        )
+                                    except Exception:
+                                        pass
+
                                 with done_lock:
                                     done_count[0] += 1
                                 self._emit_progress(done_count[0], total)
                                 q.task_done()
                                 self._emit_metrics()
+
+                                # Auto-save session periodically
+                                if self._session_mgr and done_count[0] % self._session_mgr.auto_save_interval == 0:
+                                    remaining = []
+                                    try:
+                                        with q.mutex:
+                                            remaining = list(q.queue)
+                                    except Exception:
+                                        pass
+                                    self._session_mgr.save_state(
+                                        self._ctx, remaining, dict(self.metrics),
+                                        list(self._found_creds),
+                                    )
 
                                 if not continue_after and not multiple_users:
                                     with q.mutex:
@@ -729,6 +765,19 @@ class HTTPAttackEngine:
                             self._emit_progress(done_count[0], total)
                             q.task_done()
                             self._emit_metrics()
+
+                            # Auto-save session periodically
+                            if self._session_mgr and done_count[0] % self._session_mgr.auto_save_interval == 0:
+                                remaining = []
+                                try:
+                                    with q.mutex:
+                                        remaining = list(q.queue)
+                                except Exception:
+                                    pass
+                                self._session_mgr.save_state(
+                                    self._ctx, remaining, dict(self.metrics),
+                                    list(self._found_creds),
+                                )
 
                         except requests.exceptions.RequestException as e:
                             self._log(f"[-] Network error: {e}. Requeuing {user}/{pwd}...")
@@ -805,4 +854,6 @@ class HTTPAttackEngine:
                     self._finished_callback(False, "No valid credentials found.")
 
         finally:
+            if hasattr(self, "_session_mgr") and self._session_mgr:
+                self._session_mgr.clear_session()
             self._running = False

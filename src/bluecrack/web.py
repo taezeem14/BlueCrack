@@ -20,6 +20,11 @@ from flask_socketio import SocketIO, emit
 
 from .engine import AttackEngine
 from .http_engine import HTTPAttackEngine
+from .notifier import Notifier
+from .reporter import ReportGenerator
+from .scheduler import AttackScheduler
+from .session import SessionManager
+from .target_queue import TargetQueue
 from .utils import (
     generate_cupp_wordlist,
     generate_sequence_wordlist,
@@ -42,6 +47,12 @@ socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
 
 # Global engine instance (switchable between AttackEngine and HTTPAttackEngine)
 engine: Any = AttackEngine()
+
+# v4.0 feature instances
+session_mgr = SessionManager()
+target_queue = TargetQueue()
+notifier = Notifier()
+attack_scheduler = AttackScheduler()
 
 # Store last generated wordlist path
 _last_wordlist_path: str = ""
@@ -192,6 +203,7 @@ def start_attack():
         "tor_shift_every": tor_shift_every,
         "max_attempts": max_attempts,
         "continue_after_success": bool(data.get("continue_after_success", False)),
+        "spray_mode": bool(data.get("spray_mode", False)),
     }
 
     # Add HTTP-mode-specific fields
@@ -333,6 +345,124 @@ def export_logs():
         mimetype="text/plain",
         headers={"Content-Disposition": "attachment; filename=bluecrack_logs.txt"},
     )
+
+
+@app.route("/api/session/status", methods=["GET"])
+def session_status():
+    return jsonify({
+        "has_session": session_mgr.has_session(),
+        "state": session_mgr.load_state() if session_mgr.has_session() else None
+    })
+
+
+@app.route("/api/attack/resume", methods=["POST"])
+def resume_attack():
+    state = session_mgr.load_state()
+    if not state:
+        return jsonify({"status": "error", "message": "No saved session found."}), 404
+    ctx = state["ctx"]
+    ctx["users"] = [c[0] for c in state["remaining_combos"]]
+    ctx["passwords"] = list(set(c[1] for c in state["remaining_combos"]))
+    global engine
+    from .engine import AttackEngine
+    from .http_engine import HTTPAttackEngine
+    attack_mode = ctx.pop("attack_mode", "browser")
+    if attack_mode == "http":
+        engine = HTTPAttackEngine()
+    else:
+        engine = AttackEngine()
+    _wire_callbacks(engine)
+    engine.start(ctx)
+    session_mgr.clear_session()
+    return jsonify({"status": "ok", "message": "Attack resumed from saved session."})
+
+
+@app.route("/api/targets/add", methods=["POST"])
+def add_target():
+    data = request.get_json(silent=True) or {}
+    index = target_queue.add_target(data)
+    return jsonify({"status": "ok", "index": index})
+
+
+@app.route("/api/targets/list", methods=["GET"])
+def list_targets():
+    return jsonify({
+        "targets": target_queue.get_targets(),
+        "progress": target_queue.get_progress()
+    })
+
+
+@app.route("/api/targets/remove", methods=["POST"])
+def remove_target():
+    data = request.get_json(silent=True) or {}
+    index = data.get("index", -1)
+    ok = target_queue.remove_target(index)
+    return jsonify({"status": "ok" if ok else "error"})
+
+
+@app.route("/api/notifications/configure", methods=["POST"])
+def configure_notifications():
+    data = request.get_json(silent=True) or {}
+    if data.get("discord_url"):
+        notifier.add_discord(data["discord_url"])
+    if data.get("telegram_token") and data.get("telegram_chat_id"):
+        notifier.add_telegram(data["telegram_token"], data["telegram_chat_id"])
+    return jsonify({"status": "ok", "config": notifier.get_config()})
+
+
+@app.route("/api/notifications/test", methods=["POST"])
+def test_notifications():
+    results = notifier.test()
+    return jsonify({"status": "ok", "results": results})
+
+
+@app.route("/api/schedule/create", methods=["POST"])
+def schedule_attack():
+    data = request.get_json(silent=True) or {}
+    config = data.get("config", {})
+    run_at = data.get("run_at", "")
+    try:
+        sid = attack_scheduler.schedule(config, run_at)
+        return jsonify({"status": "ok", "schedule_id": sid})
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@app.route("/api/schedule/list", methods=["GET"])
+def list_scheduled():
+    return jsonify({"scheduled": attack_scheduler.list_scheduled()})
+
+
+@app.route("/api/schedule/cancel", methods=["POST"])
+def cancel_scheduled():
+    data = request.get_json(silent=True) or {}
+    ok = attack_scheduler.cancel(data.get("id", ""))
+    return jsonify({"status": "ok" if ok else "error"})
+
+
+@app.route("/api/report/html", methods=["GET"])
+def export_html_report():
+    metrics = engine.get_metrics()
+    found = engine.get_found_creds()
+    logs_list = engine.get_logs()
+    report_html = ReportGenerator.generate_html(
+        metrics=metrics,
+        found_creds=found,
+        logs=logs_list,
+        config={"target_url": "N/A", "threads": 1},
+        start_time=engine._start_time or time.time(),
+        end_time=time.time(),
+    )
+    return Response(
+        report_html,
+        mimetype="text/html",
+        headers={"Content-Disposition": "attachment; filename=bluecrack_report.html"}
+    )
+
+
+@app.route("/api/proxies/health", methods=["GET"])
+def proxy_health():
+    return jsonify({"status": "ok", "message": "No proxies configured for health check."})
 
 
 # ═══════════════════════════════════════════════════════════════════
