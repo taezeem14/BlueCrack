@@ -741,6 +741,30 @@ socket.on('sequence_done', (data) => {
 
 
 // ═══════════════════════════════════════════════════════════════
+//  V4.0 — THEME SWITCHER (must be defined before DOMContentLoaded)
+// ═══════════════════════════════════════════════════════════════
+
+const ThemeManager = {
+  init() {
+    const saved = localStorage.getItem('bluecrack-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = saved || (prefersDark ? 'dark' : 'light');
+    this.set(theme);
+  },
+  toggle() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    this.set(current === 'dark' ? 'light' : 'dark');
+  },
+  set(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('bluecrack-theme', theme);
+    const btn = DOM.btnThemeToggle;
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+};
+
+
+// ═══════════════════════════════════════════════════════════════
 //  EVENT LISTENERS — Wire Everything Up
 // ═══════════════════════════════════════════════════════════════
 
@@ -768,20 +792,51 @@ document.addEventListener('DOMContentLoaded', () => {
   function onModeChange() {
     const mode = DOM.attackMode.value;
     const isHttp = mode === 'http';
-
-    // Show/hide HTTP-specific options
     DOM.httpModeOptions.style.display = isHttp ? 'block' : 'none';
-
-    // Hide headless toggle in HTTP mode (irrelevant)
     DOM.headlessGroup.style.display = isHttp ? 'none' : '';
-
-    // Default higher threads for HTTP mode
     if (isHttp && parseInt(DOM.threads.value, 10) <= 1) {
       DOM.threads.value = '4';
     }
   }
-
   DOM.attackMode.addEventListener('change', onModeChange);
+
+  // ── Header Actions ──
+  if (DOM.btnLaunchDemo) {
+    DOM.btnLaunchDemo.addEventListener('click', launchDemoMode);
+  }
+  if (DOM.btnToggleEco) {
+    DOM.btnToggleEco.addEventListener('click', toggleEcoMode);
+  }
+
+  // ── Control Buttons ──
+  if (DOM.btnStart) {
+    DOM.btnStart.addEventListener('click', startAttack);
+  }
+  if (DOM.btnStop) {
+    DOM.btnStop.addEventListener('click', stopAttack);
+  }
+  if (DOM.btnExport) {
+    DOM.btnExport.addEventListener('click', exportLogs);
+  }
+  if (DOM.btnClear) {
+    DOM.btnClear.addEventListener('click', clearLogs);
+  }
+
+  // ── CUPP Buttons ──
+  if (DOM.btnGenerateCupp) {
+    DOM.btnGenerateCupp.addEventListener('click', generateCupp);
+  }
+  if (DOM.btnUseCupp) {
+    DOM.btnUseCupp.addEventListener('click', useCuppResult);
+  }
+
+  // ── Sequence Buttons ──
+  if (DOM.btnGenerateSeq) {
+    DOM.btnGenerateSeq.addEventListener('click', generateSequence);
+  }
+  if (DOM.btnUseSeq) {
+    DOM.btnUseSeq.addEventListener('click', useSequenceResult);
+  }
 
   // ── Theme toggle ──
   if (DOM.btnThemeToggle) {
@@ -836,31 +891,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   appendLog('[~] All systems nominal. Ready.');
 });
-
-
-// ═══════════════════════════════════════════════════════════════
-//  V4.0 FEATURES IMPLEMENTATIONS
-// ═══════════════════════════════════════════════════════════════
-
-// ── Theme Switcher ──
-const ThemeManager = {
-  init() {
-    const saved = localStorage.getItem('bluecrack-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = saved || (prefersDark ? 'dark' : 'light');
-    this.set(theme);
-  },
-  toggle() {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
-    this.set(current === 'dark' ? 'light' : 'dark');
-  },
-  set(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('bluecrack-theme', theme);
-    const btn = DOM.btnThemeToggle;
-    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-  }
-};
 
 // ── Chart.js Setup ──
 let speedChart = null;

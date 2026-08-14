@@ -425,6 +425,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 🔧 v4.0.1 — Stability Patch (August 2026)
+
+- **🔴 CRITICAL FIX**: Restored 10 missing event listeners in `app.js` — Start, Stop, Export, Clear, Demo, Eco Mode, CUPP Generate/Use, Sequence Generate/Use buttons were completely non-functional
+- **🟡 FIX**: Moved `ThemeManager` definition above `DOMContentLoaded` to eliminate temporal dead zone risk
+- **🟡 FIX**: Scheduler race condition — `entry["status"]` mutations now happen under lock
+- **🟢 FIX**: `ProxyManager.test_all()` no longer crashes with `ValueError` on empty proxy list
+
 ---
 
 ## 👤 Author

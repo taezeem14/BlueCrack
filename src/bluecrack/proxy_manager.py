@@ -79,6 +79,8 @@ class ProxyManager:
             Dict mapping proxy URL to health status.
         """
         results: Dict[str, Dict[str, Any]] = {}
+        if not self._proxies:
+            return results
         with ThreadPoolExecutor(max_workers=min(10, len(self._proxies))) as pool:
             futures = {
                 pool.submit(self.test_proxy, proxy): proxy

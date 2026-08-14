@@ -99,16 +99,14 @@ class AttackScheduler:
         def _timer_loop() -> None:
             while not self._stop_event.is_set():
                 now = time.time()
+                to_fire = []
                 with self._lock:
-                    pending = [
-                        e
-                        for e in self._scheduled
-                        if e["status"] == "pending"
-                        and e["run_at_ts"] <= now
-                    ]
+                    for e in self._scheduled:
+                        if e["status"] == "pending" and e["run_at_ts"] <= now:
+                            e["status"] = "fired"
+                            to_fire.append(e)
 
-                for entry in pending:
-                    entry["status"] = "fired"
+                for entry in to_fire:
                     if self._on_fire:
                         try:
                             threading.Thread(
@@ -117,7 +115,8 @@ class AttackScheduler:
                                 daemon=True,
                             ).start()
                         except Exception:
-                            entry["status"] = "error"
+                            with self._lock:
+                                entry["status"] = "error"
 
                 self._stop_event.wait(timeout=1)
 
