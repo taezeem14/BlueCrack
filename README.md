@@ -425,6 +425,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 🔧 v4.1.1 — SocketIO Throttling & Performance Fix (August 2026)
+
+- **⚡ WebSocket Throttling**: Added a `0.2s` minimum interval cooldown on worker thread socket metrics emissions in both the HTTP and Selenium engines. Prevents thread/frontend event loop overload and stabilizes dashboard updates during high-throughput brutes.
+- **🏁 Safe Completion Handshake**: Configured force-emission of the final metrics state to ensure the UI updates to 100% completion state precisely when the attack terminates.
+
+---
+
 ## 🚀 v4.1.0 — Welcome & User Guide System (August 2026)
 
 - **⚠️ Startup Disclaimer Warning**: Added a startup disclaimer modal that is loaded on page start to warn users that the creator is not responsible for any misuse of the framework. Users must agree to proceed to the main dashboard.

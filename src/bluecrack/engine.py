@@ -60,6 +60,7 @@ class AttackEngine:
         # Metrics
         self.metrics: Dict[str, int] = {}
         self._metrics_lock = threading.Lock()
+        self._last_metrics_emit: float = 0.0
 
         # Found credentials
         self._found_users: Set[str] = set()
@@ -129,10 +130,14 @@ class AttackEngine:
         m["hits"] = self.metrics.get("successes", 0)
         return m
 
-    def _emit_metrics(self) -> None:
-        """Emit current metrics snapshot."""
-        if self._metrics_callback:
+    def _emit_metrics(self, force: bool = False) -> None:
+        """Emit current metrics snapshot with throttling."""
+        if not self._metrics_callback:
+            return
+        now = time.time()
+        if force or (now - self._last_metrics_emit >= 0.2):
             self._metrics_callback(self._build_metrics_snapshot())
+            self._last_metrics_emit = now
 
     def get_metrics(self) -> Dict[str, Any]:
         """Return a copy of current metrics."""
@@ -622,6 +627,8 @@ class AttackEngine:
                 self._start_time,
                 end_time,
             )
+
+            self._emit_metrics(force=True)
 
             if self._found_users:
                 saved_msg = f"Valid credentials found for {len(self._found_users)} user(s)! Saved to credentials.txt"

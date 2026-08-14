@@ -227,6 +227,7 @@ class HTTPAttackEngine:
         # Metrics
         self.metrics: Dict[str, int] = {}
         self._metrics_lock = threading.Lock()
+        self._last_metrics_emit: float = 0.0
 
         # Found credentials
         self._found_users: Set[str] = set()
@@ -289,9 +290,13 @@ class HTTPAttackEngine:
         m["hits"] = self.metrics.get("successes", 0)
         return m
 
-    def _emit_metrics(self) -> None:
-        if self._metrics_callback:
+    def _emit_metrics(self, force: bool = False) -> None:
+        if not self._metrics_callback:
+            return
+        now = time.time()
+        if force or (now - self._last_metrics_emit >= 0.2):
             self._metrics_callback(self._build_metrics_snapshot())
+            self._last_metrics_emit = now
 
     def get_metrics(self) -> Dict[str, Any]:
         return self._build_metrics_snapshot()
@@ -837,6 +842,8 @@ class HTTPAttackEngine:
                 self._start_time,
                 end_time,
             )
+
+            self._emit_metrics(force=True)
 
             if self._found_users:
                 saved_msg = (
