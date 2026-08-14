@@ -425,6 +425,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 🔧 v4.0.3 — Performance Optimization (August 2026)
+
+- **⚡ Buttery Smooth Scrolling**: Removed the performance-heavy global transition wildcard selector (`*`) from CSS, resolving layout thrashing during scroll.
+- **🚀 GPU Acceleration**: Added hardware acceleration hints (`translate3d`, `will-change`, and `backface-visibility`) to the background starfield animation canvas, optimizing rendering.
+
+---
+
 ## 🔧 v4.0.2 — UI Refinement (August 2026)
 
 - **🎨 UI Restoration**: Restored the original, classic Web UI layout.
