@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/taezeem14/BlueCrack/main/src/bluecrack/static/img/banner.png" alt="BlueCrack Banner" width="100%" onerror="this.style.display='none'"/>
+  <img src="assets/banner.png" alt="BlueCrack Banner" width="100%" />
 </p>
 
-# ⚡ BlueCrack
+<h1 align="center">⚡ BlueCrack</h1>
 
 <p align="center">
   <strong>The Next-Gen, High-Velocity Browser Penetration & Credential Auditing Suite.</strong><br>
@@ -17,6 +17,8 @@
   <a href="https://github.com/taezeem14/BlueCrack/blob/main/LICENSE"><img src="https://img.shields.io/github/license/taezeem14/BlueCrack?style=for-the-badge&color=f43f5e" alt="License"></a>
 </p>
 
+<div align="center">
+
 ```
 ██████╗ ██╗     ██╗   ██╗███████╗  ██████╗██████╗  █████╗  ██████╗██╗  ██╗
 ██╔══██╗██║     ██║   ██║██╔════╝ ██╔════╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
@@ -25,6 +27,8 @@
 ██████╔╝███████╗╚██████╔╝███████╗ ╚██████╗██║  ██║██║  ██║╚██████╗██║  ██╗
 ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
 ```
+
+</div>
 
 ---
 
