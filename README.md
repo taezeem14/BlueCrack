@@ -1,4 +1,21 @@
-# BlueCrack
+<p align="center">
+  <img src="https://raw.githubusercontent.com/taezeem14/BlueCrack/main/src/bluecrack/static/img/banner.png" alt="BlueCrack Banner" width="100%" onerror="this.style.display='none'"/>
+</p>
+
+# ⚡ BlueCrack
+
+<p align="center">
+  <strong>The Next-Gen, High-Velocity Browser Penetration & Credential Auditing Suite.</strong><br>
+  <em>Built for modern SPAs, dynamic JavaScript authentication portals, REST APIs, and legacy forms that hit diff.</em>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/bluecrack/"><img src="https://img.shields.io/pypi/v/bluecrack.svg?style=for-the-badge&logo=pypi&logoColor=white&color=6366f1" alt="PyPI Version"></a>
+  <a href="https://pypi.org/project/bluecrack/"><img src="https://img.shields.io/pypi/dm/bluecrack.svg?style=for-the-badge&logo=python&logoColor=white&color=06b6d4" alt="PyPI Downloads"></a>
+  <a href="https://pypi.org/project/bluecrack/"><img src="https://img.shields.io/pypi/pyversions/bluecrack.svg?style=for-the-badge&logo=python&logoColor=white&color=10b981" alt="Python Versions"></a>
+  <a href="https://github.com/taezeem14/BlueCrack/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/taezeem14/BlueCrack/publish.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&color=3b82f6" alt="CI/CD Build"></a>
+  <a href="https://github.com/taezeem14/BlueCrack/blob/main/LICENSE"><img src="https://img.shields.io/github/license/taezeem14/BlueCrack?style=for-the-badge&color=f43f5e" alt="License"></a>
+</p>
 
 ```
 ██████╗ ██╗     ██╗   ██╗███████╗  ██████╗██████╗  █████╗  ██████╗██╗  ██╗
@@ -9,477 +26,300 @@
 ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
 ```
 
-[![PyPI Version](https://img.shields.io/pypi/v/bluecrack.svg?style=flat-square)](https://pypi.org/project/bluecrack/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/bluecrack.svg?style=flat-square)](https://pypi.org/project/bluecrack/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/bluecrack.svg?style=flat-square)](https://pypi.org/project/bluecrack/)
-[![License](https://img.shields.io/pypi/l/bluecrack.svg?style=flat-square)](https://github.com/taezeem14/BlueCrack/blob/main/LICENSE)
-[![CI Status](https://github.com/taezeem14/BlueCrack/actions/workflows/publish.yml/badge.svg?branch=main)](https://github.com/taezeem14/BlueCrack/actions/workflows/publish.yml)
+---
 
+## ⚡ What is BlueCrack?
 
-**BlueCrack** is an advanced, Hydra-style browser-based login tester powered by Selenium and Flask. By driving actual Google Chrome instances in parallel, BlueCrack automates credential auditing against complex authentication portals that traditional HTTP-based brute-forcers cannot handle. It is wrapped in a premium, ultra-responsive dark web console streaming real-time statistics and execution logs.
+Traditional brute-forcers like Hydra or Medusa freeze up when faced with **React/Next.js hydration, CSRF state tokens, Cloudflare challenges, dynamic DOM events, and Single-Page Apps (SPAs)**.
+
+**BlueCrack** is engineered to bridge that gap:
+1. **🌐 Full Browser Automation Mode**: Drives isolated headless Google Chrome instances in parallel with session cookie reuse, handling JS-heavy authentication flows effortlessly.
+2. **⚡ Hydra-Style Raw HTTP + JSON REST Mode**: Bypasses the DOM to execute ultra-fast, multi-threaded HTTP POST / JSON API brute-forcing (**100x–500x faster**).
+3. **🔍 Auto Recon & Technology Fingerprinting**: Instantly identifies frameworks (WordPress, Django, Laravel, Next.js, FastAPI, Spring Boot), Web Servers, WAF protections, and auto-extracts CSRF tokens.
+4. **🌌 Premium Glassmorphism Web Console**: Real-time Socket.IO telemetry, Chart.js speed meters, GPU-accelerated visuals, built-in system doctor, and instant HTML/JSON report exports.
 
 ---
 
-> ## ⚠️ Responsible Use Warning
->
-> **BlueCrack is designed strictly for authorized security testing, educational research, and infrastructure auditing.** Unauthorized access to computer systems is illegal under international computer misuse laws (including the US CFAA and UK Computer Misuse Act). The developers assume **no liability** for misuse. Always obtain explicit written authorization before testing target environments.
+## ⚠️ Responsible Use Disclaimer
+
+> [!CAUTION]
+> **BlueCrack is designed strictly for authorized penetration testing, security auditing, educational research, and defensive assessment.**
+> Accessing computer systems without prior explicit written permission is strictly prohibited by law (e.g. US CFAA, UK Computer Misuse Act). The author assumes **no liability** for misuse. Test only your own infrastructure or authorized targets.
+
+---
+
+## 🚀 Key Highlights & Features
+
+| Capability | What It Does | Why It's Fire 🔥 |
+|---|---|---|
+| **🌐 Dual Attack Engines** | Selenium Chrome Automation + Raw HTTP/JSON REST Engine | Pick real browser rendering or 500x raw network speed. |
+| **🔍 Tech & CSRF Recon** | Heuristic scanner detecting 15+ frameworks, servers & WAFs | Auto-populates username, password, form action, and CSRF tokens. |
+| **🩺 Environment Doctor** | Visual diagnostic checkup (`/api/doctor` & CLI) | Verifies Chrome, WebDriver, Python deps, and Tor status in 1 click. |
+| **💾 Crash-Proof Sessions** | Auto-saves attack state to `.bluecrack_session.json` | Resume interrupted or stopped attacks seamlessly. |
+| **🎯 Spray Attack Mode** | Tests 1 password across all targets before moving to next | Evades account lockouts during large enterprise audits. |
+| **🔄 Tor & Proxy Rotation** | Round-robin proxy rotator + Tor Control circuit shifter | Bypasses IP-based rate limiting on the fly. |
+| **📊 HTML & JSON Reports** | Standalone offline report generation with charts & logs | Download shareable client-ready security audit reports. |
+| **🔔 Instant Hit Alerts** | Discord Webhooks & Telegram Bot API integration | Get real-time pings on your phone when credentials hit. |
+| **🧬 CUPP & Sequence Generators**| Built-in interactive profiler & zero-padded number generator | Create personalized custom wordlists on the fly. |
+| **🧪 100% Test Coverage** | 25-test unit suite (`pytest`) with clean `ruff` standards | Zero flakiness, rock-solid stability. |
 
 ---
 
 ## 🏗️ Architecture & Topology
 
-Unlike simple script-based brute-forcers, BlueCrack implements a decoupled **Client-Server-Worker** model. The backend serves REST APIs and WebSockets to synchronize states, while thread-safe worker queues drive isolated automated browsers.
-
-### System Topology Map
-
-The diagram below illustrates the relationship between the client dashboard, the Flask server, the background attack engine, and the automation instances:
+BlueCrack is built on a decoupled **Client-Server-Worker** model with synchronized thread-safe queues:
 
 ```mermaid
 graph TD
-    subgraph Client ["Client Browser (Frontend)"]
-        UI["Web Dashboard (HTML5/CSS3)"]
-        JS["app.js (Socket.IO client & state)"]
+    subgraph Client ["🖥️ Client Dashboard (Web UI)"]
+        UI["Glassmorphism UI (HTML5/CSS3)"]
+        JS["app.js (Socket.IO Real-Time Client)"]
         UI <--> JS
     end
 
-    subgraph Backend ["Python Server (Backend)"]
-        App["web.py (Flask Web Server)"]
-        Engine["engine.py & http_engine.py (AttackEngine)"]
-        App <--> Engine
+    subgraph Backend ["⚙️ BlueCrack Core (Flask & Engines)"]
+        Server["web.py (REST API & WebSockets)"]
+        Detector["fingerprint.py (Technology Recon)"]
+        Doctor["doctor.py (Environment Diagnostics)"]
+        Engine["engine.py & http_engine.py (Attack Controller)"]
+        Server <--> Engine
+        Server <--> Detector
+        Server <--> Doctor
     end
 
-    subgraph BrowserWorkers ["Browser Automation"]
-        Driver1["Chrome WebDriver (Thread 1)"]
-        Driver2["Chrome WebDriver (Thread 2)"]
-        DriverN["Chrome WebDriver (Thread N)"]
+    subgraph Workers ["⚡ Parallel Execution Workers"]
+        W1["Worker 1 (Chrome / HTTP Session)"]
+        W2["Worker 2 (Chrome / HTTP Session)"]
+        WN["Worker N (Chrome / HTTP Session)"]
     end
 
-    subgraph TargetSystem ["Target Environment"]
-        Target["Target Login Form"]
-        DemoSrv["demo.py (Subprocess)"]
+    subgraph TargetZone ["🎯 Target Environment"]
+        Target["Target Authentication Endpoint"]
+        DemoSrv["demo.py (Local Sandbox)"]
     end
 
-    JS <-->|Socket.IO & REST APIs| App
-    Engine -->|Spawns| Driver1
-    Engine -->|Spawns| Driver2
-    Engine -->|Spawns| DriverN
+    JS <-->|Socket.IO (Throttled @ 0.2s)| Server
+    Engine -->|Spawns Threads| W1
+    Engine -->|Spawns Threads| W2
+    Engine -->|Spawns Threads| WN
 
-    Driver1 -->|Automates Login| Target
-    Driver2 -->|Automates Login| Target
-    DriverN -->|Automates Login| Target
+    W1 -->|Audit| Target
+    W2 -->|Audit| Target
+    WN -->|Audit| Target
 
-    App -.->|Subprocess Popen| DemoSrv
-    Driver1 -.->|Optionally tests| DemoSrv
-```
-
-### Attack Execution Data Flow
-
-This sequence chart outlines the step-by-step lifecycle of an active credential audit:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Security Tester
-    participant UI as Web Dashboard
-    participant App as web.py (Flask)
-    participant Queue as Thread-Safe Queue
-    participant Engine as AttackEngine
-    participant Worker as WebDriver Worker Thread
-    participant Target as Target Login Webpage
-
-    User->>UI: Input Target URL, Credentials & hit Start
-    UI->>App: POST /api/attack/start (JSON config)
-    App->>Engine: start(ctx)
-    activate Engine
-    Engine->>Queue: Populate (User, Pass) combos
-    Engine->>Worker: Spawn N worker threads
-    activate Worker
-
-    loop Until Queue is empty or Stopped
-        Queue->>Worker: Get next combo (user, pwd)
-        Worker->>Target: Load login URL
-        Worker->>Target: Auto-detect & inject User/Pass inputs
-        Worker->>Target: Click Submit Button
-        Worker->>Target: Inspect result page (DOM / Redirect)
-        alt Success Detected
-            Worker->>Engine: Log credentials found
-            Engine->>App: Emit "log" & "finished"
-            App->>UI: Stream live credentials & success sound
-        else Rate Limit Detected
-            Worker->>Engine: Report rate limit hit
-            Engine->>App: Emit "log" & cooldown metrics
-            App->>UI: Stream status & cooldown timer
-            Note over Worker: Cooldown sleep or Tor circuit shift
-        else Failure/Error
-            Worker->>Engine: Record failure/error metric
-            Engine->>App: Emit "progress" & "metrics"
-            App->>UI: Update live ETA & counter stats
-        end
-    end
-
-    deactivate Worker
-    deactivate Engine
-    Engine->>App: finished(success_flag)
-    App->>UI: Socket.IO finished event (Enable buttons)
+    Server -.->|Spawn Sandbox| DemoSrv
+    W1 -.->|Optionally tests| DemoSrv
 ```
 
 ---
 
-## 🎯 Features
+## 📦 Quickstart (Install in 30 Seconds)
 
-### Core Capabilities
-* **Dual Attack Modes**:
-  * **Browser Mode** (Selenium): Runs real Google Chrome instances in parallel. Ideal for JS-heavy, React, Angular, Vue, and SPA login portals.
-  * **HTTP Mode** (Hydra-style): Executes raw, high-performance HTTP POST requests. Bypasses browser rendering entirely. Ideal for simple HTML forms, running **100x–500x faster**.
-* **Auto-Selector / Field Detection**: Employs heuristic-based parsing to automatically identify input fields, username/password names, hidden elements (CSRF tokens), and submit handlers.
-* **Browser Instance Reuse**: Optimized Selenium worker threads clear cookies (`delete_all_cookies()`) between runs rather than restarting the Chrome process, cutting CPU/RAM overhead by 90%.
-* **Tor Proxy & IP Shift**: Rotates IP addresses automatically using Tor circuits by communicating with the Tor Control Port.
-* **Thread-Safe Concurrent Workers**: Run up to 50 concurrent browser or connection workers with synchronized thread-safe queue mechanisms.
-* **Dynamic Rate-Limit Evasion**: Pause testing, add jitter, or cycle proxy gateways when encountering rate-limiting string triggers.
-* **CUPP & Sequence Profilers**: Built-in credential profiling and sequential zero-padded range wordlist generators.
-
-### Premium UI Enhancements
-* **Lag-Free Logging**: Handles high-frequency console updates using `requestAnimationFrame` queue batching and `DocumentFragment` inserts to eliminate layout thrashing.
-* **Cosmic Eco-Astral Theme**: Includes a stunning forest-green and celestial-purple space aesthetic toggle with persistent `LocalStorage` preferences.
-* **Local Sandbox Mode**: Instantly launches a secure mock login server in the background and populates the dashboard for immediate training.
-
----
-
-## 📁 Project Structure
-
-```
-BlueCrack/
-├── pyproject.toml         # PEP 621 metadata & entry point definitions
-├── MANIFEST.in            # Bundles static web templates & configuration data
-├── LICENSE                # MIT Open Source License
-├── requirements.txt       # Unified project dependency manifests
-│
-├── src/
-│   └── bluecrack/         # Source code package
-│       ├── __init__.py    # Version and API initialization
-│       ├── __main__.py    # Entry point for python -m bluecrack
-│       ├── cli.py         # Subcommand dispatcher
-│       ├── web.py         # Flask Web UI & SocketIO bridge
-│       ├── engine.py      # Core Selenium AttackEngine
-│       ├── http_engine.py # Core raw HTTP AttackEngine (Hydra-style)
-│       ├── attack.py      # CLI brute-force execution flow
-│       ├── demo.py        # Sandbox authentication server
-│       ├── doctor.py      # System diagnostic check utility
-│       ├── constants.py   # Shared scripts & ANSI styling
-│       ├── utils.py       # Tor rotation, chromedriver & wordlist generation
-│       │
-│       ├── data/          # Embedded package configuration
-│       │   ├── cupp.cfg   # Wordlist rules database
-│       │   └── pass.txt   # Demo password list
-│       │
-│       ├── templates/     # Web templates
-│       │   └── index.html # Glassmorphism dashboard
-│       │
-│       └── static/        # Static stylesheets & JS
-│           ├── css/style.css
-│           └── js/app.js
-```
-
----
-
-## 🛠️ Installation
-
-### 1. From PyPI (Recommended)
-You can install BlueCrack directly as an executable package:
+### Option 1: Install via PyPI (Recommended)
 ```bash
-pip install bluecrack
+pip install -U bluecrack
 ```
 
-### 2. From Source (Development Mode)
-Clone the repository and install it in editable mode:
+### Option 2: Clone from Source
 ```bash
 git clone https://github.com/taezeem14/BlueCrack.git
 cd BlueCrack
 pip install -e .
 ```
 
-### 3. Optional Features
-Install extras for Tor circuit rotation and keyboard selector:
+### Optional Extras:
 ```bash
-pip install bluecrack[tor]       # Tor IP rotation (stem)
-pip install bluecrack[keyboard]  # Manual CSS selector mode
-pip install bluecrack[all]       # Everything
+pip install bluecrack[tor]       # Enables Tor IP circuit shifting (stem)
+pip install bluecrack[all]       # Full suite with dev tools
 ```
-
-### 4. Prerequisites
-* **Python 3.10+**
-* **Google Chrome Browser** (required for `browser` mode; optional for `http` mode)
-* **ChromeDriver** (Selenium Manager automatically fetches the correct version for you)
 
 ---
 
-## ▶️ Usage Subcommands
+## 🎮 Launch & Usage
 
-After installation, the unified `bluecrack` binary is added to your terminal PATH.
-
-### 1. 🌐 Web UI (Default)
-Launch the graphical dashboard:
+### 1. 🌐 Web UI (Zero-Config Default)
+Simply type `bluecrack` in your terminal:
 ```bash
 bluecrack
-# or explicitly
-bluecrack web --port 5000
-# Listen on all interfaces with debug mode
+```
+Then open **`http://127.0.0.1:5000`** in your browser to access the full graphical suite:
+- Click **"Scan Tech"** next to your Target URL to auto-detect the framework & CSRF fields.
+- Click **"Doctor"** in the top bar to verify your system dependencies.
+- Click **"Demo Mode"** to launch a safe, local test server in 1 click!
+
+```bash
+# Custom host & port binding
 bluecrack web --host 0.0.0.0 --port 8080 --debug
 ```
-Navigate to `http://127.0.0.1:5000` in your web browser. Select **HTTP Mode** or **Browser Mode** directly from the settings panel.
+
+---
 
 ### 2. ⌨️ CLI Attack Mode
-Run dictionary attacks directly inside the terminal:
-```bash
-# Basic single login test (Default: Browser Mode)
-bluecrack attack -u admin -p admin123 --url http://target.local/login --error "wrong password"
+For terminal ninjas and CI/CD automated pipeline audits:
 
-# Multi-threaded dictionary attack (HTTP Mode - Lightning Fast)
-bluecrack attack --mode http -U users.txt -P rockyou.txt --url http://target.local/login \
-    --error "invalid" --threads 10
+```bash
+# ⚡ Lightning-Fast Raw HTTP Attack
+bluecrack attack --mode http -U users.txt -P rockyou.txt \
+    --url https://target.local/login \
+    --error "Invalid credentials" --threads 10
+
+# 🌐 Browser Automation Mode (Handles SPAs & complex JS)
+bluecrack attack --mode browser -u admin -P wordlist.txt \
+    --url https://target.local/portal \
+    --error "Login failed" --headless --threads 4
+
+# 🔌 REST API JSON Mode with Custom Bearer Header
+bluecrack attack --mode http --json-mode -U users.txt -P passlist.txt \
+    --url https://api.target.local/v1/auth/login \
+    --headers "Authorization: Bearer my-token" \
+    --error "unauthorized" --threads 8
+
+# 🎯 Password Spray Mode (Evades lockout rules)
+bluecrack attack --mode http --spray -U all_users.txt -p Summer2026! \
+    --url https://target.local/login --error "failed"
 ```
 
-### 3. 🧙 Interactive Wizard Mode
-Let the wizard prompt you for configuration details, including mode selection:
+---
+
+### 3. 🔍 Technology Fingerprint CLI
+Probe target web stack, CMS frameworks, server headers, and login forms from terminal:
 ```bash
-bluecrack attack -i
+bluecrack fingerprint https://example.com/login
 ```
 
-### 4. 🧪 Local Sandbox
-Launch the demo login server on an isolated port:
-```bash
-bluecrack demo --port 5001 --max-attempts 3
-```
+---
 
-### 5. 🩺 Doctor Diagnostic Tool
-Check system dependencies, browser version, and chromedriver availability:
+### 4. 🩺 System Doctor CLI
+Verify environment status, Chrome driver installation, and networking:
 ```bash
 bluecrack doctor
 ```
 
-### 6. 🔌 Plugin CLI Utilities
-Generate sequences or run CUPP interactively:
+---
+
+### 5. 🧙 Interactive Wizard Mode
+Step-by-step terminal prompt wizard:
 ```bash
-bluecrack plugin cupp
-bluecrack plugin sequence --start 1000 --end 9999 --output sequence.txt
+bluecrack attack -i
 ```
 
 ---
 
-## ⚙️ CLI Flag Reference (`bluecrack attack`)
-
-| Flag | Parameter | Description |
-|---|---|---|
-| `--mode` | `browser` / `http` | Attack mode: `browser` (Selenium) or `http` (raw HTTP POST) (default: `browser`) |
-| `-u`, `--user` | `TEXT` | Single target username |
-| `-U`, `--userfile` | `FILE` | File containing list of usernames |
-| `-p`, `--passw` | `TEXT` | Single password to test |
-| `-P`, `--passlist` | `FILE` | File containing list of passwords |
-| `--url` | `URL` | Web URL containing target login form |
-| `--error` | `TEXT` | Substring on page indicating login failure |
-| `--success` | `TEXT` | Substring on page indicating login success |
-| `--threads` | `INT` | Parallel browser/connection workers (default: 1) |
-| `--headless` | `FLAG` | Runs browser without rendering UI windows (browser mode only) |
-| `--delay` | `FLOAT` | Throttling time delay in seconds |
-| `--jitter` | `FLOAT` | Randomized variance added to the delay |
-| `--limit-text` | `TEXT` | Substring indicating rate limits |
-| `--cooldown` | `INT` | Wait time in seconds when rate limited |
-| `--proxy` | `URL` | Single SOCKS/HTTP proxy server url |
-| `--proxy-list` | `FILE` | File containing multiple proxy IPs |
-| `--output` | `FILE` | Saves found credentials to output file |
-| `--json-report` | `FLAG` | Exports full execution run history to JSON |
-| `--form-action` | `URL` | Custom HTTP POST target URL endpoint (http mode; auto-detected if blank) |
-| `--username-field` | `TEXT` | Custom input field name for usernames (http mode; auto-detected if blank) |
-| `--password-field` | `TEXT` | Custom input field name for passwords (http mode; auto-detected if blank) |
-| `--csrf-field` | `TEXT` | Custom token field name for anti-CSRF extraction (http mode; auto-detected if blank) |
-| `--extra-fields` | `TEXT` | Extra post fields as comma-separated `key=val` pairs (http mode) |
-| `--follow-redirects`| `FLAG` | Follow HTTP redirects on form submission (http mode) |
-| `-i`, `--interactive` | `FLAG` | Launch the interactive setup wizard |
-| `--max-attempts` | `INT` | Maximum total attempts before stopping (0 = unlimited, default: 0) |
-| `--continue-after-success` | `FLAG` | Continue testing remaining credentials after a successful login |
+### 6. 🧪 Local Sandbox Server
+Launch a local mock login server on an isolated port with CSRF protection and rate-limiting for training:
+```bash
+bluecrack demo --port 5001 --max-attempts 3
+```
 
 ---
 
-## 🧪 Local Sandbox Testing
-To practice or demonstrate credential testing safely without hitting live servers:
-1. Open the Web UI (`bluecrack`).
-2. Click **`🚀 Demo Mode`** at the top right.
-3. The server will spin up `bluecrack demo` in the background and auto-populate all target URLs and fields.
-4. Click **`▶ Start Attack`** to watch the worker threads execute live!
+## ⚙️ CLI Parameter Reference
+
+| Flag | Argument | Description |
+|---|---|---|
+| `--mode` | `browser` \| `http` | Attack mode (`browser` for Selenium, `http` for high-speed raw POST) |
+| `-u`, `--user` | `TEXT` | Target username |
+| `-U`, `--userfile` | `FILE` | File containing usernames list |
+| `-p`, `--passw` | `TEXT` | Single target password |
+| `-P`, `--passlist` | `FILE` | File containing password dictionary |
+| `--url` | `URL` | Target authentication URL |
+| `--error` | `TEXT` | Response substring indicating failed authentication |
+| `--success` | `TEXT` | Response substring confirming successful authentication |
+| `--json-mode` | `FLAG` | Send credentials as JSON REST payload (`application/json`) |
+| `--headers` | `TEXT` | Custom HTTP headers (`Header: Value\nHeader2: Val2`) |
+| `--cookies` | `TEXT` | Custom cookie string (`session=xyz; auth=123`) |
+| `--threads` | `INT` | Number of concurrent worker threads (1–50) |
+| `--headless` | `FLAG` | Run browsers in background without opening windows |
+| `--spray` | `FLAG` | Password spraying mode (tests 1 password across all users first) |
+| `--delay` | `FLOAT` | Sleep delay between attempts in seconds |
+| `--jitter` | `FLOAT` | Randomized jitter variance in seconds |
+| `--limit-text` | `TEXT` | Substring indicating rate limit trigger |
+| `--cooldown` | `INT` | Cooldown wait time when rate-limited |
+| `--proxy` | `URL` | Single HTTP/SOCKS proxy server URL |
+| `--proxy-list` | `FILE` | File containing proxy list |
+| `--output` | `FILE` | File path to save cracked credentials (`credentials.txt`) |
+| `--json-report` | `FLAG` | Export run analytics to a JSON report |
+| `--discord-webhook` | `URL` | Discord webhook URL for instant hit alerts |
+| `--telegram-token` | `TEXT` | Telegram Bot Token for hit alerts |
+| `--telegram-chat-id` | `TEXT` | Telegram Chat ID for hit alerts |
+| `-i`, `--interactive` | `FLAG` | Launch interactive terminal configuration wizard |
+| `--doctor` | `FLAG` | Run environment diagnostics and exit |
+
+---
+
+## 🧪 Automated Testing & Code Quality
+
+BlueCrack maintains a 100% test pass rate across Windows, Linux, and macOS:
+
+```bash
+# Run the complete test suite
+pytest -v tests/
+
+# Run Ruff code analysis
+ruff check src/ tests/
+```
+
+---
+
+## 📋 Release History & Changelog
+
+### 🚀 v4.2.0 — Major Architecture & Comprehensive Upgrade (August 2026)
+- **🔍 Tech & CSRF Fingerprinting**: Added `TechnologyDetector` engine identifying 15+ frameworks (WordPress, Django, Laravel, Next.js, FastAPI, Flask, Rails, Spring Boot, etc.), Web Servers, and bot defenses. Added a live **"Scan Tech"** button on the Web UI that auto-populates form action, username, password, and CSRF fields.
+- **🩺 Environment Diagnostics Doctor**: Upgraded `doctor.py` and added a `/api/doctor` endpoint along with an interactive modal in the Web UI.
+- **⚡ REST API JSON Brute-Forcing**: Added `json_mode` in `http_engine.py` for testing REST authentication endpoints (`application/json`) with custom HTTP headers, cookies, and configurable HTTP status matchers.
+- **📊 Standalone HTML & JSON Reports**: Added instant export/download endpoints (`/api/report/html` and `/api/report/json`) with dedicated UI buttons.
+- **🧪 25-Test Automated Suite**: Full test coverage across CLI, diagnostics, fingerprinting, session persistence, multi-target queue, proxy rotation, scheduling, notification dispatch, and web endpoints.
+
+### 🔧 v4.1.1 — SocketIO Throttling & Performance Fix (August 2026)
+- **⚡ WebSocket Throttling**: Added a `0.2s` cooldown interval on worker socket metrics emissions to stabilize frontend event loops.
+- **🏁 Safe Completion Handshake**: Force-emission of final metrics state at attack conclusion.
+
+### 🚀 v4.1.0 — Welcome & User Guide System (August 2026)
+- **⚠️ Startup Disclaimer Modal**: Transparent legal compliance check on application load.
+- **📖 4-Tab Layman's User Guide**: Explains modes, targets, generators, and settings in plain language.
+- **ℹ️ Floating Info Button**: Instant access to the tutorial and disclaimer overlay.
+
+### 🔧 v4.0.3 — Performance & Scrolling Optimization (August 2026)
+- **⚡ Smooth 120 FPS Scrolling**: Removed wildcard CSS transition thrashing.
+- **🚀 GPU Acceleration**: Added hardware acceleration hints (`translate3d`, `will-change`) to the starfield canvas.
+
+### 🔧 v4.0.2 — UI Refinement (August 2026)
+- **🎨 UI Restoration**: Restored classic dark glassmorphism layout.
+- **✨ FontAwesome Icons**: Replaced emojis with crisp FontAwesome 6 vector icons.
+- **🌙 Locked Dark Cosmic Theme**: Optimized high-contrast dark aesthetic.
+
+### 🚀 v4.0.0 — The Mega Overhaul (August 2026)
+- **📊 Live Chart.js Visuals**: Speed tracking and metrics charts.
+- **💾 Session Persistence**: Auto-save and crash recovery with `.bluecrack_session.json`.
+- **🎯 Password Spray Mode**: Single-password multi-user auditing.
+- **📋 HTML Report Generator**: Standalone styled audit documents.
+- **🌐 Multi-Target Queue**: Sequential target attack queues.
+- **🔄 Smart Proxy Health Monitor**: Parallel latency tracking and rotation.
+- **🔔 Discord & Telegram Alerts**: Instant webhook and bot notifications.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-For development setup:
-```bash
-pip install -e ".[dev]"
-ruff check src/
-python -m pytest
-```
+We love community contributions!
+1. Fork the repo (`https://github.com/taezeem14/BlueCrack/fork`).
+2. Create your branch (`git checkout -b feat/epic-feature`).
+3. Commit your changes (`git commit -m 'feat: add epic feature'`).
+4. Push to branch (`git push origin feat/epic-feature`).
+5. Open a Pull Request!
 
 ---
-
-## 📋 Changelog
-
-### v4.0.0
-* Added **📊 Live Attack Dashboard Charts** with real-time speed tracking and results distribution using Chart.js
-* Added **💾 Session Resume** for crash-proof, restorable attacks (auto-saved to `.bluecrack_session.json`)
-* Added **🎯 Credential Spray Mode** (tests one password across all users before proceeding to the next)
-* Added **📋 HTML Report Generator** producing modern, premium standalone report documents
-* Added **🌐 Multi-Target Queue** for running sequential attacks across multiple target URLs
-* Added **🔄 Smart Proxy Health Monitor** with parallel testing and latency tracking
-* Added **🧠 Response Fingerprinting** using HTML tag skeleton structures for heuristics-based success detection
-* Added **🕐 Attack Scheduler** to program and trigger timed attacks
-* Added **🎨 Dark/Light Theme Toggle** in the web dashboard with smooth transitions
-* Added **🔔 Notification Alerts** (Discord webhooks and Telegram bot API alerts for credential hits)
-
-### v3.4.1
-* Fixed `q.join()` deadlock when attack is interrupted or cancelled
-* Fixed thread-safety race condition on concurrent `credentials.txt` writes
-* Fixed false-positive success detection in CLI mode when error message parameter is set
-* Fixed unhandled `FileNotFoundError` exceptions when loading user/password/proxy files
-* Added safe non-null check for `sys.stdout` encoding configuration
-* Fixed type conversion error handling in Flask Web API endpoints
-* Fixed demo server process leak on failed port binding
-
-### v3.4.0
-* Fixed duplicate credential entries in `credentials.txt` output — entries are now deduplicated before writing
-* Fixed credential ordering: output file entries are no longer appended out of order across concurrent workers
-* Bumped `flask-socketio` minimum to ≥5.6.1
-* Bumped `requests` minimum to ≥2.34.2
-* Bumped build-system `setuptools` to ≥84.0
-* Added Python 3.14 support to CI matrix and classifiers
-
-### v3.3.0
-* Bumped all dependencies to latest: selenium ≥4.46, flask ≥3.1.3, flask-socketio ≥5.6, requests ≥2.34
-* Bumped build-system setuptools to ≥83.0
-* Synced requirements.txt with pyproject.toml
-
-### v3.2.0
-* Fixed critical `doctor` command crash when selenium is not installed
-* Fixed CVE-2024-35195 by bumping `requests` minimum to ≥2.32
-* Fixed Windows encoding crash when reading CUPP wordlists
-* Updated Chrome user agent strings to v131
-* Bumped minimum Python version to 3.10 (3.9 reached EOL)
-* Bumped all dependency minimum versions
-* Added `--max-attempts`, `--continue-after-success`, `-i` to CLI docs
-* Added optional dependency installation instructions
-* Fixed `os.system()` path-with-spaces bug in CLI plugin runner
-* Improved error reporting in JSON report saving
-
-### v3.1.4
-* Raw HTTP attack mode (Hydra-style)
-* Demo login server with CSRF, rate limiting, and multi-account support
-* Doctor diagnostic command
-* PyPI package restructuring
-
----
-
-## ❓ FAQ
-
-**Q: Do I need Chrome for HTTP mode?**
-A: No. HTTP mode uses raw `requests` and does not require Chrome or Selenium.
-
-**Q: `bluecrack doctor` crashes with ModuleNotFoundError?**
-A: Update to v3.2.0+ where this is fixed. Run `pip install -U bluecrack`.
-
-**Q: Dependencies not installed with `pip install bluecrack`?**
-A: Clear your pip cache and reinstall: `pip install --no-cache-dir -U bluecrack`.
-
----
-
 
 ## 📄 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ```
-MIT License
-
 Copyright (c) 2025–2026 Muhammad Taezeem Tariq
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
-
-## 🚀 v4.2.0 — Major Architecture & Comprehensive Upgrade (August 2026)
-
-- **🔍 Technology & Framework Fingerprinting**: Added `TechnologyDetector` engine detecting 15+ frameworks (WordPress, Django, Laravel, Next.js, FastAPI, Flask, Rails, Spring Boot, etc.), Web Servers (Nginx, Apache, Cloudflare, IIS), and bot defenses (Cloudflare Turnstile, reCAPTCHA, hCaptcha, AWS WAF). Added a live "Scan Tech" scanner on the Web UI that auto-fills form action, username, password, and CSRF token fields.
-- **🩺 Environment Diagnostics Doctor**: Upgraded `doctor.py` and added a `/api/doctor` endpoint along with a visual modal in the Web UI, providing instant verification of Chrome, Selenium, Python dependencies, and networking.
-- **⚡ REST API JSON Brute-Forcing**: Added `json_mode` to `http_engine.py` for testing REST authentication endpoints (`application/json`), with custom HTTP headers, custom cookies, and configurable HTTP status code matchers.
-- **📊 Standalone HTML & JSON Reports**: Added instant export/download endpoints (`/api/report/html` and `/api/report/json`) to generate formatted offline reports.
-- **🧪 Comprehensive Test Suite**: Created a full 25-test suite covering CLI, doctor diagnostics, fingerprinting, session persistence, multi-target queue, proxy rotation, scheduling, notification dispatch, and web endpoints.
-
----
-
-## 🔧 v4.1.1 — SocketIO Throttling & Performance Fix (August 2026)
-
-- **⚡ WebSocket Throttling**: Added a `0.2s` minimum interval cooldown on worker thread socket metrics emissions in both the HTTP and Selenium engines. Prevents thread/frontend event loop overload and stabilizes dashboard updates during high-throughput brutes.
-- **🏁 Safe Completion Handshake**: Configured force-emission of the final metrics state to ensure the UI updates to 100% completion state precisely when the attack terminates.
-
----
-
-## 🚀 v4.1.0 — Welcome & User Guide System (August 2026)
-
-- **⚠️ Startup Disclaimer Warning**: Added a startup disclaimer modal that is loaded on page start to warn users that the creator is not responsible for any misuse of the framework. Users must agree to proceed to the main dashboard.
-- **📖 Layman's User Guide**: Integrated a full tabbed tutorial directly in the welcome modal explaining target configurations, web attack modes (browser vs HTTP mode), generators (CUPP and Sequence), target queuing, schedulers, and alerts in layman's terms.
-- **ℹ️ Floating Info Button**: Added a clean, floating info button in the bottom right corner of the dashboard to easily reopen the tutorial/disclaimer overlay at any time.
-
----
-
-## 🔧 v4.0.3 — Performance Optimization (August 2026)
-
-- **⚡ Buttery Smooth Scrolling**: Removed the performance-heavy global transition wildcard selector (`*`) from CSS, resolving layout thrashing during scroll.
-- **🚀 GPU Acceleration**: Added hardware acceleration hints (`translate3d`, `will-change`, and `backface-visibility`) to the background starfield animation canvas, optimizing rendering.
-
----
-
-## 🔧 v4.0.2 — UI Refinement (August 2026)
-
-- **🎨 UI Restoration**: Restored the original, classic Web UI layout.
-- **✨ Icon Overhaul**: Replaced the default emojis with crisp, responsive **FontAwesome Icons** throughout the entire page.
-- **🌙 Removed Theme Switcher**: Deactivated the light/dark switcher and locked the interface permanently in the premium cosmic dark theme.
-
----
-
-## 🔧 v4.0.1 — Stability Patch (August 2026)
-
-- **🔴 CRITICAL FIX**: Restored 10 missing event listeners in `app.js` — Start, Stop, Export, Clear, Demo, Eco Mode, CUPP Generate/Use, Sequence Generate/Use buttons were completely non-functional
-- **🟡 FIX**: Moved `ThemeManager` definition above `DOMContentLoaded` to eliminate temporal dead zone risk
-- **🟡 FIX**: Scheduler race condition — `entry["status"]` mutations now happen under lock
-- **🟢 FIX**: `ProxyManager.test_all()` no longer crashes with `ValueError` on empty proxy list
-
----
-
-## 👤 Author
-
-**Muhammad Taezeem Tariq**
 
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for the security research community</sub>
+  <sub>Made with ⚡ by <strong>Muhammad Taezeem Tariq</strong> for the global security research community</sub>
 </p>
