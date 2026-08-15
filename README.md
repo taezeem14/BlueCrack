@@ -92,9 +92,9 @@ graph TD
     end
 
     subgraph Workers ["⚡ Parallel Execution Workers"]
-        W1["Worker 1 (Chrome / HTTP Session)"]
-        W2["Worker 2 (Chrome / HTTP Session)"]
-        WN["Worker N (Chrome / HTTP Session)"]
+        W1["Worker 1 (Chrome / HTTP)"]
+        W2["Worker 2 (Chrome / HTTP)"]
+        WN["Worker N (Chrome / HTTP)"]
     end
 
     subgraph TargetZone ["🎯 Target Environment"]
@@ -102,17 +102,17 @@ graph TD
         DemoSrv["demo.py (Local Sandbox)"]
     end
 
-    JS <-->|Socket.IO (Throttled @ 0.2s)| Server
-    Engine -->|Spawns Threads| W1
-    Engine -->|Spawns Threads| W2
-    Engine -->|Spawns Threads| WN
+    JS <-->|"Socket.IO Telemetry (0.2s Throttled)"| Server
+    Engine -->|"Spawns Threads"| W1
+    Engine -->|"Spawns Threads"| W2
+    Engine -->|"Spawns Threads"| WN
 
-    W1 -->|Audit| Target
-    W2 -->|Audit| Target
-    WN -->|Audit| Target
+    W1 -->|"Audit"| Target
+    W2 -->|"Audit"| Target
+    WN -->|"Audit"| Target
 
-    Server -.->|Spawn Sandbox| DemoSrv
-    W1 -.->|Optionally tests| DemoSrv
+    Server -.->|"Spawn Sandbox"| DemoSrv
+    W1 -.->|"Optionally tests"| DemoSrv
 ```
 
 ---
