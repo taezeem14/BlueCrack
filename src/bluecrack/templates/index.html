@@ -40,6 +40,7 @@
         <p class="header-subtitle">Advanced Browser Penetration Framework</p>
       </div>
       <div class="header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnDoctor" type="button"><i class="fa-solid fa-stethoscope"></i> Doctor</button>
         <button class="btn btn-ghost btn-sm" id="btnLaunchDemo" type="button"><i class="fa-solid fa-rocket"></i> Demo Mode</button>
         <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button"><i class="fa-solid fa-leaf"></i> Eco Mode</button>
         <div class="header-badge">
@@ -84,7 +85,12 @@
 
           <div class="form-group">
             <label for="targetUrl">Target URL</label>
-            <input type="url" id="targetUrl" placeholder="https://example.com/login" autocomplete="off" />
+            <div class="input-with-btn">
+              <input type="url" id="targetUrl" placeholder="https://example.com/login" autocomplete="off" />
+              <button class="btn btn-ghost btn-sm" id="btnScanTarget" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> Scan Tech</button>
+            </div>
+            <!-- Live Tech Fingerprint Badge container -->
+            <div class="tech-badge-container" id="targetTechBadge" style="display: none;"></div>
           </div>
 
           <div class="form-row">
@@ -209,12 +215,39 @@
               </div>
             </div>
 
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="followRedirects" />
-                <span class="checkmark"></span>
-                Follow HTTP Redirects
-              </label>
+            <div class="form-row">
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="followRedirects" />
+                  <span class="checkmark"></span>
+                  Follow HTTP Redirects
+                </label>
+              </div>
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="jsonMode" />
+                  <span class="checkmark"></span>
+                  JSON REST API Mode <span class="spray-badge">API</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="customHeaders">Custom Headers <span class="hint">(Header: Value per line)</span></label>
+                <textarea id="customHeaders" rows="2" placeholder="Authorization: Bearer token&#10;X-Requested-With: XMLHttpRequest"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="customCookies">Custom Cookies <span class="hint">(Cookie string)</span></label>
+                <input type="text" id="customCookies" placeholder="session=abc123xyz; auth=true" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="successStatusCodes">Success Status Codes <span class="hint">(comma-separated)</span></label>
+                <input type="text" id="successStatusCodes" placeholder="200, 302, 204" />
+              </div>
             </div>
           </div>
 
@@ -478,7 +511,8 @@
       <button class="btn btn-start" id="btnStart" type="button"><i class="fa-solid fa-play"></i> Start Attack</button>
       <button class="btn btn-stop" id="btnStop" type="button" disabled><i class="fa-solid fa-stop"></i> Stop</button>
       <div class="controls-spacer"></div>
-      <button class="btn btn-report btn-sm" id="btnReport" type="button"><i class="fa-solid fa-file-invoice"></i> Report</button>
+      <button class="btn btn-report btn-sm" id="btnReport" type="button"><i class="fa-solid fa-file-invoice"></i> HTML Report</button>
+      <button class="btn btn-ghost btn-sm" id="btnDownloadJson" type="button"><i class="fa-solid fa-code"></i> JSON</button>
       <button class="btn btn-ghost" id="btnExport" type="button">Export Logs</button>
       <button class="btn btn-ghost" id="btnClear" type="button">Clear Logs</button>
     </div>
@@ -651,6 +685,28 @@
             <button class="btn btn-ghost" id="btnBackToDisclaimer" type="button">View Disclaimer</button>
             <button class="btn btn-primary" id="btnFinishTutorial" type="button">Get Started</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Doctor Modal -->
+  <div class="modal-overlay" id="doctorModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-stethoscope text-cyan"></i> BlueCrack Environment Doctor</h3>
+        <button class="modal-close" id="btnCloseDoctor" type="button">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+          Diagnostic checkup on system dependencies, Chrome browser, networking, and optional security modules.
+        </p>
+        <div id="doctorChecksContainer" class="doctor-checks-grid">
+          <div style="text-align:center; padding: 20px; color: var(--text-muted);">Running diagnostic checks...</div>
+        </div>
+        <div class="modal-actions" style="margin-top: 20px;">
+          <button class="btn btn-ghost" id="btnRerunDoctor" type="button"><i class="fa-solid fa-arrows-rotate"></i> Re-test</button>
+          <button class="btn btn-primary" id="btnCloseDoctorBtn" type="button">Done</button>
         </div>
       </div>
     </div>

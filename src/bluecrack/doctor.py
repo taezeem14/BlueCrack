@@ -10,6 +10,7 @@ import shutil
 import socket
 import subprocess
 import sys
+from typing import Any, Dict, List
 
 from ._version import __version__
 from .constants import (
@@ -36,25 +37,26 @@ def _check_port_listening(port: int, host: str = "127.0.0.1") -> bool:
         return s.connect_ex((host, port)) == 0
 
 
-def run_doctor() -> None:
-    """Perform diagnostic checkup on the system environment."""
-    print(f"\n{_CYAN}==================================================")
-    print(f"      BlueCrack v{__version__} Environment Doctor")
-    print(f"=================================================={_RESET}\n")
+def diagnose() -> Dict[str, Any]:
+    """Perform a structured diagnostic check of the system environment.
 
-    passed_checks = 0
-    total_checks = 7
+    Returns:
+        Dict containing structured test results, versions, and readiness status.
+    """
+    checks: List[Dict[str, Any]] = []
 
-    # 1. Python version
+    # 1. Python Version
     py_ver = sys.version_info
     py_ver_str = f"{py_ver.major}.{py_ver.minor}.{py_ver.micro}"
-    if py_ver >= (3, 9):
-        print(f"  [+] Python version: {py_ver_str} (Supported) {_GREEN}✔{_RESET}")
-        passed_checks += 1
-    else:
-        print(f"  [-] Python version: {py_ver_str} (Deprecated! BlueCrack requires Python >= 3.9) {_RED}✘{_RESET}")
+    py_ok = py_ver >= (3, 10)
+    checks.append({
+        "name": "Python Version",
+        "status": "ok" if py_ok else "fail",
+        "detail": f"{py_ver_str} ({'Supported' if py_ok else 'Deprecated, requires >=3.10'})",
+        "critical": True,
+    })
 
-    # 2. Chrome Installation check
+    # 2. Chrome Browser
     chrome_path = None
     if sys.platform == "win32":
         paths = [
@@ -69,100 +71,120 @@ def run_doctor() -> None:
     else:
         chrome_path = shutil.which("google-chrome") or shutil.which("chrome") or shutil.which("chromium")
 
+    chrome_ver = "Unknown"
     if chrome_path:
-        # Try to get version
         try:
             if sys.platform == "win32":
-                # Get version on windows via registry or powershell
                 res = subprocess.run(
                     ["powershell", "-NoProfile", "-Command", f"(Get-Item '{chrome_path}').VersionInfo.ProductVersion"],
-                    capture_output=True, text=True
+                    capture_output=True, text=True, timeout=5
                 )
-                ver_str = res.stdout.strip() or "Unknown"
+                chrome_ver = res.stdout.strip() or "Installed"
             else:
-                res = subprocess.run([chrome_path, "--version"], capture_output=True, text=True)
-                ver_str = res.stdout.strip()
-            print(f"  [+] Chrome browser: Installed ({ver_str}) {_GREEN}✔{_RESET}")
-            passed_checks += 1
+                res = subprocess.run([chrome_path, "--version"], capture_output=True, text=True, timeout=5)
+                chrome_ver = res.stdout.strip()
         except Exception:
-            print(f"  [+] Chrome browser: Installed at {chrome_path} {_GREEN}✔{_RESET}")
-            passed_checks += 1
-    else:
-        print(f"  [-] Chrome browser: Not detected! Selenium requires Google Chrome. {_RED}✘{_RESET}")
+            chrome_ver = f"Installed at {chrome_path}"
 
-    # 3. Selenium & Driver check
-    webdriver = None
+        checks.append({
+            "name": "Google Chrome",
+            "status": "ok",
+            "detail": f"{chrome_ver} ({chrome_path})",
+            "critical": True,
+        })
+    else:
+        checks.append({
+            "name": "Google Chrome",
+            "status": "fail",
+            "detail": "Not detected! Selenium browser mode requires Google Chrome.",
+            "critical": True,
+        })
+
+    # 3. Selenium
+    sel_ok = False
+    sel_ver = "Not installed"
     try:
         import selenium
-        from selenium import webdriver as _wd
-        webdriver = _wd
-        sel_ver = getattr(selenium, '__version__', 'unknown')
-        print(f"  [+] Selenium library: Installed ({sel_ver}) {_GREEN}✔{_RESET}")
-        passed_checks += 1
+        sel_ver = getattr(selenium, "__version__", "Installed")
+        sel_ok = True
     except ImportError:
-        print(f"  [-] Selenium library: Not found! Run: pip install selenium {_RED}✘{_RESET}")
+        pass
 
-    # 4. Headless WebDriver Creation Check
-    if webdriver is not None:
-        print("  [*] Testing headless Chrome driver creation...")
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless=new")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--disable-dev-shm-usage")
-        driver = None
+    checks.append({
+        "name": "Selenium Library",
+        "status": "ok" if sel_ok else "fail",
+        "detail": sel_ver,
+        "critical": True,
+    })
+
+    # 4. Headless WebDriver Test
+    driver_ok = False
+    driver_detail = "Skipped"
+    if sel_ok:
         try:
+            from selenium import webdriver
+            options = webdriver.ChromeOptions()
+            options.add_argument("--headless=new")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
             driver = webdriver.Chrome(options=options)
-            print(f"  [+] WebDriver test: Headless driver created successfully {_GREEN}✔{_RESET}")
-            passed_checks += 1
+            driver.quit()
+            driver_ok = True
+            driver_detail = "Headless Chrome initialized successfully"
         except Exception as e:
-            print(f"  [-] WebDriver test: Failed to create driver! Details: {e} {_RED}✘{_RESET}")
-            print("      Ensure Chrome is updated and no conflicting driver version exists.")
-        finally:
-            if driver:
-                try:
-                    driver.quit()
-                except Exception:
-                    pass
-    else:
-        print(f"  [-] WebDriver test: Skipped (Selenium not installed) {_YELLOW}⚠{_RESET}")
+            driver_detail = f"Failed to initialize: {e}"
 
-    # 5. Core web UI libraries (Flask / Flask-SocketIO)
-    flask_ok = True
+        checks.append({
+            "name": "WebDriver Initializer",
+            "status": "ok" if driver_ok else "warn",
+            "detail": driver_detail,
+            "critical": False,
+        })
+
+    # 5. Flask Web Framework
+    flask_ok = False
     try:
-        import flask
-        import flask_socketio
-    except ImportError as e:
-        flask_ok = False
-        print(f"  [-] Web UI dependencies: Missing module: {e} {_RED}✘{_RESET}")
+        import importlib.metadata
+        f_ver = importlib.metadata.version("flask")
+        try:
+            s_ver = importlib.metadata.version("flask-socketio")
+        except Exception:
+            s_ver = "Installed"
+        flask_ver = f"Flask {f_ver}, SocketIO {s_ver}"
+        flask_ok = True
+    except Exception:
+        try:
+            import flask
+            import flask_socketio
+            flask_ver = f"Flask {getattr(flask, '__version__', 'Installed')}, SocketIO {getattr(flask_socketio, '__version__', 'Installed')}"
+            flask_ok = True
+        except ImportError as e:
+            flask_ver = f"Missing: {e}"
 
-    if flask_ok:
-        fs_ver = getattr(flask_socketio, "__version__", "installed")
-        print(f"  [+] Web UI libraries: Flask ({flask.__version__}) & Flask-SocketIO ({fs_ver}) {_GREEN}✔{_RESET}")
-        passed_checks += 1
-    else:
-        print("      Run: pip install flask flask-socketio")
+    checks.append({
+        "name": "Web UI Libraries",
+        "status": "ok" if flask_ok else "fail",
+        "detail": flask_ver,
+        "critical": True,
+    })
 
+    # 6. Optional modules
+    checks.append({
+        "name": "Tor Network Controller",
+        "status": "ok" if HAS_STEM else "warn",
+        "detail": "Enabled (stem installed)" if HAS_STEM else "Disabled (pip install stem)",
+        "critical": False,
+    })
 
-    # 6. Optional modules & features (Tor, manual keyboard selector)
-    optional_features = []
-    if HAS_STEM:
-        optional_features.append(f"Tor Control ({_GREEN}Enabled{_RESET})")
-    else:
-        optional_features.append(f"Tor Control ({_YELLOW}Disabled — missing stem package{_RESET})")
+    checks.append({
+        "name": "Keyboard Shortcut Setup",
+        "status": "ok" if HAS_KEYBOARD else "warn",
+        "detail": "Enabled (keyboard installed)" if HAS_KEYBOARD else "Disabled (pip install keyboard)",
+        "critical": False,
+    })
 
-    if HAS_KEYBOARD:
-        optional_features.append(f"Keyboard Setup ({_GREEN}Enabled{_RESET})")
-    else:
-        optional_features.append(f"Keyboard Setup ({_YELLOW}Disabled — missing keyboard package{_RESET})")
-
-    print("  [+] Optional features:")
-    for f in optional_features:
-        print(f"      - {f}")
-    passed_checks += 1  # Optional, always passes
-
-    # 7. Network checks
-    print("  [*] Checking network connectivity...")
+    # 7. Internet Connectivity
     net_ok = False
     _orig_timeout = socket.getdefaulttimeout()
     try:
@@ -170,38 +192,57 @@ def run_doctor() -> None:
         host = socket.gethostbyname("google.com")
         socket.create_connection((host, 80), 2.0)
         net_ok = True
-    except (OSError, socket.gaierror):
+    except Exception:
         pass
     finally:
         socket.setdefaulttimeout(_orig_timeout)
 
-    if net_ok:
-        print(f"  [+] Internet connectivity: Online {_GREEN}✔{_RESET}")
-        passed_checks += 1
-    else:
-        print(f"  [-] Internet connectivity: Offline / Blocked {_YELLOW}⚠{_RESET}")
-
-    # Tor service check if stem is installed
-    if HAS_STEM:
-        tor_active = _check_port_listening(9050)
-        tor_control_active = _check_port_listening(9051)
-        if tor_active:
-            print(f"      - Tor proxy (SOCKS5 9050): {_GREEN}Active{_RESET}")
-        else:
-            print(f"      - Tor proxy (SOCKS5 9050): {_YELLOW}Not responding{_RESET}")
-        if tor_control_active:
-            print(f"      - Tor controller (PORT 9051): {_GREEN}Active{_RESET}")
-        else:
-            print(f"      - Tor controller (PORT 9051): {_YELLOW}Not responding{_RESET}")
+    checks.append({
+        "name": "Internet Connectivity",
+        "status": "ok" if net_ok else "warn",
+        "detail": "Online" if net_ok else "Offline / Network Blocked",
+        "critical": False,
+    })
 
     # Summary
+    passed_count = sum(1 for c in checks if c["status"] == "ok")
+    total_count = len(checks)
+    is_healthy = all(c["status"] == "ok" for c in checks if c["critical"])
+
+    return {
+        "version": __version__,
+        "is_healthy": is_healthy,
+        "passed_count": passed_count,
+        "total_count": total_count,
+        "checks": checks,
+    }
+
+
+def run_doctor() -> None:
+    """Perform diagnostic checkup on the system environment and print formatted report."""
+    res = diagnose()
+
+    print(f"\n{_CYAN}==================================================")
+    print(f"      BlueCrack v{res['version']} Environment Doctor")
+    print(f"=================================================={_RESET}\n")
+
+    for c in res["checks"]:
+        name = c["name"]
+        detail = c["detail"]
+        if c["status"] == "ok":
+            print(f"  [+] {name}: {detail} {_GREEN}✔{_RESET}")
+        elif c["status"] == "warn":
+            print(f"  [!] {name}: {detail} {_YELLOW}⚠{_RESET}")
+        else:
+            print(f"  [-] {name}: {detail} {_RED}✘{_RESET}")
+
     print(f"\n{_CYAN}--------------------------------------------------")
-    print(f"Diagnostic Summary: {passed_checks}/{total_checks} checks passed.")
+    print(f"Diagnostic Summary: {res['passed_count']}/{res['total_count']} checks passed.")
     print(f"--------------------------------------------------{_RESET}")
 
-    if passed_checks == total_checks:
+    if res["is_healthy"] and res["passed_count"] == res["total_count"]:
         print(f"\n{_GREEN}{_BOLD}[+] CONGRATULATIONS! Your system is 100% ready to run BlueCrack.{_RESET}\n")
-    elif passed_checks >= 5:
-        print(f"\n{_YELLOW}{_BOLD}[!] WARNING: Most features will work, but some dependencies are missing.{_RESET}\n")
+    elif res["is_healthy"]:
+        print(f"\n{_YELLOW}{_BOLD}[!] WARNING: Core features will work, but some optional dependencies are missing.{_RESET}\n")
     else:
         print(f"\n{_RED}{_BOLD}[-] CRITICAL: Missing major requirements. Fix errors listed above.{_RESET}\n")

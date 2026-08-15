@@ -44,6 +44,37 @@ def _cmd_attack(args: argparse.Namespace) -> None:
     run_attack_cli(args)
 
 
+def _cmd_fingerprint(args: argparse.Namespace) -> None:
+    """Fingerprint target URL tech stack, headers, and forms."""
+    import requests
+
+    from bluecrack.fingerprint import TechnologyDetector
+    url = args.url.strip()
+    if not url:
+        print("[-] Target URL is required.")
+        return
+    print(f"\n[*] Probing technology stack for: {url}")
+    try:
+        resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        analysis = TechnologyDetector.analyze(url=url, body=resp.text, headers=dict(resp.headers))
+        print(f"  [+] Frameworks:   {', '.join(analysis['frameworks']) or 'None detected'}")
+        print(f"  [+] Web Server:   {', '.join(analysis['servers']) or 'None detected'}")
+        print(f"  [+] Protections:  {', '.join(analysis['protections']) or 'None detected'}")
+        form = analysis["form"]
+        if form.get("has_login_form"):
+            print("  [+] Discovered Login Form:")
+            print(f"      - Action:         {form['action']}")
+            print(f"      - Method:         {form['method']}")
+            print(f"      - Username Field: {form['username_field']}")
+            print(f"      - Password Field: {form['password_field']}")
+            if form.get("csrf_field"):
+                print(f"      - CSRF Token:     {form['csrf_field']} (Value: {form['csrf_value'][:20]}...)")
+        else:
+            print("  [-] No standard login form found in body.")
+    except Exception as e:
+        print(f"[-] Fingerprinting failed: {e}")
+
+
 def _cmd_demo(args: argparse.Namespace) -> None:
     """Launch the demo login server."""
     from bluecrack.demo import run_demo
@@ -102,6 +133,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "-V", "--version", action="version",
         version=f"BlueCrack {__version__}",
     )
+    parser.add_argument(
+        "--doctor", action="store_true",
+        help="run environment diagnostics and exit",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -114,6 +149,13 @@ def _build_parser() -> argparse.ArgumentParser:
     web_parser.add_argument("--debug", action="store_true", help="enable Flask debug mode")
     web_parser.set_defaults(func=_cmd_web)
 
+    # ── bluecrack fingerprint ──────────────────────────────────────
+    fp_parser = subparsers.add_parser(
+        "fingerprint", help="Inspect and fingerprint target technologies & login form",
+    )
+    fp_parser.add_argument("url", help="Target URL to fingerprint")
+    fp_parser.set_defaults(func=_cmd_fingerprint)
+
     # ── bluecrack attack ───────────────────────────────────────────
     atk = subparsers.add_parser(
         "attack", help="Run CLI brute-force attack",
@@ -123,6 +165,18 @@ def _build_parser() -> argparse.ArgumentParser:
     atk.add_argument(
         "--mode", choices=["browser", "http"], default="browser",
         help="attack mode: 'browser' (Selenium, default) or 'http' (raw HTTP, Hydra-style — much faster)",
+    )
+    atk.add_argument(
+        "--json-mode", action="store_true",
+        help="send credentials as JSON payload instead of urlencoded form (HTTP mode)",
+    )
+    atk.add_argument(
+        "--headers", default="",
+        help="custom headers (e.g. 'Authorization: Bearer xyz\\nHeader2: Val2')",
+    )
+    atk.add_argument(
+        "--cookies", default="",
+        help="custom cookies string (e.g. 'session=abc; auth=123')",
     )
 
     # Username input
@@ -248,6 +302,12 @@ def main() -> None:
 
     parser = _build_parser()
     args = parser.parse_args()
+
+    # If --doctor flag is supplied at root level
+    if getattr(args, "doctor", False):
+        from bluecrack.doctor import run_doctor
+        run_doctor()
+        return
 
     # Default: no subcommand → launch web UI
     if args.command is None:

@@ -425,6 +425,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 🚀 v4.2.0 — Major Architecture & Comprehensive Upgrade (August 2026)
+
+- **🔍 Technology & Framework Fingerprinting**: Added `TechnologyDetector` engine detecting 15+ frameworks (WordPress, Django, Laravel, Next.js, FastAPI, Flask, Rails, Spring Boot, etc.), Web Servers (Nginx, Apache, Cloudflare, IIS), and bot defenses (Cloudflare Turnstile, reCAPTCHA, hCaptcha, AWS WAF). Added a live "Scan Tech" scanner on the Web UI that auto-fills form action, username, password, and CSRF token fields.
+- **🩺 Environment Diagnostics Doctor**: Upgraded `doctor.py` and added a `/api/doctor` endpoint along with a visual modal in the Web UI, providing instant verification of Chrome, Selenium, Python dependencies, and networking.
+- **⚡ REST API JSON Brute-Forcing**: Added `json_mode` to `http_engine.py` for testing REST authentication endpoints (`application/json`), with custom HTTP headers, custom cookies, and configurable HTTP status code matchers.
+- **📊 Standalone HTML & JSON Reports**: Added instant export/download endpoints (`/api/report/html` and `/api/report/json`) to generate formatted offline reports.
+- **🧪 Comprehensive Test Suite**: Created a full 25-test suite covering CLI, doctor diagnostics, fingerprinting, session persistence, multi-target queue, proxy rotation, scheduling, notification dispatch, and web endpoints.
+
+---
+
 ## 🔧 v4.1.1 — SocketIO Throttling & Performance Fix (August 2026)
 
 - **⚡ WebSocket Throttling**: Added a `0.2s` minimum interval cooldown on worker thread socket metrics emissions in both the HTTP and Selenium engines. Prevents thread/frontend event loop overload and stabilizes dashboard updates during high-throughput brutes.

@@ -10,9 +10,10 @@ const socket = io();
 // ─── DOM References ────────────────────────────────────────────
 // ─── DOM References ────────────────────────────────────────────
 const DOM = {
-  // New Header Actions
+  // Header Actions
   btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
   btnToggleEco:    document.getElementById('btnToggleEco'),
+  btnDoctor:       document.getElementById('btnDoctor'),
 
   // Connection status
   connectionDot:   document.getElementById('connectionDot'),
@@ -36,11 +37,13 @@ const DOM = {
   tabPanels:  document.querySelectorAll('.tab-content'),
 
   // Target Config
-  targetUrl:     document.getElementById('targetUrl'),
-  username:      document.getElementById('username'),
-  password:      document.getElementById('password'),
-  errorString:   document.getElementById('errorString'),
-  successString: document.getElementById('successString'),
+  targetUrl:       document.getElementById('targetUrl'),
+  btnScanTarget:   document.getElementById('btnScanTarget'),
+  targetTechBadge: document.getElementById('targetTechBadge'),
+  username:        document.getElementById('username'),
+  password:        document.getElementById('password'),
+  errorString:     document.getElementById('errorString'),
+  successString:   document.getElementById('successString'),
 
   // Engine Settings
   attackMode:           document.getElementById('attackMode'),
@@ -57,11 +60,15 @@ const DOM = {
   sprayMode:            document.getElementById('sprayMode'),
 
   // HTTP Mode Options
-  formAction:      document.getElementById('formAction'),
-  usernameField:   document.getElementById('usernameField'),
-  passwordField:   document.getElementById('passwordField'),
-  csrfField:       document.getElementById('csrfField'),
-  followRedirects: document.getElementById('followRedirects'),
+  formAction:         document.getElementById('formAction'),
+  usernameField:      document.getElementById('usernameField'),
+  passwordField:      document.getElementById('passwordField'),
+  csrfField:          document.getElementById('csrfField'),
+  followRedirects:    document.getElementById('followRedirects'),
+  jsonMode:           document.getElementById('jsonMode'),
+  customHeaders:      document.getElementById('customHeaders'),
+  customCookies:      document.getElementById('customCookies'),
+  successStatusCodes: document.getElementById('successStatusCodes'),
 
   // Tor & Proxy
   enableTor:      document.getElementById('enableTor'),
@@ -100,11 +107,19 @@ const DOM = {
   seqStatus:      document.getElementById('seqStatus'),
 
   // Control bar
-  btnStart:  document.getElementById('btnStart'),
-  btnStop:   document.getElementById('btnStop'),
-  btnExport: document.getElementById('btnExport'),
-  btnClear:  document.getElementById('btnClear'),
-  btnReport: document.getElementById('btnReport'),
+  btnStart:        document.getElementById('btnStart'),
+  btnStop:         document.getElementById('btnStop'),
+  btnExport:       document.getElementById('btnExport'),
+  btnClear:        document.getElementById('btnClear'),
+  btnReport:       document.getElementById('btnReport'),
+  btnDownloadJson: document.getElementById('btnDownloadJson'),
+
+  // Doctor modal
+  doctorModal:           document.getElementById('doctorModal'),
+  btnCloseDoctor:        document.getElementById('btnCloseDoctor'),
+  btnCloseDoctorBtn:     document.getElementById('btnCloseDoctorBtn'),
+  btnRerunDoctor:        document.getElementById('btnRerunDoctor'),
+  doctorChecksContainer: document.getElementById('doctorChecksContainer'),
 
   // Stats
   statElapsed:   document.getElementById('statElapsed'),
@@ -356,11 +371,15 @@ async function startAttack() {
 
   // Add HTTP-mode-specific fields
   if (config.mode === 'http') {
-    config.form_action     = DOM.formAction.value.trim();
-    config.username_field  = DOM.usernameField.value.trim();
-    config.password_field  = DOM.passwordField.value.trim();
-    config.csrf_field      = DOM.csrfField.value.trim();
-    config.follow_redirects = DOM.followRedirects.checked;
+    config.form_action          = DOM.formAction?.value.trim() || '';
+    config.username_field       = DOM.usernameField?.value.trim() || '';
+    config.password_field       = DOM.passwordField?.value.trim() || '';
+    config.csrf_field           = DOM.csrfField?.value.trim() || '';
+    config.follow_redirects     = DOM.followRedirects ? DOM.followRedirects.checked : false;
+    config.json_mode            = DOM.jsonMode ? DOM.jsonMode.checked : false;
+    config.custom_headers       = DOM.customHeaders?.value.trim() || '';
+    config.cookies              = DOM.customCookies?.value.trim() || '';
+    config.success_status_codes = DOM.successStatusCodes?.value.trim() || '';
   }
 
   // Validate minimum fields
@@ -867,9 +886,33 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.btnTestTelegram.addEventListener('click', testTelegramNotif);
   }
 
-  // ── Report ──
+  // ── Report & JSON Downloads ──
   if (DOM.btnReport) {
     DOM.btnReport.addEventListener('click', downloadReport);
+  }
+  if (DOM.btnDownloadJson) {
+    DOM.btnDownloadJson.addEventListener('click', () => {
+      window.open('/api/report/json', '_blank');
+    });
+  }
+
+  // ── Target Tech Scanner ──
+  if (DOM.btnScanTarget) {
+    DOM.btnScanTarget.addEventListener('click', scanTargetTech);
+  }
+
+  // ── Doctor Modal ──
+  if (DOM.btnDoctor) {
+    DOM.btnDoctor.addEventListener('click', openDoctorModal);
+  }
+  if (DOM.btnCloseDoctor) {
+    DOM.btnCloseDoctor.addEventListener('click', () => DOM.doctorModal?.classList.remove('active'));
+  }
+  if (DOM.btnCloseDoctorBtn) {
+    DOM.btnCloseDoctorBtn.addEventListener('click', () => DOM.doctorModal?.classList.remove('active'));
+  }
+  if (DOM.btnRerunDoctor) {
+    DOM.btnRerunDoctor.addEventListener('click', runDoctorChecks);
   }
 
   // ── Welcome & Tutorial Modal ──
@@ -1257,3 +1300,120 @@ async function testTelegramNotif() {
 function downloadReport() {
   window.open('/api/report/html', '_blank');
 }
+
+// ── Target Tech Scanner ──
+async function scanTargetTech() {
+  const url = DOM.targetUrl?.value.trim();
+  if (!url) {
+    appendLog('[-] Enter a Target URL first to scan.');
+    DOM.targetUrl?.focus();
+    return;
+  }
+  appendLog(`[*] Fingerprinting technology stack for ${url}…`);
+  if (DOM.btnScanTarget) {
+    DOM.btnScanTarget.disabled = true;
+    DOM.btnScanTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning…';
+  }
+
+  try {
+    const res = await postJSON('/api/target/fingerprint', { target_url: url });
+    if (res.status === 'ok' && res.fingerprint) {
+      const fp = res.fingerprint;
+      appendLog(`[+] Tech scan complete for ${url}`);
+      if (DOM.targetTechBadge) {
+        let pills = '';
+        (fp.frameworks || []).forEach(fw => {
+          pills += `<span class="tech-pill tech-pill-fw"><i class="fa-solid fa-code"></i> ${fw}</span>`;
+        });
+        (fp.servers || []).forEach(srv => {
+          pills += `<span class="tech-pill tech-pill-server"><i class="fa-solid fa-server"></i> ${srv}</span>`;
+        });
+        (fp.protections || []).forEach(prot => {
+          pills += `<span class="tech-pill tech-pill-waf"><i class="fa-solid fa-shield"></i> ${prot}</span>`;
+        });
+        if (fp.form && fp.form.csrf_field) {
+          pills += `<span class="tech-pill tech-pill-csrf"><i class="fa-solid fa-key"></i> CSRF: ${fp.form.csrf_field}</span>`;
+        }
+        if (!pills) {
+          pills = '<span class="tech-pill">No specific framework headers found</span>';
+        }
+        DOM.targetTechBadge.innerHTML = pills;
+        DOM.targetTechBadge.style.display = 'flex';
+      }
+
+      // Auto-fill form fields if in HTTP mode or if empty
+      if (fp.form) {
+        if (DOM.formAction && !DOM.formAction.value && fp.form.action) {
+          DOM.formAction.value = fp.form.action;
+        }
+        if (DOM.usernameField && !DOM.usernameField.value && fp.form.username_field) {
+          DOM.usernameField.value = fp.form.username_field;
+        }
+        if (DOM.passwordField && !DOM.passwordField.value && fp.form.password_field) {
+          DOM.passwordField.value = fp.form.password_field;
+        }
+        if (DOM.csrfField && !DOM.csrfField.value && fp.form.csrf_field) {
+          DOM.csrfField.value = fp.form.csrf_field;
+        }
+      }
+    } else {
+      appendLog(`[-] Fingerprint scan failed: ${res.message || 'Target unreachable'}`);
+    }
+  } catch (err) {
+    appendLog(`[-] Fingerprint scan error: ${err.message}`);
+  } finally {
+    if (DOM.btnScanTarget) {
+      DOM.btnScanTarget.disabled = false;
+      DOM.btnScanTarget.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Scan Tech';
+    }
+  }
+}
+
+// ── Doctor Environment Diagnostics ──
+function openDoctorModal() {
+  if (DOM.doctorModal) {
+    DOM.doctorModal.classList.add('active');
+    runDoctorChecks();
+  }
+}
+
+async function runDoctorChecks() {
+  if (!DOM.doctorChecksContainer) return;
+  DOM.doctorChecksContainer.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Running diagnostics…</div>';
+
+  try {
+    const res = await fetch('/api/doctor');
+    const data = await res.json();
+    if (data.status === 'ok' && data.report) {
+      const checks = data.report.checks || [];
+      DOM.doctorChecksContainer.innerHTML = checks.map(c => {
+        let badgeIcon = 'fa-check';
+        let badgeText = 'PASS';
+        if (c.status === 'warn') {
+          badgeIcon = 'fa-triangle-exclamation';
+          badgeText = 'WARN';
+        } else if (c.status === 'fail') {
+          badgeIcon = 'fa-xmark';
+          badgeText = 'FAIL';
+        }
+
+        return `
+          <div class="doctor-check-item">
+            <div class="doctor-check-info">
+              <span class="doctor-check-title">${c.name}</span>
+              <span class="doctor-check-detail">${c.detail}</span>
+            </div>
+            <span class="doctor-check-badge ${c.status}">
+              <i class="fa-solid ${badgeIcon}"></i> ${badgeText}
+            </span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Failed to fetch diagnostics: ${data.message}</div>`;
+    }
+  } catch (e) {
+    DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Diagnostic error: ${e.message}</div>`;
+  }
+}
+

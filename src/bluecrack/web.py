@@ -18,7 +18,9 @@ from typing import Any, Dict, List, Optional
 from flask import Flask, Response, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
+from .doctor import diagnose
 from .engine import AttackEngine
+from .fingerprint import TechnologyDetector
 from .http_engine import HTTPAttackEngine
 from .notifier import Notifier
 from .reporter import ReportGenerator
@@ -213,6 +215,41 @@ def start_attack():
         ctx["password_field"] = data.get("password_field", "").strip()
         ctx["csrf_field"] = data.get("csrf_field", "").strip()
         ctx["follow_redirects"] = bool(data.get("follow_redirects", False))
+        ctx["json_mode"] = bool(data.get("json_mode", False))
+
+        # Custom headers
+        headers_raw = data.get("custom_headers", "")
+        custom_headers: Dict[str, str] = {}
+        if isinstance(headers_raw, dict):
+            custom_headers = headers_raw
+        elif isinstance(headers_raw, str) and headers_raw.strip():
+            for line in headers_raw.strip().splitlines():
+                if ":" in line:
+                    hk, hv = line.split(":", 1)
+                    custom_headers[hk.strip()] = hv.strip()
+        ctx["custom_headers"] = custom_headers
+
+        # Custom cookies
+        cookies_raw = data.get("cookies", "")
+        custom_cookies: Dict[str, str] = {}
+        if isinstance(cookies_raw, dict):
+            custom_cookies = cookies_raw
+        elif isinstance(cookies_raw, str) and cookies_raw.strip():
+            for pair in cookies_raw.strip().split(";"):
+                if "=" in pair:
+                    ck, cv = pair.split("=", 1)
+                    custom_cookies[ck.strip()] = cv.strip()
+        ctx["cookies"] = custom_cookies
+
+        # Status codes
+        success_codes_raw = data.get("success_status_codes", "")
+        if isinstance(success_codes_raw, str) and success_codes_raw.strip():
+            ctx["success_status_codes"] = [
+                int(c.strip()) for c in success_codes_raw.split(",") if c.strip().isdigit()
+            ]
+        elif isinstance(success_codes_raw, list):
+            ctx["success_status_codes"] = [int(c) for c in success_codes_raw if str(c).isdigit()]
+
         # Parse extra_fields from comma-separated key=value pairs
         extra_raw = data.get("extra_fields", "").strip()
         extra_fields: Dict[str, str] = {}
@@ -224,7 +261,7 @@ def start_attack():
         ctx["extra_fields"] = extra_fields
 
     total = len(users) * len(passwords)
-    mode_label = "⚡ HTTP" if attack_mode == "http" else "🌐 Browser"
+    mode_label = "⚡ HTTP (JSON)" if (attack_mode == "http" and ctx.get("json_mode")) else ("⚡ HTTP" if attack_mode == "http" else "🌐 Browser")
     engine.start(ctx)
 
     return jsonify({
@@ -597,6 +634,92 @@ def start_demo_server():
                 "error": "exception",
                 "message": f"Failed to launch demo server: {str(e)}",
             }), 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# DIAGNOSTICS & SYSTEM DOCTOR
+# ═══════════════════════════════════════════════════════════════════
+@app.route("/api/doctor", methods=["GET"])
+def api_doctor():
+    """Run environment checkup and return structured diagnostics."""
+    try:
+        report = diagnose()
+        return jsonify({"status": "ok", "report": report})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TARGET FINGERPRINTING & CSRF DISCOVERY
+# ═══════════════════════════════════════════════════════════════════
+@app.route("/api/target/fingerprint", methods=["POST"])
+def api_target_fingerprint():
+    """Analyze target URL to fingerprint technologies and extract form & CSRF details."""
+    data = request.get_json(force=True, silent=True) or {}
+    target_url = data.get("target_url", "").strip()
+    if not target_url:
+        return jsonify({"status": "error", "message": "target_url is required."}), 400
+
+    try:
+        import requests
+        resp = requests.get(target_url, timeout=10, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        analysis = TechnologyDetector.analyze(
+            url=target_url,
+            body=resp.text,
+            headers=dict(resp.headers),
+        )
+        return jsonify({"status": "ok", "fingerprint": analysis})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Fingerprint probe failed: {e}"}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# REPORT DOWNLOAD ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════
+@app.route("/api/report/html", methods=["GET"])
+def api_report_html():
+    """Generate and return standalone HTML report."""
+    metrics = engine.get_metrics()
+    found = engine.get_found_creds()
+    logs = engine.get_logs()
+    start_time = getattr(engine, "_start_time", time.time() - 60)
+    end_time = time.time()
+
+    html_content = ReportGenerator.generate_html(
+        metrics=metrics,
+        found_creds=found,
+        logs=logs,
+        config={"target_url": getattr(engine, "_target_url", "Target")},
+        start_time=start_time,
+        end_time=end_time,
+    )
+    return Response(
+        html_content,
+        mimetype="text/html",
+        headers={"Content-Disposition": "attachment; filename=bluecrack_report.html"},
+    )
+
+
+@app.route("/api/report/json", methods=["GET"])
+def api_report_json():
+    """Generate and return standalone JSON report."""
+    metrics = engine.get_metrics()
+    found = engine.get_found_creds()
+    start_time = getattr(engine, "_start_time", time.time() - 60)
+    end_time = time.time()
+
+    json_content = ReportGenerator.generate_json(
+        metrics=metrics,
+        found_creds=found,
+        config={"target_url": getattr(engine, "_target_url", "Target")},
+        start_time=start_time,
+        end_time=end_time,
+    )
+    return Response(
+        json_content,
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=bluecrack_report.json"},
+    )
 
 
 def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> None:

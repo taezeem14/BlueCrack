@@ -1286,3 +1286,119 @@ input::placeholder {
   color: var(--accent-cyan);
 }
 
+/* ── Tech Fingerprint Badges ──────────────────────────────── */
+.tech-badge-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.3s ease;
+}
+
+.tech-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 650;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tech-pill-fw {
+  background: rgba(192, 132, 252, 0.15);
+  color: var(--accent-indigo);
+  border-color: rgba(192, 132, 252, 0.3);
+}
+
+.tech-pill-server {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--accent-cyan);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.tech-pill-csrf {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--warning);
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.tech-pill-waf {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ── Doctor Diagnostic Checks Grid ────────────────────────── */
+.doctor-checks-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.doctor-check-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  gap: 12px;
+}
+
+.doctor-check-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.doctor-check-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.doctor-check-detail {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.doctor-check-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.doctor-check-badge.ok {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.doctor-check-badge.warn {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.doctor-check-badge.fail {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+
