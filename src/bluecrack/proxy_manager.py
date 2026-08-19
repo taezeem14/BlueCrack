@@ -104,7 +104,13 @@ class ProxyManager:
             ]
             if not alive_proxies:
                 return None
-            return min(alive_proxies, key=lambda x: x[1]["latency_ms"])[0]
+            tested = [
+                p for p in alive_proxies
+                if p[1]["last_checked"] > 0 and p[1]["latency_ms"] > 0
+            ]
+            if tested:
+                return min(tested, key=lambda x: x[1]["latency_ms"])[0]
+            return alive_proxies[0][0]
 
     def rotate(self) -> Optional[str]:
         """Round-robin through alive proxies."""
@@ -144,24 +150,27 @@ class ProxyManager:
 
     def start_background_check(self, interval: int = 60) -> None:
         """Start a daemon thread that periodically re-tests all proxies."""
-        if self._bg_thread is not None and self._bg_thread.is_alive():
-            return
-        self._stop_event.clear()
+        with self._lock:
+            if self._bg_thread is not None and self._bg_thread.is_alive():
+                return
+            self._stop_event.clear()
 
-        def _checker() -> None:
-            while not self._stop_event.is_set():
-                self.test_all()
-                self._stop_event.wait(timeout=interval)
+            def _checker() -> None:
+                while not self._stop_event.is_set():
+                    self.test_all()
+                    self._stop_event.wait(timeout=interval)
 
-        self._bg_thread = threading.Thread(target=_checker, daemon=True)
-        self._bg_thread.start()
+            self._bg_thread = threading.Thread(target=_checker, daemon=True)
+            self._bg_thread.start()
 
     def stop_background_check(self) -> None:
         """Stop the background health check thread."""
         self._stop_event.set()
-        if self._bg_thread is not None:
-            self._bg_thread.join(timeout=5)
+        with self._lock:
+            thread = self._bg_thread
             self._bg_thread = None
+        if thread is not None:
+            thread.join(timeout=5)
 
     @property
     def alive_count(self) -> int:

@@ -7,7 +7,17 @@
 // ─── Socket.IO Connection ──────────────────────────────────────
 const socket = io();
 
-// ─── DOM References ────────────────────────────────────────────
+// ─── Utility: Safe HTML Escaping ───────────────────────────────
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ─── DOM References ────────────────────────────────────────────
 const DOM = {
   // Header Actions
@@ -556,7 +566,7 @@ function useSequenceResult() {
 async function launchDemoMode() {
   if (!DOM.btnLaunchDemo) return;
   DOM.btnLaunchDemo.disabled = true;
-  DOM.btnLaunchDemo.textContent = '⏳ Starting...';
+  DOM.btnLaunchDemo.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting...';
   appendLog('[*] Contacting server to launch demo environment...');
 
   try {
@@ -580,7 +590,7 @@ async function launchDemoMode() {
     appendLog(`[-] Demo server request failed: ${err.message}`);
   } finally {
     DOM.btnLaunchDemo.disabled = false;
-    DOM.btnLaunchDemo.textContent = '🚀 Demo Mode';
+    DOM.btnLaunchDemo.innerHTML = '<i class="fa-solid fa-rocket"></i> Demo Mode';
   }
 }
 
@@ -682,7 +692,7 @@ function toggleEcoMode() {
     stopStarfieldAnimation();
     if (DOM.btnToggleEco) {
       DOM.btnToggleEco.classList.add('active');
-      DOM.btnToggleEco.innerHTML = '⚡ Eco Active';
+      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-bolt"></i> Eco Active';
     }
     appendLog('[~] Eco-Astral Mode: ON. Starfield stopped, blurs disabled. Performance optimized.');
   } else {
@@ -690,7 +700,7 @@ function toggleEcoMode() {
     startStarfieldAnimation();
     if (DOM.btnToggleEco) {
       DOM.btnToggleEco.classList.remove('active');
-      DOM.btnToggleEco.innerHTML = '🍃 Eco Mode';
+      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-leaf"></i> Eco Mode';
     }
     appendLog('[~] Eco-Astral Mode: OFF. Cosmic vibes and blurs enabled.');
   }
@@ -1153,16 +1163,16 @@ function renderTargets() {
   }
   DOM.targetList.innerHTML = targetList.map((t, idx) => `
     <div class="target-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <span class="target-url">${t.config.target_url}</span>
-      <span class="target-status ${t.status}">${t.status}</span>
-      <button class="btn btn-ghost btn-sm" onclick="removeTargetAt(${t.index})">Remove</button>
+      <span class="target-url">${escapeHTML(t.config?.target_url || '')}</span>
+      <span class="target-status ${escapeHTML(t.status)}">${escapeHTML(t.status)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="removeTargetAt(${parseInt(t.index, 10)})">Remove</button>
     </div>
   `).join('');
 }
 
 window.removeTargetAt = async function(index) {
   try {
-    const res = await postJSON('/api/targets/remove', { index });
+    const res = await postJSON('/api/targets/remove', { index: parseInt(index, 10) });
     if (res.status === 'ok') {
       appendLog('[+] Target removed from queue.');
       await refreshTargets();
@@ -1172,28 +1182,31 @@ window.removeTargetAt = async function(index) {
 
 async function startAllTargets() {
   appendLog('[*] Starting sequential multi-target attack...');
-  for (let t of targetList) {
+  const snapshot = [...targetList];
+  for (let t of snapshot) {
     if (t.status === 'pending') {
-      DOM.targetUrl.value = t.config.target_url;
-      DOM.username.value = t.config.username;
-      DOM.password.value = t.config.password;
-      DOM.errorString.value = t.config.error_msg;
-      DOM.successString.value = t.config.success_msg;
-      DOM.attackMode.value = t.config.mode;
-      DOM.threads.value = t.config.threads;
-      DOM.delay.value = t.config.delay;
-      DOM.jitter.value = t.config.jitter;
-      DOM.rateLimit.value = t.config.limit_text;
-      DOM.cooldown.value = t.config.cooldown;
-      DOM.maxAttempts.value = t.config.max_attempts;
-      DOM.headless.checked = t.config.headless;
-      DOM.continueAfterSuccess.checked = t.config.continue_after_success;
-      DOM.sprayMode.checked = t.config.spray_mode;
+      DOM.targetUrl.value = t.config.target_url || '';
+      DOM.username.value = t.config.username || '';
+      DOM.password.value = t.config.password || '';
+      DOM.errorString.value = t.config.error_msg || '';
+      DOM.successString.value = t.config.success_msg || '';
+      DOM.attackMode.value = t.config.mode || 'browser';
+      DOM.threads.value = t.config.threads || 4;
+      DOM.delay.value = t.config.delay || 0;
+      DOM.jitter.value = t.config.jitter || 0;
+      DOM.rateLimit.value = t.config.limit_text || '';
+      DOM.cooldown.value = t.config.cooldown || 0;
+      DOM.maxAttempts.value = t.config.max_attempts || 0;
+      DOM.headless.checked = Boolean(t.config.headless);
+      DOM.continueAfterSuccess.checked = Boolean(t.config.continue_after_success);
+      DOM.sprayMode.checked = Boolean(t.config.spray_mode);
       
       await startAttack();
       
-      while (DOM.btnStart.disabled) {
+      let waitLimit = 300; // 5 minute max wait per target
+      while (DOM.btnStart.disabled && waitLimit > 0) {
         await new Promise(r => setTimeout(r, 1000));
+        waitLimit--;
       }
       await refreshTargets();
     }
@@ -1210,12 +1223,12 @@ async function scheduleAttack() {
   }
   const config = getTargetConfig();
   try {
-    const res = await postJSON('/api/schedule/create', { config, run_at: timeVal });
+    const res = await postJSON('/api/schedule/add', { target_url: config.target_url, run_at: timeVal, ...config });
     if (res.status === 'ok') {
       appendLog(`[+] Attack scheduled successfully for ${timeVal}`);
       await refreshScheduled();
     } else {
-      appendLog(`[-] Failed to schedule: ${res.message}`);
+      appendLog(`[-] Failed to schedule: ${res.message || 'Error'}`);
     }
   } catch (e) {
     appendLog(`[-] Schedule error: ${e.message}`);
@@ -1237,10 +1250,10 @@ function renderScheduled(list) {
   }
   DOM.scheduleList.innerHTML = list.map(s => `
     <div class="schedule-card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <span class="schedule-time">${new Date(s.run_at).toLocaleString()}</span>
-      <span class="schedule-target">${s.target_url}</span>
-      <span class="target-status ${s.status}">${s.status}</span>
-      <button class="btn btn-ghost btn-sm" onclick="cancelScheduled('${s.id}')">Cancel</button>
+      <span class="schedule-time">${escapeHTML(new Date(s.run_at).toLocaleString())}</span>
+      <span class="schedule-target">${escapeHTML(s.target_url)}</span>
+      <span class="target-status ${escapeHTML(s.status)}">${escapeHTML(s.status)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="cancelScheduled('${escapeHTML(s.id)}')">Cancel</button>
     </div>
   `).join('');
 }
@@ -1323,16 +1336,16 @@ async function scanTargetTech() {
       if (DOM.targetTechBadge) {
         let pills = '';
         (fp.frameworks || []).forEach(fw => {
-          pills += `<span class="tech-pill tech-pill-fw"><i class="fa-solid fa-code"></i> ${fw}</span>`;
+          pills += `<span class="tech-pill tech-pill-fw"><i class="fa-solid fa-code"></i> ${escapeHTML(fw)}</span>`;
         });
         (fp.servers || []).forEach(srv => {
-          pills += `<span class="tech-pill tech-pill-server"><i class="fa-solid fa-server"></i> ${srv}</span>`;
+          pills += `<span class="tech-pill tech-pill-server"><i class="fa-solid fa-server"></i> ${escapeHTML(srv)}</span>`;
         });
         (fp.protections || []).forEach(prot => {
-          pills += `<span class="tech-pill tech-pill-waf"><i class="fa-solid fa-shield"></i> ${prot}</span>`;
+          pills += `<span class="tech-pill tech-pill-waf"><i class="fa-solid fa-shield"></i> ${escapeHTML(prot)}</span>`;
         });
         if (fp.form && fp.form.csrf_field) {
-          pills += `<span class="tech-pill tech-pill-csrf"><i class="fa-solid fa-key"></i> CSRF: ${fp.form.csrf_field}</span>`;
+          pills += `<span class="tech-pill tech-pill-csrf"><i class="fa-solid fa-key"></i> CSRF: ${escapeHTML(fp.form.csrf_field)}</span>`;
         }
         if (!pills) {
           pills = '<span class="tech-pill">No specific framework headers found</span>';
@@ -1389,31 +1402,34 @@ async function runDoctorChecks() {
       DOM.doctorChecksContainer.innerHTML = checks.map(c => {
         let badgeIcon = 'fa-check';
         let badgeText = 'PASS';
+        let statusClass = 'ok';
         if (c.status === 'warn') {
           badgeIcon = 'fa-triangle-exclamation';
           badgeText = 'WARN';
+          statusClass = 'warn';
         } else if (c.status === 'fail') {
           badgeIcon = 'fa-xmark';
           badgeText = 'FAIL';
+          statusClass = 'fail';
         }
 
         return `
           <div class="doctor-check-item">
             <div class="doctor-check-info">
-              <span class="doctor-check-title">${c.name}</span>
-              <span class="doctor-check-detail">${c.detail}</span>
+              <span class="doctor-check-title">${escapeHTML(c.name)}</span>
+              <span class="doctor-check-detail">${escapeHTML(c.detail)}</span>
             </div>
-            <span class="doctor-check-badge ${c.status}">
+            <span class="doctor-check-badge ${statusClass}">
               <i class="fa-solid ${badgeIcon}"></i> ${badgeText}
             </span>
           </div>
         `;
       }).join('');
     } else {
-      DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Failed to fetch diagnostics: ${data.message}</div>`;
+      DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Failed to fetch diagnostics: ${escapeHTML(data.message)}</div>`;
     }
   } catch (e) {
-    DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Diagnostic error: ${e.message}</div>`;
+    DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Diagnostic error: ${escapeHTML(e.message)}</div>`;
   }
 }
 

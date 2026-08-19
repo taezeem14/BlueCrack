@@ -28,10 +28,19 @@ class ReportGenerator:
         Returns a self-contained HTML document with inline CSS, Chart.js,
         and all attack data embedded.
         """
-        elapsed = end_time - start_time
-        speed = (
-            metrics.get("attempted", 0) / elapsed if elapsed > 0 else 0
-        )
+        elapsed = max(0.0, float(end_time - start_time))
+        try:
+            attempted = int(metrics.get("attempted", 0) or 0)
+            successes = int(metrics.get("successes", 0) or 0)
+            failures = int(metrics.get("failures", 0) or 0)
+            errors = int(metrics.get("errors", 0) or 0)
+            skipped = int(metrics.get("skipped_empty", 0) or 0) + int(
+                metrics.get("skipped_solved_user", 0) or 0
+            )
+        except Exception:
+            attempted = successes = failures = errors = skipped = 0
+
+        speed = float(attempted / elapsed) if elapsed > 0 else 0.0
         start_str = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(start_time)
         )
@@ -40,23 +49,21 @@ class ReportGenerator:
         )
 
         # Escape all user-provided data
-        target = html.escape(config.get("target_url", "N/A"))
+        target = html.escape(str(config.get("target_url", "N/A")))
+        threads_val = html.escape(str(config.get("threads", 1)))
+        delay_val = html.escape(str(config.get("delay", 0)))
+        jitter_val = html.escape(str(config.get("jitter", 0)))
+        headless_val = "Yes" if config.get("headless") else "No"
+        tor_val = "Enabled" if config.get("use_tor") else "Disabled"
+
         creds_rows = ""
         for i, (u, p) in enumerate(found_creds, 1):
-            eu, ep = html.escape(u), html.escape(p)
+            eu, ep = html.escape(str(u)), html.escape(str(p))
             creds_rows += (
                 f"<tr><td>{i}</td><td>{eu}</td><td>{ep}</td></tr>\n"
             )
 
         log_text = html.escape("\n".join(logs[-500:]))  # Last 500 lines
-
-        successes = metrics.get("successes", 0)
-        failures = metrics.get("failures", 0)
-        errors = metrics.get("errors", 0)
-        attempted = metrics.get("attempted", 0)
-        skipped = metrics.get("skipped_empty", 0) + metrics.get(
-            "skipped_solved_user", 0
-        )
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -136,7 +143,7 @@ td {{ font-family: 'Courier New', monospace; }}
         <br>
         <p>Started: {start_str}</p>
         <p>Ended: {end_str}</p>
-        <p>Threads: {config.get("threads", 1)}</p>
+        <p>Threads: {threads_val}</p>
       </div>
     </div>
   </div>
@@ -147,11 +154,11 @@ td {{ font-family: 'Courier New', monospace; }}
     <h2>⚙️ Attack Configuration</h2>
     <table>
       <tr><td>Target URL</td><td>{target}</td></tr>
-      <tr><td>Threads</td><td>{config.get("threads", 1)}</td></tr>
-      <tr><td>Delay</td><td>{config.get("delay", 0)}s</td></tr>
-      <tr><td>Jitter</td><td>{config.get("jitter", 0)}s</td></tr>
-      <tr><td>Headless</td><td>{"Yes" if config.get("headless") else "No"}</td></tr>
-      <tr><td>Tor</td><td>{"Enabled" if config.get("use_tor") else "Disabled"}</td></tr>
+      <tr><td>Threads</td><td>{threads_val}</td></tr>
+      <tr><td>Delay</td><td>{delay_val}s</td></tr>
+      <tr><td>Jitter</td><td>{jitter_val}s</td></tr>
+      <tr><td>Headless</td><td>{headless_val}</td></tr>
+      <tr><td>Tor</td><td>{tor_val}</td></tr>
     </table>
   </div>
 
@@ -190,16 +197,17 @@ new Chart(document.getElementById('resultsChart'), {{
         end_time: float,
     ) -> str:
         """Generate a JSON report string."""
+        elapsed = max(0.0, float(end_time - start_time))
         report = {
-            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "target_url": config.get("target_url", ""),
             "start_time": time.strftime(
-                "%Y-%m-%dT%H:%M:%S", time.localtime(start_time)
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time)
             ),
             "end_time": time.strftime(
-                "%Y-%m-%dT%H:%M:%S", time.localtime(end_time)
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(end_time)
             ),
-            "elapsed_seconds": round(end_time - start_time, 1),
+            "elapsed_seconds": round(elapsed, 1),
             "metrics": dict(metrics),
             "found_credentials": [
                 {"username": u, "password": p} for u, p in found_creds
@@ -210,4 +218,4 @@ new Chart(document.getElementById('resultsChart'), {{
                 if k not in ("users", "passwords", "proxies")
             },
         }
-        return json.dumps(report, indent=2)
+        return json.dumps(report, indent=2, default=str)

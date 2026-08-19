@@ -502,6 +502,8 @@ body {
 input[type="text"],
 input[type="url"],
 input[type="number"],
+input[type="datetime-local"],
+textarea,
 select {
   width: 100%;
   padding: 10px 14px;
@@ -515,15 +517,31 @@ select {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
 input[type="text"]:focus,
 input[type="url"]:focus,
 input[type="number"]:focus,
+input[type="datetime-local"]:focus,
+textarea:focus,
 select:focus {
   border-color: var(--accent-indigo);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
-input::placeholder {
+.text-indigo {
+  color: var(--accent-indigo, #818cf8) !important;
+}
+
+.text-cyan {
+  color: var(--accent-cyan, #06b6d4) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
   color: var(--text-muted);
 }
 

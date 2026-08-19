@@ -64,8 +64,10 @@ class ResponseFingerprinter:
             Higher confidence means higher likelihood the response is
             genuinely different (potential success).
         """
-        if not self._calibrated:
-            return False, 0.0
+        with self._lock:
+            if not self._calibrated or not self._baseline_samples:
+                return False, 0.0
+            baselines = list(self._baseline_samples)
 
         current = {
             "status_code": status_code,
@@ -76,9 +78,6 @@ class ResponseFingerprinter:
         }
 
         scores: List[float] = []
-
-        with self._lock:
-            baselines = list(self._baseline_samples)
 
         for baseline in baselines:
             score = self._compare(baseline, current)
@@ -292,27 +291,36 @@ class TechnologyDetector:
             "has_login_form": False,
         }
 
-        if not body:
-            return result
+        csrf_names_lower = {k.lower() for k in cls.CSRF_FIELD_NAMES}
 
-        # Find form tags
-        form_match = re.search(r"<form\b([^>]*)>(.*?)</form>", body, re.IGNORECASE | re.DOTALL)
-        form_attrs = form_match.group(1) if form_match else ""
-        form_body = form_match.group(2) if form_match else body
+        # Find all form tags or fallback to whole body
+        form_matches = list(re.finditer(r"<form\b([^>]*)>(.*?)</form>", body, re.IGNORECASE | re.DOTALL))
 
-        if form_match:
+        # Pick the form with password or input fields
+        best_attrs = ""
+        best_form_body = body
+        if form_matches:
             result["has_login_form"] = True
-            action_match = re.search(r'action=["\'](.*?)["\']', form_attrs, re.IGNORECASE)
+            selected_match = form_matches[0]
+            for fm in form_matches:
+                f_body = fm.group(2)
+                if re.search(r'type=["\']password["\']', f_body, re.IGNORECASE) or "pass" in f_body.lower():
+                    selected_match = fm
+                    break
+            best_attrs = selected_match.group(1)
+            best_form_body = selected_match.group(2)
+
+            action_match = re.search(r'action=["\'](.*?)["\']', best_attrs, re.IGNORECASE)
             if action_match:
                 action_val = action_match.group(1).strip()
                 result["action"] = urljoin(base_url, action_val) if action_val else base_url
 
-            method_match = re.search(r'method=["\'](.*?)["\']', form_attrs, re.IGNORECASE)
+            method_match = re.search(r'method=["\'](.*?)["\']', best_attrs, re.IGNORECASE)
             if method_match:
                 result["method"] = method_match.group(1).upper()
 
         # Extract all input fields
-        inputs = re.findall(r"<input\b([^>]*)>", form_body, re.IGNORECASE)
+        inputs = re.findall(r"<input\b([^>]*)>", best_form_body, re.IGNORECASE)
         for inp in inputs:
             type_m = re.search(r'type=["\'](.*?)["\']', inp, re.IGNORECASE)
             name_m = re.search(r'name=["\'](.*?)["\']', inp, re.IGNORECASE)
@@ -339,7 +347,7 @@ class TechnologyDetector:
                 result["has_login_form"] = True
 
             # CSRF token
-            if inp_name.lower() in [k.lower() for k in cls.CSRF_FIELD_NAMES] or "csrf" in inp_name.lower():
+            if inp_name.lower() in csrf_names_lower or "csrf" in inp_name.lower():
                 result["csrf_field"] = inp_name
                 result["csrf_value"] = inp_val
 

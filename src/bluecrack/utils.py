@@ -23,12 +23,14 @@ from .constants import (
     HAS_STEM,
 )
 
+TorSignal = None
+TorController = None
 if HAS_STEM:
     try:
         from stem import Signal as TorSignal
         from stem.control import Controller as TorController
     except ImportError:
-        pass
+        HAS_STEM = False
 
 
 def configure_encoding() -> None:
@@ -66,7 +68,7 @@ def change_tor_ip(control_port: int = 9051, password: Optional[str] = None) -> b
     Returns:
         True if identity was successfully changed, False otherwise.
     """
-    if not HAS_STEM:
+    if not HAS_STEM or TorController is None:
         return False
     try:
         with TorController.from_port(port=control_port) as ctrl:
@@ -268,7 +270,10 @@ def generate_cupp_wordlist(
         finally:
             builtins.input = original_input
 
-        outfile = profile["name"] + ".txt"
+        name_raw = str(profile.get("name", "cupp")).strip()
+        name_clean = os.path.basename(name_raw) if name_raw else "cupp"
+        profile["name"] = name_clean
+        outfile = name_clean + ".txt"
         if os.path.exists(outfile):
             with open(outfile, encoding="utf-8") as f:
                 cnt = sum(1 for _ in f)

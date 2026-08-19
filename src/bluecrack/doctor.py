@@ -186,16 +186,14 @@ def diagnose() -> Dict[str, Any]:
 
     # 7. Internet Connectivity
     net_ok = False
-    _orig_timeout = socket.getdefaulttimeout()
-    try:
-        socket.setdefaulttimeout(3.0)
-        host = socket.gethostbyname("google.com")
-        socket.create_connection((host, 80), 2.0)
-        net_ok = True
-    except Exception:
-        pass
-    finally:
-        socket.setdefaulttimeout(_orig_timeout)
+    for target_host, target_port in [("1.1.1.1", 80), ("8.8.8.8", 53), ("google.com", 80)]:
+        try:
+            s = socket.create_connection((target_host, target_port), timeout=3.0)
+            s.close()
+            net_ok = True
+            break
+        except Exception:
+            continue
 
     checks.append({
         "name": "Internet Connectivity",

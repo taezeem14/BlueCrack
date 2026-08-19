@@ -323,10 +323,14 @@ def generate_cupp():
 
     def _run_cupp():
         global _last_wordlist_path
-        result = generate_cupp_wordlist(profile, log_callback=_on_log)
-        with _wordlist_lock:
-            _last_wordlist_path = result
-        socketio.emit("cupp_done", {"path": result, "success": bool(result)})
+        try:
+            result = generate_cupp_wordlist(profile, log_callback=_on_log)
+            with _wordlist_lock:
+                _last_wordlist_path = result
+            socketio.emit("cupp_done", {"path": result, "success": bool(result)})
+        except Exception as e:
+            _on_log(f"[-] CUPP generation error: {e}")
+            socketio.emit("cupp_done", {"path": None, "success": False, "error": str(e)})
 
     threading.Thread(target=_run_cupp, daemon=True).start()
     return jsonify({"status": "ok", "message": "CUPP generation started."})
@@ -349,17 +353,21 @@ def generate_sequence():
 
     def _run_seq():
         global _last_wordlist_path
-        result = generate_sequence_wordlist(
-            start=start,
-            end=end,
-            prefix=prefix,
-            suffix=suffix,
-            pad_width=pad_width,
-            log_callback=_on_log,
-        )
-        with _wordlist_lock:
-            _last_wordlist_path = result
-        socketio.emit("sequence_done", {"path": result, "success": bool(result)})
+        try:
+            result = generate_sequence_wordlist(
+                start=start,
+                end=end,
+                prefix=prefix,
+                suffix=suffix,
+                pad_width=pad_width,
+                log_callback=_on_log,
+            )
+            with _wordlist_lock:
+                _last_wordlist_path = result
+            socketio.emit("sequence_done", {"path": result, "success": bool(result)})
+        except Exception as e:
+            _on_log(f"[-] Sequence generation error: {e}")
+            socketio.emit("sequence_done", {"path": None, "success": False, "error": str(e)})
 
     threading.Thread(target=_run_seq, daemon=True).start()
     return jsonify({"status": "ok", "message": "Sequence generation started."})
@@ -398,8 +406,10 @@ def resume_attack():
     if not state:
         return jsonify({"status": "error", "message": "No saved session found."}), 404
     ctx = state["ctx"]
-    ctx["users"] = [c[0] for c in state["remaining_combos"]]
-    ctx["passwords"] = list(set(c[1] for c in state["remaining_combos"]))
+    combos = state.get("remaining_combos", [])
+    ctx["combos"] = combos
+    ctx["users"] = list(dict.fromkeys(c[0] for c in combos)) if combos else ctx.get("users", [])
+    ctx["passwords"] = list(dict.fromkeys(c[1] for c in combos)) if combos else ctx.get("passwords", [])
     global engine
     from .engine import AttackEngine
     from .http_engine import HTTPAttackEngine
@@ -432,7 +442,11 @@ def list_targets():
 @app.route("/api/targets/remove", methods=["POST"])
 def remove_target():
     data = request.get_json(silent=True) or {}
-    index = data.get("index", -1)
+    raw_index = data.get("index", -1)
+    try:
+        index = int(raw_index)
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid target index."}), 400
     ok = target_queue.remove_target(index)
     return jsonify({"status": "ok" if ok else "error"})
 
@@ -453,16 +467,17 @@ def test_notifications():
     return jsonify({"status": "ok", "results": results})
 
 
-@app.route("/api/schedule/create", methods=["POST"])
-def schedule_attack():
+@app.route("/api/schedule/add", methods=["POST"])
+def add_scheduled():
     data = request.get_json(silent=True) or {}
-    config = data.get("config", {})
-    run_at = data.get("run_at", "")
-    try:
-        sid = attack_scheduler.schedule(config, run_at)
-        return jsonify({"status": "ok", "schedule_id": sid})
-    except ValueError as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
+    target_url = data.get("target_url", "")
+    run_at_iso = data.get("run_at", "")
+    if not target_url or not run_at_iso:
+        return jsonify({"status": "error", "message": "target_url and run_at are required."}), 400
+    task_id = attack_scheduler.schedule(target_url, run_at_iso, data)
+    if task_id:
+        return jsonify({"status": "ok", "id": task_id})
+    return jsonify({"status": "error", "message": "Failed to schedule attack (invalid time or format)."}), 400
 
 
 @app.route("/api/schedule/list", methods=["GET"])
@@ -475,26 +490,6 @@ def cancel_scheduled():
     data = request.get_json(silent=True) or {}
     ok = attack_scheduler.cancel(data.get("id", ""))
     return jsonify({"status": "ok" if ok else "error"})
-
-
-@app.route("/api/report/html", methods=["GET"])
-def export_html_report():
-    metrics = engine.get_metrics()
-    found = engine.get_found_creds()
-    logs_list = engine.get_logs()
-    report_html = ReportGenerator.generate_html(
-        metrics=metrics,
-        found_creds=found,
-        logs=logs_list,
-        config={"target_url": "N/A", "threads": 1},
-        start_time=engine._start_time or time.time(),
-        end_time=time.time(),
-    )
-    return Response(
-        report_html,
-        mimetype="text/html",
-        headers={"Content-Disposition": "attachment; filename=bluecrack_report.html"}
-    )
 
 
 @app.route("/api/proxies/health", methods=["GET"])
@@ -682,14 +677,15 @@ def api_report_html():
     metrics = engine.get_metrics()
     found = engine.get_found_creds()
     logs = engine.get_logs()
-    start_time = getattr(engine, "_start_time", time.time() - 60)
+    start_time = getattr(engine, "_start_time", 0.0) or (time.time() - 60)
     end_time = time.time()
+    target_url = getattr(engine, "_target_url", "") or getattr(engine, "_ctx", {}).get("target_url", "Target")
 
     html_content = ReportGenerator.generate_html(
         metrics=metrics,
         found_creds=found,
         logs=logs,
-        config={"target_url": getattr(engine, "_target_url", "Target")},
+        config={"target_url": target_url},
         start_time=start_time,
         end_time=end_time,
     )
@@ -705,13 +701,14 @@ def api_report_json():
     """Generate and return standalone JSON report."""
     metrics = engine.get_metrics()
     found = engine.get_found_creds()
-    start_time = getattr(engine, "_start_time", time.time() - 60)
+    start_time = getattr(engine, "_start_time", 0.0) or (time.time() - 60)
     end_time = time.time()
+    target_url = getattr(engine, "_target_url", "") or getattr(engine, "_ctx", {}).get("target_url", "Target")
 
     json_content = ReportGenerator.generate_json(
         metrics=metrics,
         found_creds=found,
-        config={"target_url": getattr(engine, "_target_url", "Target")},
+        config={"target_url": target_url},
         start_time=start_time,
         end_time=end_time,
     )

@@ -5,7 +5,9 @@ Notification system supporting Discord webhooks and Telegram bots.
 Sends non-blocking alerts when credentials are found.
 """
 
+import html
 import json
+import re
 import threading
 from typing import Any, Dict, List
 
@@ -28,6 +30,8 @@ class DiscordWebhook(NotificationBackend):
         self.name = "discord"
 
     def send(self, title: str, message: str, color: int = 0x00FF00) -> bool:
+        if not self.webhook_url:
+            return False
         payload = {
             "embeds": [
                 {
@@ -58,10 +62,16 @@ class TelegramBot(NotificationBackend):
         self.name = "telegram"
 
     def send(self, title: str, message: str, color: int = 0x00FF00) -> bool:
+        if not self.bot_token or not self.chat_id:
+            return False
+        safe_title = html.escape(str(title))
+        safe_msg = html.escape(str(message))
+        safe_msg = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", safe_msg)
+        safe_msg = re.sub(r"`(.+?)`", r"<code>\1</code>", safe_msg)
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = {
             "chat_id": self.chat_id,
-            "text": f"<b>{title}</b>\n\n{message}",
+            "text": f"<b>{safe_title}</b>\n\n{safe_msg}",
             "parse_mode": "HTML",
         }
         try:
@@ -104,8 +114,9 @@ class Notifier:
             event: Event type (e.g., "credential_found", "attack_complete")
             data: Event data dict.
         """
-        if not self._enabled:
-            return
+        with self._lock:
+            if not self._enabled:
+                return
 
         if event == "credential_found":
             title = "🔓 Credential Found!"
@@ -117,10 +128,15 @@ class Notifier:
             color = 0x00FF00
         elif event == "attack_complete":
             title = "✅ Attack Complete"
+            elapsed_val = 0.0
+            try:
+                elapsed_val = float(data.get("elapsed", 0) or 0)
+            except (ValueError, TypeError):
+                elapsed_val = 0.0
             message = (
                 f"**Hits:** {data.get('successes', 0)}\n"
                 f"**Attempted:** {data.get('attempted', 0)}\n"
-                f"**Elapsed:** {data.get('elapsed', 0):.1f}s"
+                f"**Elapsed:** {elapsed_val:.1f}s"
             )
             color = 0x3498DB
         elif event == "test":
@@ -163,10 +179,12 @@ class Notifier:
             result = []
             for b in self._backends:
                 if isinstance(b, DiscordWebhook):
+                    raw_url = getattr(b, "webhook_url", "") or ""
+                    masked = (raw_url[:30] + "...") if len(raw_url) > 30 else raw_url
                     result.append({
                         "type": "discord",
                         "configured": True,
-                        "url": b.webhook_url[:30] + "...",
+                        "url": masked,
                     })
                 elif isinstance(b, TelegramBot):
                     result.append({
