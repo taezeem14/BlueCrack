@@ -38,29 +38,32 @@
   --transition:     0.2s ease;
 }
 
-/* ── Eco-Astral Mode (Performance Lag Fix) ─────────────────── */
-body.eco-mode {
-  --bg-deep:        #030712;
-  --bg-card:        #0b0f19;
-  --bg-input:       #0d1220;
-  --bg-terminal:    #020617;
-  
-  --accent-indigo:  #6366f1; /* standard indigo */
-  --accent-cyan:    #06b6d4; /* standard cyan */
-  
-  background-image: none !important;
-  background: var(--bg-deep) !important;
+/* ── Cosmic Mode (Opt-in Glassmorphism + Starfield) ────────── */
+/* Default = lightweight (no blur, no starfield) for low-end GPUs.
+   Toggle "Cosmic Mode" to enable blur + starfield for capable GPUs. */
+
+body.cosmic-mode .card {
+  background: rgba(13, 7, 32, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-body.eco-mode #starfield {
-  display: none !important;
+body.cosmic-mode .chart-container {
+  background: rgba(13, 7, 32, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-body.eco-mode .card {
-  background: var(--bg-card) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+body.cosmic-mode .floating-info-btn {
+  background: rgba(13, 7, 32, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+body.cosmic-mode .modal-overlay {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 
@@ -74,8 +77,7 @@ body.eco-mode .card {
 }
 
 .chart-container {
-  background: rgba(13, 7, 32, 0.45);
-  backdrop-filter: blur(8px);
+  background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   padding: 16px;
@@ -287,9 +289,11 @@ body.eco-mode .card {
   z-index: -2;
   pointer-events: none;
   background: transparent;
-  transform: translate3d(0, 0, 0);
-  will-change: transform;
-  backface-visibility: hidden;
+  display: none; /* Hidden by default — shown only in Cosmic Mode */
+}
+
+body.cosmic-mode #starfield {
+  display: block;
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -311,7 +315,6 @@ body {
   background: var(--bg-deep);
   background-image: radial-gradient(circle at 15% 40%, rgba(192, 132, 252, 0.04) 0%, transparent 60%),
                     radial-gradient(circle at 85% 70%, rgba(52, 211, 153, 0.04) 0%, transparent 60%);
-  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-ui);
   line-height: 1.6;
@@ -446,13 +449,11 @@ body {
 
 /* ── Cards (Glass Effect) ──────────────────────────────────── */
 .card {
-  background: rgba(13, 7, 32, 0.65); /* Translucent cosmic dark */
+  background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius);
   padding: 24px 28px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   animation: fadeIn 0.3s ease;
 }
 
@@ -759,7 +760,6 @@ textarea::placeholder {
 
 .stat-card:hover {
   border-color: var(--border-hover);
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.06);
 }
 
 .stat-label {
@@ -1050,7 +1050,7 @@ textarea::placeholder {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: rgba(13, 7, 32, 0.85);
+  background: var(--bg-card);
   border: 1px solid var(--border-default);
   color: var(--accent-indigo);
   display: flex;
@@ -1059,9 +1059,7 @@ textarea::placeholder {
   font-size: 1.15rem;
   cursor: pointer;
   z-index: 9999;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: var(--transition);
 }
 
@@ -1080,9 +1078,7 @@ textarea::placeholder {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(3, 1, 10, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(3, 1, 10, 0.92);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -1185,8 +1181,8 @@ textarea::placeholder {
 }
 
 @keyframes pulse-warning {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.6; transform: scale(0.95); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
 }
 
 .disclaimer-warning h4 {

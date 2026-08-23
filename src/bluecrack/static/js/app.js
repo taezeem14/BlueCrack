@@ -598,9 +598,9 @@ async function launchDemoMode() {
 let starfieldCanvas = null;
 let starfieldCtx = null;
 let stars = [];
-const numStars = 100;
+const numStars = 50;
 let animationId = null;
-let isEcoMode = false;
+let isCosmicMode = false;
 
 function initStarfield() {
   starfieldCanvas = document.getElementById('starfield');
@@ -608,7 +608,12 @@ function initStarfield() {
   starfieldCtx = starfieldCanvas.getContext('2d');
   resizeStarfield();
   
-  window.addEventListener('resize', resizeStarfield);
+  // Debounced resize to avoid GPU thrashing during window drag
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeStarfield, 150);
+  });
   
   // Initialize stars
   stars = [];
@@ -621,7 +626,7 @@ function initStarfield() {
     });
   }
   
-  if (!isEcoMode) {
+  if (isCosmicMode) {
     startStarfieldAnimation();
   }
 }
@@ -636,7 +641,7 @@ function startStarfieldAnimation() {
   if (animationId) cancelAnimationFrame(animationId);
   
   function draw() {
-    if (isEcoMode) return;
+    if (!isCosmicMode) return;
     
     starfieldCtx.clearRect(0, 0, starfieldCanvas.width, starfieldCanvas.height);
     
@@ -683,26 +688,27 @@ function stopStarfieldAnimation() {
 }
 
 /**
- * Toggle the Performance Eco-Astral Mode (Lag Fix).
+ * Toggle Cosmic Mode (opt-in glassmorphism + starfield).
+ * Default = lightweight for low-end GPUs.
  */
-function toggleEcoMode() {
-  isEcoMode = document.body.classList.toggle('eco-mode');
-  if (isEcoMode) {
-    localStorage.setItem('eco_mode', 'true');
-    stopStarfieldAnimation();
-    if (DOM.btnToggleEco) {
-      DOM.btnToggleEco.classList.add('active');
-      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-bolt"></i> Eco Active';
-    }
-    appendLog('[~] Eco-Astral Mode: ON. Starfield stopped, blurs disabled. Performance optimized.');
-  } else {
-    localStorage.setItem('eco_mode', 'false');
+function toggleCosmicMode() {
+  isCosmicMode = document.body.classList.toggle('cosmic-mode');
+  if (isCosmicMode) {
+    localStorage.setItem('cosmic_mode', 'true');
     startStarfieldAnimation();
     if (DOM.btnToggleEco) {
-      DOM.btnToggleEco.classList.remove('active');
-      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-leaf"></i> Eco Mode';
+      DOM.btnToggleEco.classList.add('active');
+      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-star"></i> Cosmic Active';
     }
-    appendLog('[~] Eco-Astral Mode: OFF. Cosmic vibes and blurs enabled.');
+    appendLog('[~] Cosmic Mode: ON. Starfield and glassmorphism enabled.');
+  } else {
+    localStorage.setItem('cosmic_mode', 'false');
+    stopStarfieldAnimation();
+    if (DOM.btnToggleEco) {
+      DOM.btnToggleEco.classList.remove('active');
+      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-star"></i> Cosmic Mode';
+    }
+    appendLog('[~] Cosmic Mode: OFF. Lightweight mode for performance.');
   }
 }
 
@@ -785,20 +791,15 @@ socket.on('sequence_done', (data) => {
 //  EVENT LISTENERS — Wire Everything Up
 // ═══════════════════════════════════════════════════════════════
 
-
-// ═══════════════════════════════════════════════════════════════
-//  EVENT LISTENERS — Wire Everything Up
-// ═══════════════════════════════════════════════════════════════
-
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Initialize Eco Mode from storage
-  isEcoMode = localStorage.getItem('eco_mode') === 'true';
-  if (isEcoMode) {
-    document.body.classList.add('eco-mode');
+  // Initialize Cosmic Mode from storage (default = OFF = lightweight)
+  isCosmicMode = localStorage.getItem('cosmic_mode') === 'true';
+  if (isCosmicMode) {
+    document.body.classList.add('cosmic-mode');
     if (DOM.btnToggleEco) {
       DOM.btnToggleEco.classList.add('active');
-      DOM.btnToggleEco.innerHTML = '⚡ Eco Active';
+      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-star"></i> Cosmic Active';
     }
   }
 
@@ -827,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.btnLaunchDemo.addEventListener('click', launchDemoMode);
   }
   if (DOM.btnToggleEco) {
-    DOM.btnToggleEco.addEventListener('click', toggleEcoMode);
+    DOM.btnToggleEco.addEventListener('click', toggleCosmicMode);
   }
 
   // ── Control Buttons ──
@@ -1185,21 +1186,22 @@ async function startAllTargets() {
   const snapshot = [...targetList];
   for (let t of snapshot) {
     if (t.status === 'pending') {
-      DOM.targetUrl.value = t.config.target_url || '';
-      DOM.username.value = t.config.username || '';
-      DOM.password.value = t.config.password || '';
-      DOM.errorString.value = t.config.error_msg || '';
-      DOM.successString.value = t.config.success_msg || '';
-      DOM.attackMode.value = t.config.mode || 'browser';
-      DOM.threads.value = t.config.threads || 4;
-      DOM.delay.value = t.config.delay || 0;
-      DOM.jitter.value = t.config.jitter || 0;
-      DOM.rateLimit.value = t.config.limit_text || '';
-      DOM.cooldown.value = t.config.cooldown || 0;
-      DOM.maxAttempts.value = t.config.max_attempts || 0;
-      DOM.headless.checked = Boolean(t.config.headless);
-      DOM.continueAfterSuccess.checked = Boolean(t.config.continue_after_success);
-      DOM.sprayMode.checked = Boolean(t.config.spray_mode);
+      const c = t.config || {};
+      DOM.targetUrl.value = c.target_url || '';
+      DOM.username.value = c.username || '';
+      DOM.password.value = c.password || '';
+      DOM.errorString.value = c.error_msg || '';
+      DOM.successString.value = c.success_msg || '';
+      DOM.attackMode.value = c.mode || 'browser';
+      DOM.threads.value = c.threads || 4;
+      DOM.delay.value = c.delay || 0;
+      DOM.jitter.value = c.jitter || 0;
+      DOM.rateLimit.value = c.limit_text || '';
+      DOM.cooldown.value = c.cooldown || 0;
+      DOM.maxAttempts.value = c.max_attempts || 0;
+      DOM.headless.checked = Boolean(c.headless);
+      DOM.continueAfterSuccess.checked = Boolean(c.continue_after_success);
+      DOM.sprayMode.checked = Boolean(c.spray_mode);
       
       await startAttack();
       
@@ -1253,9 +1255,14 @@ function renderScheduled(list) {
       <span class="schedule-time">${escapeHTML(new Date(s.run_at).toLocaleString())}</span>
       <span class="schedule-target">${escapeHTML(s.target_url)}</span>
       <span class="target-status ${escapeHTML(s.status)}">${escapeHTML(s.status)}</span>
-      <button class="btn btn-ghost btn-sm" onclick="cancelScheduled('${escapeHTML(s.id)}')">Cancel</button>
+      <button class="btn btn-ghost btn-sm" data-cancel-id="${escapeHTML(s.id)}">Cancel</button>
     </div>
   `).join('');
+
+  // Event delegation for cancel buttons
+  DOM.scheduleList.querySelectorAll('[data-cancel-id]').forEach(btn => {
+    btn.addEventListener('click', () => cancelScheduled(btn.dataset.cancelId));
+  });
 }
 
 window.cancelScheduled = async function(id) {

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="BlueCrack — Hydra-style browser-based login tester powered by Selenium WebDriver with real-time dashboard" />
+  <meta name="theme-color" content="#060212" />
   <title>BlueCrack — Advanced Browser Penetration Framework</title>
 
   <!-- Google Fonts -->
@@ -42,7 +43,7 @@
       <div class="header-actions">
         <button class="btn btn-ghost btn-sm" id="btnDoctor" type="button"><i class="fa-solid fa-stethoscope"></i> Doctor</button>
         <button class="btn btn-ghost btn-sm" id="btnLaunchDemo" type="button"><i class="fa-solid fa-rocket"></i> Demo Mode</button>
-        <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button"><i class="fa-solid fa-leaf"></i> Eco Mode</button>
+        <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button"><i class="fa-solid fa-star"></i> Cosmic Mode</button>
         <div class="header-badge">
           <span class="status-dot" id="connectionDot"></span>
           <span class="status-label" id="connectionLabel">Connecting…</span>
@@ -100,10 +101,7 @@
             </div>
             <div class="form-group">
               <label for="password">Password <span class="hint">(single password or file path)</span></label>
-              <div class="input-with-btn">
-                <input type="text" id="password" placeholder="password123  or  /path/to/wordlist.txt" />
-                <button class="btn btn-ghost btn-sm" id="btnBrowsePasswords" type="button">Browse</button>
-              </div>
+              <input type="text" id="password" placeholder="password123  or  /path/to/wordlist.txt" />
             </div>
           </div>
 
@@ -447,7 +445,7 @@
           <div class="form-row">
             <div class="form-group">
               <label for="scheduleTime">Run At (Date & Time)</label>
-              <input type="datetime-local" id="scheduleTime" style="padding: 10px 14px; font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-primary); background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-sm);" />
+              <input type="datetime-local" id="scheduleTime" />
             </div>
           </div>
           <div class="form-actions" style="margin-bottom: 16px;">
