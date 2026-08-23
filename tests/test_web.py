@@ -92,3 +92,21 @@ def test_notifications_config_api(client):
     cfg = set_resp.get_json()["config"]
     assert any(c.get("type") == "discord" for c in cfg)
 
+
+def test_attack_status_and_logs_api(client):
+    """Verify attack status, log retrieval and log clearing."""
+    status_resp = client.get("/api/attack/status")
+    assert status_resp.status_code == 200
+    data = status_resp.get_json()
+    assert "running" in data
+    assert "metrics" in data
+    assert "recent_logs" in data
+
+    logs_resp = client.get("/api/logs")
+    assert logs_resp.status_code == 200
+    assert "logs" in logs_resp.get_json()
+
+    clear_resp = client.post("/api/logs/clear")
+    assert clear_resp.status_code == 200
+
+

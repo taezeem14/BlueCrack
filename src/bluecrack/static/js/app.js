@@ -959,11 +959,42 @@ function exportLogs() {
 }
 
 /**
- * Clear all lines from the terminal.
+ * Synchronize live UI state (running state, metrics, progress, logs) on dynamic reload / reconnection.
+ */
+function syncAttackStatus(statusData) {
+  if (!statusData) return;
+  const isRunning = Boolean(statusData.running);
+  if (DOM.btnStart) DOM.btnStart.disabled = isRunning;
+  if (DOM.btnStop) DOM.btnStop.disabled = !isRunning;
+
+  if (statusData.metrics && Object.keys(statusData.metrics).length > 0) {
+    updateStats(statusData.metrics);
+    const attempted = statusData.metrics.attempted || 0;
+    const total = statusData.metrics.total || 0;
+    if (total > 0) {
+      setProgress((attempted / total) * 100);
+    }
+  }
+
+  if (Array.isArray(statusData.recent_logs) && statusData.recent_logs.length > 0) {
+    if (DOM.terminal && !DOM.terminal.dataset.replayed) {
+      DOM.terminal.innerHTML = '';
+      DOM.terminal.dataset.replayed = 'true';
+      statusData.recent_logs.forEach(msg => appendLog(msg));
+    }
+  }
+}
+
+/**
+ * Clear all lines from the terminal and clear server buffer.
  */
 function clearLogs() {
   logQueue.length = 0;
-  DOM.terminal.innerHTML = '';
+  if (DOM.terminal) {
+    DOM.terminal.innerHTML = '';
+    DOM.terminal.dataset.replayed = 'true';
+  }
+  postJSON('/api/logs/clear', {}).catch(() => {});
   appendLog('[~] Console cleared.');
 }
 
@@ -982,6 +1013,10 @@ socket.on('disconnect', () => {
   DOM.connectionDot.className   = 'status-dot disconnected';
   DOM.connectionLabel.textContent = 'Disconnected';
   appendLog('[-] Socket disconnected from server.');
+});
+
+socket.on('status', (data) => {
+  syncAttackStatus(data);
 });
 
 socket.on('log', (data) => {
@@ -1242,6 +1277,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeTab = localStorage.getItem('bluecrack_active_tab') || 'target';
     switchTab(activeTab);
   });
+
+  // Fetch live attack status & logs immediately to handle dynamic reload
+  fetch('/api/attack/status')
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.status === 'ok') {
+        syncAttackStatus(data);
+      }
+    })
+    .catch(() => {});
 
   appendLog('[~] All systems nominal. Ready.');
 });

@@ -62,13 +62,20 @@ _last_wordlist_path: str = ""
 _wordlist_lock = threading.Lock()
 _CONFIG_FILE = os.path.join(os.getcwd(), ".bluecrack_config.json")
 _config_lock = threading.Lock()
+_log_history: List[str] = []
+_log_history_lock = threading.Lock()
+_MAX_LOG_HISTORY = 250
 
 
 # ═══════════════════════════════════════════════════════════════════
 # ENGINE CALLBACKS → SOCKETIO EVENTS
 # ═══════════════════════════════════════════════════════════════════
 def _on_log(msg: str) -> None:
-    """Forward engine log messages to all connected clients."""
+    """Forward engine log messages to all connected clients and buffer history."""
+    with _log_history_lock:
+        _log_history.append(msg)
+        if len(_log_history) > _MAX_LOG_HISTORY:
+            _log_history.pop(0)
     socketio.emit("log", {"message": msg})
 
 
@@ -287,14 +294,33 @@ def stop_attack():
 
 @app.route("/api/attack/status", methods=["GET"])
 def attack_status():
-    """Get the current attack status and metrics."""
+    """Get the current attack status, metrics, and recent logs."""
+    with _log_history_lock:
+        recent_logs = list(_log_history)
     return jsonify({
+        "status": "ok",
         "running": engine.is_running,
         "metrics": engine.get_metrics(),
         "found_credentials": [
             {"username": u, "password": p} for u, p in engine.get_found_creds()
         ],
+        "recent_logs": recent_logs,
     })
+
+
+@app.route("/api/logs", methods=["GET"])
+def get_recent_logs():
+    """Get recent log lines."""
+    with _log_history_lock:
+        return jsonify({"status": "ok", "logs": list(_log_history)})
+
+
+@app.route("/api/logs/clear", methods=["POST"])
+def clear_recent_logs():
+    """Clear server-side log buffer."""
+    with _log_history_lock:
+        _log_history.clear()
+    return jsonify({"status": "ok", "message": "Logs cleared."})
 
 
 @app.route("/api/cupp/generate", methods=["POST"])
@@ -556,12 +582,13 @@ def proxy_health():
 # ═══════════════════════════════════════════════════════════════════
 @socketio.on("connect")
 def handle_connect():
-    """Handle new client connection."""
-    emit("log", {"message": "[*] Connected to BlueCrack server."})
-    # Send current status
+    """Handle new client connection with full dynamic state replay."""
+    with _log_history_lock:
+        recent_logs = list(_log_history)
     emit("status", {
         "running": engine.is_running,
         "metrics": engine.get_metrics(),
+        "recent_logs": recent_logs,
     })
 
 
