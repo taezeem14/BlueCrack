@@ -42,10 +42,15 @@ class DiscordWebhook(NotificationBackend):
                 }
             ]
         }
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "BlueCrack-Notifier/4.2",
+        }
         try:
             resp = requests.post(
                 self.webhook_url,
                 json=payload,
+                headers=headers,
                 timeout=10,
             )
             return 200 <= resp.status_code < 300
@@ -74,8 +79,12 @@ class TelegramBot(NotificationBackend):
             "text": f"<b>{safe_title}</b>\n\n{safe_msg}",
             "parse_mode": "HTML",
         }
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "BlueCrack-Notifier/4.2",
+        }
         try:
-            resp = requests.post(url, json=payload, timeout=10)
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
             return resp.status_code == 200
         except Exception:
             return False

@@ -544,18 +544,16 @@ class AttackEngine:
 
                             # Determine success
                             is_success = False
-                            if success_msg:
-                                if success_msg in src:
-                                    is_success = True
+                            if success_msg and success_msg in src:
+                                is_success = True
                             elif (
                                 current_url
                                 and current_url != ctx["target_url"]
                                 and "login" not in current_url.lower()
                             ):
                                 is_success = True
-                            elif error_msg:
-                                if src and error_msg not in src:
-                                    is_success = True
+                            elif error_msg and (src and error_msg not in src):
+                                is_success = True
 
                             if is_success:
                                 with self._found_lock:

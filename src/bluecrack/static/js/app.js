@@ -613,6 +613,11 @@ async function startAttack() {
 
     // Spray mode
     spray_mode:       DOM.sprayMode.checked,
+
+    // Notifications
+    discord_url:      DOM.discordWebhook ? DOM.discordWebhook.value.trim() : '',
+    telegram_token:   DOM.telegramToken ? DOM.telegramToken.value.trim() : '',
+    telegram_chat_id: DOM.telegramChatId ? DOM.telegramChatId.value.trim() : '',
   };
 
   // Add HTTP-mode-specific fields

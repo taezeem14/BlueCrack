@@ -68,3 +68,27 @@ def test_notifier_payload_dispatch():
         assert mock_post.called
         assert mock_post.call_count == 2
 
+
+def test_notifier_headers_and_attack_complete():
+    """Verify headers and attack_complete notification dispatch."""
+    n = Notifier()
+    n.add_discord("https://discord.com/api/webhooks/test")
+
+    with patch("bluecrack.notifier.requests.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        n.notify("attack_complete", {"successes": 1, "attempted": 10, "elapsed": 5.2})
+
+        for _ in range(20):
+            if mock_post.call_count >= 1:
+                break
+            time.sleep(0.05)
+
+        assert mock_post.called
+        _, kwargs = mock_post.call_args
+        assert "headers" in kwargs
+        assert kwargs["headers"]["User-Agent"] == "BlueCrack-Notifier/4.2"
+
+
