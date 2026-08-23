@@ -89,3 +89,25 @@ def test_report_generator_html_and_json():
     assert len(data["found_credentials"]) == 2
     assert data["found_credentials"][0]["username"] == "admin"
     assert data["found_credentials"][0]["password"] == "<script>alert(1)</script>"
+
+
+def test_engine_found_callback():
+    """Verify that found_callback is triggered when emit_found is called."""
+    engine = AttackEngine()
+    found = []
+
+    def _found_cb(u, p, target):
+        found.append((u, p, target))
+
+    engine.set_callbacks(found_cb=_found_cb)
+    engine._emit_found("admin", "secret123", "http://test.com/login")
+    assert len(found) == 1
+    assert found[0] == ("admin", "secret123", "http://test.com/login")
+
+    http_engine = HTTPAttackEngine()
+    http_found = []
+    http_engine.set_callbacks(found_cb=lambda u, p, t: http_found.append((u, p, t)))
+    http_engine._emit_found("user1", "pass123", "http://test.com/http-login")
+    assert len(http_found) == 1
+    assert http_found[0] == ("user1", "pass123", "http://test.com/http-login")
+

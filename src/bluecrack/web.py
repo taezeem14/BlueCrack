@@ -89,18 +89,49 @@ def _on_metrics(metrics: Dict[str, Any]) -> None:
     socketio.emit("metrics", metrics)
 
 
+def _on_found(user: str, pwd: str, target_url: str) -> None:
+    """Forward found credentials to socket and send instant notification alert."""
+    socketio.emit("credential_found", {"username": user, "password": pwd, "target_url": target_url})
+    if notifier and notifier.has_backends:
+        try:
+            notifier.notify(
+                "credential_found",
+                {
+                    "username": user,
+                    "password": pwd,
+                    "target_url": target_url,
+                },
+            )
+        except Exception:
+            pass
+
+
 def _on_finished(found: bool, message: str) -> None:
-    """Forward attack completion to all connected clients."""
+    """Forward attack completion to all connected clients and trigger alert."""
     socketio.emit("finished", {"found": found, "message": message})
+    if notifier and notifier.has_backends:
+        try:
+            m = engine.get_metrics() if engine else {}
+            notifier.notify(
+                "attack_complete",
+                {
+                    "successes": m.get("hits", m.get("successes", 0)),
+                    "attempted": m.get("attempted", 0),
+                    "elapsed": m.get("elapsed", 0),
+                },
+            )
+        except Exception:
+            pass
 
 
 def _wire_callbacks(eng: Any) -> None:
-    """Wire the SocketIO callbacks onto the given engine instance."""
+    """Wire the SocketIO and notification callbacks onto the given engine instance."""
     eng.set_callbacks(
         log_cb=_on_log,
         progress_cb=_on_progress,
         metrics_cb=_on_metrics,
         finished_cb=_on_finished,
+        found_cb=_on_found,
     )
 
 
@@ -216,6 +247,7 @@ def start_attack():
         "max_attempts": max_attempts,
         "continue_after_success": bool(data.get("continue_after_success", False)),
         "spray_mode": bool(data.get("spray_mode", False)),
+        "notifier": notifier,
     }
 
     # Add HTTP-mode-specific fields
@@ -439,6 +471,7 @@ def resume_attack():
     ctx["combos"] = combos
     ctx["users"] = list(dict.fromkeys(c[0] for c in combos)) if combos else ctx.get("users", [])
     ctx["passwords"] = list(dict.fromkeys(c[1] for c in combos)) if combos else ctx.get("passwords", [])
+    ctx["notifier"] = notifier
     global engine
     from .engine import AttackEngine
     from .http_engine import HTTPAttackEngine

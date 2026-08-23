@@ -253,6 +253,7 @@ class HTTPAttackEngine:
         self._progress_callback: Optional[Callable[[int, int], None]] = None
         self._metrics_callback: Optional[Callable[[Dict], None]] = None
         self._finished_callback: Optional[Callable[[bool, str], None]] = None
+        self._found_callback: Optional[Callable[[str, str, str], None]] = None
 
     # ── Properties ────────────────────────────────────────────────
 
@@ -266,18 +267,28 @@ class HTTPAttackEngine:
         progress_cb: Optional[Callable[[int, int], None]] = None,
         metrics_cb: Optional[Callable[[Dict], None]] = None,
         finished_cb: Optional[Callable[[bool, str], None]] = None,
+        found_cb: Optional[Callable[[str, str, str], None]] = None,
     ) -> None:
         """Set callback functions for event notifications."""
         self._log_callback = log_cb
         self._progress_callback = progress_cb
         self._metrics_callback = metrics_cb
         self._finished_callback = finished_cb
+        self._found_callback = found_cb
 
     def _log(self, msg: str) -> None:
         with self._logs_lock:
             self._logs.append(msg)
         if self._log_callback:
             self._log_callback(msg)
+
+    def _emit_found(self, user: str, pwd: str, target_url: str) -> None:
+        """Emit found credential event."""
+        if self._found_callback:
+            try:
+                self._found_callback(user, pwd, target_url)
+            except Exception:
+                pass
 
     def _emit_progress(self, current: int, total: int) -> None:
         if self._progress_callback:
@@ -703,6 +714,7 @@ class HTTPAttackEngine:
                                 self._log(f"\n[+] VALID CREDENTIALS: {user} / {pwd}")
                                 with self._metrics_lock:
                                     self.metrics["successes"] += 1
+                                self._emit_found(user, pwd, ctx.get("target_url", ""))
                                 try:
                                     entry = f"{user}:{pwd}\n"
                                     with open("credentials.txt", "a", encoding="utf-8") as cf:
