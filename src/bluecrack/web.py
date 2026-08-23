@@ -46,7 +46,18 @@ app = Flask(
     static_folder=os.path.join(_PKG_DIR, "static"),
 )
 app.config["SECRET_KEY"] = os.urandom(24).hex()
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
+
+
+@app.after_request
+def _set_cache_headers(response: Response) -> Response:
+    """Disable aggressive browser caching for development and hot edits."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # Global engine instance (switchable between AttackEngine and HTTPAttackEngine)
 engine: Any = AttackEngine()
@@ -868,8 +879,33 @@ def api_report_json():
     )
 
 
-def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> None:
-    """Start the Flask-SocketIO server."""
+def run_server(
+    host: str = "127.0.0.1",
+    port: int = 5000,
+    debug: bool = False,
+    use_reloader: Optional[bool] = None,
+) -> None:
+    """Start the Flask-SocketIO server with optional auto-reloader for dynamic code updates."""
     print_banner()
     print(f"\n\033[36m[*] BlueCrack Web UI starting at http://{host}:{port}\033[0m\n")
-    socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+
+    if use_reloader is None:
+        use_reloader = debug or bool(os.getenv("BLUECRACK_RELOAD"))
+
+    extra_files: List[str] = []
+    if use_reloader:
+        for root, _, files in os.walk(_PKG_DIR):
+            for f in files:
+                if f.endswith((".py", ".html", ".js", ".css", ".json", ".txt")):
+                    extra_files.append(os.path.join(root, f))
+        print(f"\033[33m[*] Auto-reloader active (watching {len(extra_files)} source & asset files)\033[0m\n")
+
+    socketio.run(
+        app,
+        host=host,
+        port=port,
+        debug=debug,
+        use_reloader=use_reloader,
+        extra_files=extra_files if extra_files else None,
+        allow_unsafe_werkzeug=True,
+    )

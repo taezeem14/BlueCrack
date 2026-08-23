@@ -14,10 +14,11 @@ def client():
 
 
 def test_index_page(client):
-    """Verify index HTML page loads with 200 OK."""
+    """Verify index HTML page loads with 200 OK and no-cache headers."""
     resp = client.get("/")
     assert resp.status_code == 200
     assert b"BLUECRACK" in resp.data
+    assert "no-cache" in resp.headers.get("Cache-Control", "")
 
 
 def test_doctor_api(client):

@@ -8,11 +8,12 @@ def test_cli_parser_subcommands():
     parser = _build_parser()
 
     # Web command
-    args_web = parser.parse_args(["web", "--host", "0.0.0.0", "--port", "8080", "--debug"])
+    args_web = parser.parse_args(["web", "--host", "0.0.0.0", "--port", "8080", "--debug", "--reload"])
     assert args_web.command == "web"
     assert args_web.host == "0.0.0.0"
     assert args_web.port == 8080
     assert args_web.debug is True
+    assert args_web.reload is True
 
     # Fingerprint command
     args_fp = parser.parse_args(["fingerprint", "https://example.com"])

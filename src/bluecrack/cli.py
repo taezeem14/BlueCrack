@@ -35,7 +35,8 @@ def _configure_encoding() -> None:
 def _cmd_web(args: argparse.Namespace) -> None:
     """Launch the Flask Web UI."""
     from bluecrack.web import run_server
-    run_server(host=args.host, port=args.port, debug=args.debug)
+    use_reloader = args.debug or getattr(args, "reload", False)
+    run_server(host=args.host, port=args.port, debug=args.debug, use_reloader=use_reloader)
 
 
 def _cmd_attack(args: argparse.Namespace) -> None:
@@ -147,6 +148,7 @@ def _build_parser() -> argparse.ArgumentParser:
     web_parser.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
     web_parser.add_argument("--port", type=int, default=5000, help="port number (default: 5000)")
     web_parser.add_argument("--debug", action="store_true", help="enable Flask debug mode")
+    web_parser.add_argument("--reload", action="store_true", help="auto-reload server on source and static file changes")
     web_parser.set_defaults(func=_cmd_web)
 
     # ── bluecrack fingerprint ──────────────────────────────────────
@@ -314,6 +316,7 @@ def main() -> None:
         args.host = "127.0.0.1"
         args.port = 5000
         args.debug = False
+        args.reload = False
         _cmd_web(args)
         return
 
