@@ -7,6 +7,7 @@ browser-based frontend.
 """
 
 import atexit
+import json
 import os
 import socket
 import subprocess
@@ -59,6 +60,8 @@ attack_scheduler = AttackScheduler()
 # Store last generated wordlist path
 _last_wordlist_path: str = ""
 _wordlist_lock = threading.Lock()
+_CONFIG_FILE = os.path.join(os.getcwd(), ".bluecrack_config.json")
+_config_lock = threading.Lock()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -451,13 +454,64 @@ def remove_target():
     return jsonify({"status": "ok" if ok else "error"})
 
 
+@app.route("/api/config/load", methods=["GET"])
+def load_saved_config():
+    """Load persistent UI configuration from disk."""
+    with _config_lock:
+        if os.path.isfile(_CONFIG_FILE):
+            try:
+                with open(_CONFIG_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                return jsonify({"status": "ok", "config": data})
+            except Exception as exc:
+                return jsonify({"status": "error", "message": str(exc)}), 500
+    return jsonify({"status": "ok", "config": {}})
+
+
+@app.route("/api/config/save", methods=["POST"])
+def save_config_to_disk():
+    """Save persistent UI configuration to disk."""
+    data = request.get_json(silent=True) or {}
+    with _config_lock:
+        try:
+            with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            return jsonify({"status": "ok", "message": "Configuration saved to disk."})
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/config/reset", methods=["POST"])
+def reset_saved_config():
+    """Reset saved configuration on disk."""
+    with _config_lock:
+        try:
+            if os.path.isfile(_CONFIG_FILE):
+                os.remove(_CONFIG_FILE)
+            return jsonify({"status": "ok", "message": "Saved configuration cleared."})
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/notifications/config", methods=["GET"])
+def get_notification_config():
+    """Get current notification configuration."""
+    return jsonify({"status": "ok", "config": notifier.get_config()})
+
+
 @app.route("/api/notifications/configure", methods=["POST"])
 def configure_notifications():
     data = request.get_json(silent=True) or {}
     if data.get("discord_url"):
         notifier.add_discord(data["discord_url"])
+    elif "discord_url" in data and not data["discord_url"]:
+        notifier.remove_discord()
+
     if data.get("telegram_token") and data.get("telegram_chat_id"):
         notifier.add_telegram(data["telegram_token"], data["telegram_chat_id"])
+    elif "telegram_token" in data and not data["telegram_token"]:
+        notifier.remove_telegram()
+
     return jsonify({"status": "ok", "config": notifier.get_config()})
 
 

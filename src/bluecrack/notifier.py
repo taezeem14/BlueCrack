@@ -107,6 +107,25 @@ class Notifier:
             ]
             self._backends.append(TelegramBot(bot_token, chat_id))
 
+    def remove_discord(self) -> None:
+        """Remove Discord webhook backend."""
+        with self._lock:
+            self._backends = [
+                b for b in self._backends if not isinstance(b, DiscordWebhook)
+            ]
+
+    def remove_telegram(self) -> None:
+        """Remove Telegram bot backend."""
+        with self._lock:
+            self._backends = [
+                b for b in self._backends if not isinstance(b, TelegramBot)
+            ]
+
+    def clear(self) -> None:
+        """Clear all notification backends."""
+        with self._lock:
+            self._backends.clear()
+
     def notify(self, event: str, data: Dict[str, Any]) -> None:
         """Send notification to all backends (non-blocking).
 

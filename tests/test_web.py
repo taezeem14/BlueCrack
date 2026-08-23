@@ -57,3 +57,38 @@ def test_schedule_api(client):
     resp = client.get("/api/schedule/list")
     assert resp.status_code == 200
     assert "scheduled" in resp.get_json()
+
+
+def test_config_save_load_reset_api(client):
+    """Verify saving, loading, and resetting configuration."""
+    payload = {"target_url": "https://custom-target.com", "threads": "8"}
+    save_resp = client.post("/api/config/save", json=payload)
+    assert save_resp.status_code == 200
+    assert save_resp.get_json()["status"] == "ok"
+
+    load_resp = client.get("/api/config/load")
+    assert load_resp.status_code == 200
+    data = load_resp.get_json()
+    assert data["status"] == "ok"
+    assert data["config"]["target_url"] == "https://custom-target.com"
+
+    reset_resp = client.post("/api/config/reset")
+    assert reset_resp.status_code == 200
+
+    load_after_reset = client.get("/api/config/load")
+    assert load_after_reset.get_json()["config"] == {}
+
+
+def test_notifications_config_api(client):
+    """Verify notification configuration and retrieval endpoints."""
+    config_resp = client.get("/api/notifications/config")
+    assert config_resp.status_code == 200
+    assert "config" in config_resp.get_json()
+
+    set_resp = client.post("/api/notifications/configure", json={
+        "discord_url": "https://discord.com/api/webhooks/test/url"
+    })
+    assert set_resp.status_code == 200
+    cfg = set_resp.get_json()["config"]
+    assert any(c.get("type") == "discord" for c in cfg)
+

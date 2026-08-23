@@ -123,6 +123,7 @@ const DOM = {
   btnClear:        document.getElementById('btnClear'),
   btnReport:       document.getElementById('btnReport'),
   btnDownloadJson: document.getElementById('btnDownloadJson'),
+  btnResetConfig:  document.getElementById('btnResetConfig'),
 
   // Doctor modal
   doctorModal:           document.getElementById('doctorModal'),
@@ -177,10 +178,11 @@ let sequenceResultPath = null;
 
 
 // ═══════════════════════════════════════════════════════════════
-//  TAB SWITCHING
+//  TAB SWITCHING & CONFIG PERSISTENCE
 // ═══════════════════════════════════════════════════════════════
 
 function switchTab(targetId) {
+  if (!targetId) return;
   DOM.tabButtons.forEach(btn => {
     const isTarget = btn.dataset.tab === targetId;
     btn.classList.toggle('active', isTarget);
@@ -189,6 +191,240 @@ function switchTab(targetId) {
 
   DOM.tabPanels.forEach(panel => {
     panel.classList.toggle('active', panel.id === `tab-${targetId}`);
+  });
+
+  try {
+    localStorage.setItem('bluecrack_active_tab', targetId);
+  } catch (e) {}
+}
+
+function onModeChange() {
+  if (!DOM.attackMode) return;
+  const mode = DOM.attackMode.value;
+  const isHttp = mode === 'http';
+  if (DOM.httpModeOptions) DOM.httpModeOptions.style.display = isHttp ? 'block' : 'none';
+  if (DOM.headlessGroup) DOM.headlessGroup.style.display = isHttp ? 'none' : '';
+  if (isHttp && parseInt(DOM.threads?.value || '1', 10) <= 1 && DOM.threads) {
+    DOM.threads.value = '4';
+  }
+}
+
+function getFormState() {
+  return {
+    target_url: DOM.targetUrl?.value || '',
+    username: DOM.username?.value || '',
+    password: DOM.password?.value || '',
+    error_msg: DOM.errorString?.value || '',
+    success_msg: DOM.successString?.value || '',
+
+    attack_mode: DOM.attackMode?.value || 'browser',
+    threads: DOM.threads?.value || '1',
+    delay: DOM.delay?.value || '0',
+    jitter: DOM.jitter?.value || '0',
+    rate_limit: DOM.rateLimit?.value || '',
+    cooldown: DOM.cooldown?.value || '12',
+    max_attempts: DOM.maxAttempts?.value || '0',
+    headless: DOM.headless ? DOM.headless.checked : true,
+    continue_after_success: DOM.continueAfterSuccess ? DOM.continueAfterSuccess.checked : false,
+    spray_mode: DOM.sprayMode ? DOM.sprayMode.checked : false,
+
+    form_action: DOM.formAction?.value || '',
+    username_field: DOM.usernameField?.value || '',
+    password_field: DOM.passwordField?.value || '',
+    csrf_field: DOM.csrfField?.value || '',
+    follow_redirects: DOM.followRedirects ? DOM.followRedirects.checked : false,
+    json_mode: DOM.jsonMode ? DOM.jsonMode.checked : false,
+    custom_headers: DOM.customHeaders?.value || '',
+    custom_cookies: DOM.customCookies?.value || '',
+    success_status_codes: DOM.successStatusCodes?.value || '',
+
+    enable_tor: DOM.enableTor ? DOM.enableTor.checked : false,
+    tor_control_port: DOM.torControlPort?.value || '9051',
+    tor_shift_every: DOM.torShiftEvery?.value || '10',
+    proxy: DOM.proxy?.value || '',
+
+    discord_webhook: DOM.discordWebhook?.value || '',
+    telegram_token: DOM.telegramToken?.value || '',
+    telegram_chat_id: DOM.telegramChatId?.value || '',
+
+    cupp_first_name: DOM.cuppFirstName?.value || '',
+    cupp_last_name: DOM.cuppLastName?.value || '',
+    cupp_nickname: DOM.cuppNickname?.value || '',
+    cupp_birthdate: DOM.cuppBirthdate?.value || '',
+    cupp_partner_name: DOM.cuppPartnerName?.value || '',
+    cupp_partner_nickname: DOM.cuppPartnerNickname?.value || '',
+    cupp_partner_birthdate: DOM.cuppPartnerBirthdate?.value || '',
+    cupp_child_name: DOM.cuppChildName?.value || '',
+    cupp_child_birthdate: DOM.cuppChildBirthdate?.value || '',
+    cupp_pet_name: DOM.cuppPetName?.value || '',
+    cupp_company: DOM.cuppCompany?.value || '',
+    cupp_keywords: DOM.cuppKeywords?.value || '',
+    cupp_special_chars: DOM.cuppSpecialChars ? DOM.cuppSpecialChars.checked : false,
+    cupp_random_numbers: DOM.cuppRandomNumbers ? DOM.cuppRandomNumbers.checked : false,
+    cupp_leet: DOM.cuppLeet ? DOM.cuppLeet.checked : false,
+
+    seq_start: DOM.seqStart?.value || '0',
+    seq_end: DOM.seqEnd?.value || '9999',
+    seq_padding: DOM.seqPadding?.value || '4',
+    seq_prefix: DOM.seqPrefix?.value || '',
+    seq_suffix: DOM.seqSuffix?.value || '',
+  };
+}
+
+let saveTimer = null;
+function saveFormState() {
+  const state = getFormState();
+  try {
+    localStorage.setItem('bluecrack_config', JSON.stringify(state));
+  } catch (e) {}
+
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    postJSON('/api/config/save', state).catch(() => {});
+  }, 400);
+}
+
+async function restoreFormState() {
+  let state = null;
+  try {
+    const raw = localStorage.getItem('bluecrack_config');
+    if (raw) {
+      state = JSON.parse(raw);
+    }
+  } catch (e) {}
+
+  if (!state) {
+    try {
+      const res = await fetch('/api/config/load');
+      const data = await res.json();
+      if (data.status === 'ok' && data.config && Object.keys(data.config).length > 0) {
+        state = data.config;
+      }
+    } catch (e) {}
+  }
+
+  if (!state) return;
+
+  if (state.target_url !== undefined && DOM.targetUrl) DOM.targetUrl.value = state.target_url;
+  if (state.username !== undefined && DOM.username) DOM.username.value = state.username;
+  if (state.password !== undefined && DOM.password) DOM.password.value = state.password;
+  if (state.error_msg !== undefined && DOM.errorString) DOM.errorString.value = state.error_msg;
+  if (state.success_msg !== undefined && DOM.successString) DOM.successString.value = state.success_msg;
+
+  if (state.attack_mode !== undefined && DOM.attackMode) DOM.attackMode.value = state.attack_mode;
+  if (state.threads !== undefined && DOM.threads) DOM.threads.value = state.threads;
+  if (state.delay !== undefined && DOM.delay) DOM.delay.value = state.delay;
+  if (state.jitter !== undefined && DOM.jitter) DOM.jitter.value = state.jitter;
+  if (state.rate_limit !== undefined && DOM.rateLimit) DOM.rateLimit.value = state.rate_limit;
+  if (state.cooldown !== undefined && DOM.cooldown) DOM.cooldown.value = state.cooldown;
+  if (state.max_attempts !== undefined && DOM.maxAttempts) DOM.maxAttempts.value = state.max_attempts;
+  if (state.headless !== undefined && DOM.headless) DOM.headless.checked = Boolean(state.headless);
+  if (state.continue_after_success !== undefined && DOM.continueAfterSuccess) DOM.continueAfterSuccess.checked = Boolean(state.continue_after_success);
+  if (state.spray_mode !== undefined && DOM.sprayMode) DOM.sprayMode.checked = Boolean(state.spray_mode);
+
+  if (state.form_action !== undefined && DOM.formAction) DOM.formAction.value = state.form_action;
+  if (state.username_field !== undefined && DOM.usernameField) DOM.usernameField.value = state.username_field;
+  if (state.password_field !== undefined && DOM.passwordField) DOM.passwordField.value = state.password_field;
+  if (state.csrf_field !== undefined && DOM.csrfField) DOM.csrfField.value = state.csrf_field;
+  if (state.follow_redirects !== undefined && DOM.followRedirects) DOM.followRedirects.checked = Boolean(state.follow_redirects);
+  if (state.json_mode !== undefined && DOM.jsonMode) DOM.jsonMode.checked = Boolean(state.json_mode);
+  if (state.custom_headers !== undefined && DOM.customHeaders) DOM.customHeaders.value = state.custom_headers;
+  if (state.custom_cookies !== undefined && DOM.customCookies) DOM.customCookies.value = state.custom_cookies;
+  if (state.success_status_codes !== undefined && DOM.successStatusCodes) DOM.successStatusCodes.value = state.success_status_codes;
+
+  if (state.enable_tor !== undefined && DOM.enableTor) DOM.enableTor.checked = Boolean(state.enable_tor);
+  if (state.tor_control_port !== undefined && DOM.torControlPort) DOM.torControlPort.value = state.tor_control_port;
+  if (state.tor_shift_every !== undefined && DOM.torShiftEvery) DOM.torShiftEvery.value = state.tor_shift_every;
+  if (state.proxy !== undefined && DOM.proxy) DOM.proxy.value = state.proxy;
+
+  if (state.discord_webhook !== undefined && DOM.discordWebhook) DOM.discordWebhook.value = state.discord_webhook;
+  if (state.telegram_token !== undefined && DOM.telegramToken) DOM.telegramToken.value = state.telegram_token;
+  if (state.telegram_chat_id !== undefined && DOM.telegramChatId) DOM.telegramChatId.value = state.telegram_chat_id;
+
+  if (state.cupp_first_name !== undefined && DOM.cuppFirstName) DOM.cuppFirstName.value = state.cupp_first_name;
+  if (state.cupp_last_name !== undefined && DOM.cuppLastName) DOM.cuppLastName.value = state.cupp_last_name;
+  if (state.cupp_nickname !== undefined && DOM.cuppNickname) DOM.cuppNickname.value = state.cupp_nickname;
+  if (state.cupp_birthdate !== undefined && DOM.cuppBirthdate) DOM.cuppBirthdate.value = state.cupp_birthdate;
+  if (state.cupp_partner_name !== undefined && DOM.cuppPartnerName) DOM.cuppPartnerName.value = state.cupp_partner_name;
+  if (state.cupp_partner_nickname !== undefined && DOM.cuppPartnerNickname) DOM.cuppPartnerNickname.value = state.cupp_partner_nickname;
+  if (state.cupp_partner_birthdate !== undefined && DOM.cuppPartnerBirthdate) DOM.cuppPartnerBirthdate.value = state.cupp_partner_birthdate;
+  if (state.cupp_child_name !== undefined && DOM.cuppChildName) DOM.cuppChildName.value = state.cupp_child_name;
+  if (state.cupp_child_birthdate !== undefined && DOM.cuppChildBirthdate) DOM.cuppChildBirthdate.value = state.cupp_child_birthdate;
+  if (state.cupp_pet_name !== undefined && DOM.cuppPetName) DOM.cuppPetName.value = state.cupp_pet_name;
+  if (state.cupp_company !== undefined && DOM.cuppCompany) DOM.cuppCompany.value = state.cupp_company;
+  if (state.cupp_keywords !== undefined && DOM.cuppKeywords) DOM.cuppKeywords.value = state.cupp_keywords;
+  if (state.cupp_special_chars !== undefined && DOM.cuppSpecialChars) DOM.cuppSpecialChars.checked = Boolean(state.cupp_special_chars);
+  if (state.cupp_random_numbers !== undefined && DOM.cuppRandomNumbers) DOM.cuppRandomNumbers.checked = Boolean(state.cupp_random_numbers);
+  if (state.cupp_leet !== undefined && DOM.cuppLeet) DOM.cuppLeet.checked = Boolean(state.cupp_leet);
+
+  if (state.seq_start !== undefined && DOM.seqStart) DOM.seqStart.value = state.seq_start;
+  if (state.seq_end !== undefined && DOM.seqEnd) DOM.seqEnd.value = state.seq_end;
+  if (state.seq_padding !== undefined && DOM.seqPadding) DOM.seqPadding.value = state.seq_padding;
+  if (state.seq_prefix !== undefined && DOM.seqPrefix) DOM.seqPrefix.value = state.seq_prefix;
+  if (state.seq_suffix !== undefined && DOM.seqSuffix) DOM.seqSuffix.value = state.seq_suffix;
+
+  onModeChange();
+
+  if (state.discord_webhook || (state.telegram_token && state.telegram_chat_id)) {
+    postJSON('/api/notifications/configure', {
+      discord_url: state.discord_webhook || '',
+      telegram_token: state.telegram_token || '',
+      telegram_chat_id: state.telegram_chat_id || ''
+    }).catch(() => {});
+  }
+}
+
+async function resetFormState() {
+  try {
+    localStorage.removeItem('bluecrack_config');
+    await postJSON('/api/config/reset', {});
+  } catch (e) {}
+
+  if (DOM.targetUrl) DOM.targetUrl.value = '';
+  if (DOM.username) DOM.username.value = '';
+  if (DOM.password) DOM.password.value = '';
+  if (DOM.errorString) DOM.errorString.value = '';
+  if (DOM.successString) DOM.successString.value = '';
+
+  if (DOM.attackMode) DOM.attackMode.value = 'browser';
+  if (DOM.threads) DOM.threads.value = '1';
+  if (DOM.delay) DOM.delay.value = '0';
+  if (DOM.jitter) DOM.jitter.value = '0';
+  if (DOM.rateLimit) DOM.rateLimit.value = 'too many requests';
+  if (DOM.cooldown) DOM.cooldown.value = '12';
+  if (DOM.maxAttempts) DOM.maxAttempts.value = '0';
+  if (DOM.headless) DOM.headless.checked = true;
+  if (DOM.continueAfterSuccess) DOM.continueAfterSuccess.checked = false;
+  if (DOM.sprayMode) DOM.sprayMode.checked = false;
+
+  if (DOM.formAction) DOM.formAction.value = '';
+  if (DOM.usernameField) DOM.usernameField.value = '';
+  if (DOM.passwordField) DOM.passwordField.value = '';
+  if (DOM.csrfField) DOM.csrfField.value = '';
+  if (DOM.followRedirects) DOM.followRedirects.checked = false;
+  if (DOM.jsonMode) DOM.jsonMode.checked = false;
+  if (DOM.customHeaders) DOM.customHeaders.value = '';
+  if (DOM.customCookies) DOM.customCookies.value = '';
+  if (DOM.successStatusCodes) DOM.successStatusCodes.value = '';
+
+  if (DOM.enableTor) DOM.enableTor.checked = false;
+  if (DOM.torControlPort) DOM.torControlPort.value = '9051';
+  if (DOM.torShiftEvery) DOM.torShiftEvery.value = '10';
+  if (DOM.proxy) DOM.proxy.value = '';
+
+  if (DOM.discordWebhook) DOM.discordWebhook.value = '';
+  if (DOM.telegramToken) DOM.telegramToken.value = '';
+  if (DOM.telegramChatId) DOM.telegramChatId.value = '';
+
+  onModeChange();
+  appendLog('[~] Form configuration reset to default settings.');
+}
+
+function bindAutoSave() {
+  const inputs = document.querySelectorAll('input, select, textarea');
+  inputs.forEach(el => {
+    el.addEventListener('input', saveFormState);
+    el.addEventListener('change', saveFormState);
   });
 }
 
@@ -506,6 +742,7 @@ async function generateCupp() {
 function useCuppResult() {
   if (cuppResultPath) {
     DOM.password.value = cuppResultPath;
+    saveFormState();
     appendLog(`[+] Password file set to CUPP result: ${cuppResultPath}`);
     // Switch to Target tab for visibility
     switchTab('target');
@@ -555,6 +792,7 @@ async function generateSequence() {
 function useSequenceResult() {
   if (sequenceResultPath) {
     DOM.password.value = sequenceResultPath;
+    saveFormState();
     appendLog(`[+] Password file set to sequence result: ${sequenceResultPath}`);
     switchTab('target');
   }
@@ -580,6 +818,7 @@ async function launchDemoMode() {
       DOM.password.value = result.default_password_file;
       DOM.errorString.value = result.default_error_msg;
       DOM.successString.value = result.default_success_msg;
+      saveFormState();
       
       appendLog(`[~] Credentials and target configured: ${result.default_username} / ${result.default_password_file}`);
       switchTab('target');
@@ -812,16 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Attack Mode Toggle ──
-  function onModeChange() {
-    const mode = DOM.attackMode.value;
-    const isHttp = mode === 'http';
-    DOM.httpModeOptions.style.display = isHttp ? 'block' : 'none';
-    DOM.headlessGroup.style.display = isHttp ? 'none' : '';
-    if (isHttp && parseInt(DOM.threads.value, 10) <= 1) {
-      DOM.threads.value = '4';
-    }
+  if (DOM.attackMode) {
+    DOM.attackMode.addEventListener('change', onModeChange);
   }
-  DOM.attackMode.addEventListener('change', onModeChange);
 
   // ── Header Actions ──
   if (DOM.btnLaunchDemo) {
@@ -843,6 +1075,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (DOM.btnClear) {
     DOM.btnClear.addEventListener('click', clearLogs);
+  }
+  if (DOM.btnResetConfig) {
+    DOM.btnResetConfig.addEventListener('click', resetFormState);
   }
 
   // ── CUPP Buttons ──
@@ -1000,6 +1235,13 @@ document.addEventListener('DOMContentLoaded', () => {
   checkSessionStatus();
   refreshTargets();
   refreshScheduled();
+
+  // Restore persistent configuration from localStorage / disk and bind auto-save
+  restoreFormState().then(() => {
+    bindAutoSave();
+    const activeTab = localStorage.getItem('bluecrack_active_tab') || 'target';
+    switchTab(activeTab);
+  });
 
   appendLog('[~] All systems nominal. Ready.');
 });
@@ -1278,16 +1520,17 @@ window.cancelScheduled = async function(id) {
 // ── Alerts ──
 async function saveNotificationConfig() {
   const payload = {
-    discord_url: DOM.discordWebhook.value.trim(),
-    telegram_token: DOM.telegramToken.value.trim(),
-    telegram_chat_id: DOM.telegramChatId.value.trim()
+    discord_url: DOM.discordWebhook ? DOM.discordWebhook.value.trim() : '',
+    telegram_token: DOM.telegramToken ? DOM.telegramToken.value.trim() : '',
+    telegram_chat_id: DOM.telegramChatId ? DOM.telegramChatId.value.trim() : ''
   };
+  saveFormState();
   try {
     const res = await postJSON('/api/notifications/configure', payload);
     if (res.status === 'ok') {
       DOM.notifStatus.textContent = 'Configuration saved!';
-      setTimeout(() => DOM.notifStatus.textContent = '', 3000);
-      appendLog('[+] Notification configuration updated.');
+      setTimeout(() => { if (DOM.notifStatus) DOM.notifStatus.textContent = ''; }, 3000);
+      appendLog('[+] Notification configuration saved & synchronized.');
     }
   } catch (e) {}
 }
@@ -1375,6 +1618,7 @@ async function scanTargetTech() {
         if (DOM.csrfField && !DOM.csrfField.value && fp.form.csrf_field) {
           DOM.csrfField.value = fp.form.csrf_field;
         }
+        saveFormState();
       }
     } else {
       appendLog(`[-] Fingerprint scan failed: ${res.message || 'Target unreachable'}`);
