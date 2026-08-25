@@ -123,7 +123,7 @@ def build_chrome_options(ctx: Dict[str, Any]) -> webdriver.ChromeOptions:
     options.add_argument("--media-cache-size=1")
 
     # Limit V8 engine memory usage to reduce CPU thrashing / RAM usage per process
-    options.add_argument('--js-flags="--max-semi-space-size=2 --max-old-space-size=256"')
+    options.add_argument('--js-flags=--max-semi-space-size=2 --max-old-space-size=256')
 
     # Block images to save bandwidth and dramatically speed up rendering time
     chrome_prefs = {

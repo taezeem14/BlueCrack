@@ -36,6 +36,8 @@ class ResponseFingerprinter:
             body: Response body text.
             url: Final URL after redirects.
         """
+        if body is None:
+            body = ""
         sample = {
             "status_code": status_code,
             "length": len(body),
@@ -64,6 +66,8 @@ class ResponseFingerprinter:
             Higher confidence means higher likelihood the response is
             genuinely different (potential success).
         """
+        if body is None:
+            body = ""
         with self._lock:
             if not self._calibrated or not self._baseline_samples:
                 return False, 0.0
@@ -300,7 +304,6 @@ class TechnologyDetector:
         best_attrs = ""
         best_form_body = body
         if form_matches:
-            result["has_login_form"] = True
             selected_match = form_matches[0]
             for fm in form_matches:
                 f_body = fm.group(2)

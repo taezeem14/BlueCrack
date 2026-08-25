@@ -65,6 +65,7 @@ engine: Any = AttackEngine()
 # v4.0 feature instances
 session_mgr = SessionManager()
 target_queue = TargetQueue()
+_queue_stop_event = threading.Event()
 notifier = Notifier()
 attack_scheduler = AttackScheduler()
 
@@ -268,13 +269,13 @@ def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str
 
     # Build context safely
     try:
-        threads = max(1, min(50, int(data.get("threads", 1))))
-        delay = float(data.get("delay", 0))
-        jitter = float(data.get("jitter", 0))
-        cooldown = int(data.get("cooldown", 12))
-        tor_port = int(data.get("tor_port", 9051))
-        tor_shift_every = int(data.get("tor_shift_every", 10))
-        max_attempts = int(data.get("max_attempts", 0))
+        threads = max(1, min(50, int(data.get("threads", 1) or 1)))
+        delay = float(data.get("delay", 0) or 0)
+        jitter = float(data.get("jitter", 0) or 0)
+        cooldown = int(data.get("cooldown", 12) or 12)
+        tor_port = int(data.get("tor_port", 9051) or 9051)
+        tor_shift_every = int(data.get("tor_shift_every", 10) or 10)
+        max_attempts = int(data.get("max_attempts", 0) or 0)
     except (ValueError, TypeError) as e:
         return False, f"Invalid configuration parameter: {e}", {}
 
@@ -297,7 +298,6 @@ def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str
         "max_attempts": max_attempts,
         "continue_after_success": bool(data.get("continue_after_success", False)),
         "spray_mode": bool(data.get("spray_mode", False)),
-        "notifier": notifier,
     }
 
     # Add HTTP-mode-specific fields
@@ -388,6 +388,7 @@ def start_attack():
 @app.route("/api/attack/stop", methods=["POST"])
 def stop_attack():
     """Stop the currently running attack."""
+    _queue_stop_event.set()
     if not engine.is_running:
         return jsonify({"status": "error", "message": "No attack is running."}), 409
 
@@ -544,6 +545,9 @@ def session_status():
 
 @app.route("/api/attack/resume", methods=["POST"])
 def resume_attack():
+    global engine
+    if engine.is_running:
+        return jsonify({"status": "error", "message": "Attack already running."}), 409
     state = session_mgr.load_state()
     if not state:
         return jsonify({"status": "error", "message": "No saved session found."}), 404
@@ -552,8 +556,6 @@ def resume_attack():
     ctx["combos"] = combos
     ctx["users"] = list(dict.fromkeys(c[0] for c in combos)) if combos else ctx.get("users", [])
     ctx["passwords"] = list(dict.fromkeys(c[1] for c in combos)) if combos else ctx.get("passwords", [])
-    ctx["notifier"] = notifier
-    global engine
     from .engine import AttackEngine
     from .http_engine import HTTPAttackEngine
     attack_mode = ctx.pop("attack_mode", "browser")
@@ -617,21 +619,27 @@ def start_all_targets():
         return jsonify({"status": "error", "message": "No pending targets in the queue."}), 400
 
     def _run_queue_worker():
-        while True:
+        _queue_stop_event.clear()
+        while not _queue_stop_event.is_set():
             t = target_queue.next_target()
             if not t:
                 _on_log("[+] 🎉 Multi-Target Queue: All targets completed!")
                 socketio.emit("targets_queue_finished", {"message": "All targets processed."})
                 break
-            cfg = t.get("config", t)
+            target_idx = t.get("index", 0)
+            cfg = dict(t)
             target_name = cfg.get("target_url", "Target")
             _on_log(f"[*] 🎯 Target Queue: Launching next attack on: {target_name}...")
             ok, msg, _ = _prepare_and_start_attack(cfg)
             if not ok:
                 _on_log(f"[-] Target Queue: Skipping {target_name} ({msg})")
+                target_queue.set_result(target_idx, {"attempted": 0, "hits": 0, "errors": 1}, [])
                 continue
-            while engine.is_running:
+            while engine.is_running and not _queue_stop_event.is_set():
                 time.sleep(0.5)
+            metrics = getattr(engine, "metrics", {"attempted": 0, "hits": 0, "errors": 0})
+            creds = getattr(engine, "found_creds", [])
+            target_queue.set_result(target_idx, dict(metrics), list(creds))
 
     threading.Thread(target=_run_queue_worker, daemon=True).start()
     return jsonify({"status": "ok", "message": f"Starting sequential attack for {len(pending)} queued target(s)."})
@@ -841,8 +849,8 @@ def start_demo_server():
         try:
             demo_process = subprocess.Popen(
                 [sys.executable, "-m", "bluecrack.demo", "--port", str(port)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 text=True,
             )
             demo_port = port

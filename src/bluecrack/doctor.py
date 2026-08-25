@@ -129,9 +129,11 @@ def diagnose() -> Dict[str, Any]:
             options.add_argument("--disable-gpu")
             options.add_argument("--disable-dev-shm-usage")
             driver = webdriver.Chrome(options=options)
-            driver.quit()
-            driver_ok = True
-            driver_detail = "Headless Chrome initialized successfully"
+            try:
+                driver_ok = True
+                driver_detail = "Headless Chrome initialized successfully"
+            finally:
+                driver.quit()
         except Exception as e:
             driver_detail = f"Failed to initialize: {e}"
 
@@ -149,10 +151,11 @@ def diagnose() -> Dict[str, Any]:
         f_ver = importlib.metadata.version("flask")
         try:
             s_ver = importlib.metadata.version("flask-socketio")
-        except Exception:
-            s_ver = "Installed"
+            flask_ok = True
+        except importlib.metadata.PackageNotFoundError:
+            s_ver = "fail"
+            flask_ok = False
         flask_ver = f"Flask {f_ver}, SocketIO {s_ver}"
-        flask_ok = True
     except Exception:
         try:
             import flask

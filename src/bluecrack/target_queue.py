@@ -60,7 +60,7 @@ class TargetQueue:
         """Get the next pending target configuration.
 
         Returns:
-            The config dict for the next target, or None if all done.
+            The config dict for the next target (including its index), or None if all done.
         """
         with self._lock:
             while self._current_index < len(self._targets):
@@ -68,7 +68,9 @@ class TargetQueue:
                 if target["status"] == "pending":
                     target["status"] = "running"
                     self._current_index += 1
-                    return dict(target["config"])
+                    cfg = dict(target["config"])
+                    cfg["index"] = target["index"]
+                    return cfg
                 self._current_index += 1
             return None
 

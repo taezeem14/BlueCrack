@@ -714,7 +714,13 @@ async function postJSON(url, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return response.json();
+  try {
+    const json = await response.json();
+    if (!response.ok && !json.status) json.status = 'error';
+    return json;
+  } catch (e) {
+    return { status: 'error', message: `Server error (HTTP ${response.status})` };
+  }
 }
 
 // ─── API Operations ────────────────────────────────────────────────
@@ -791,12 +797,13 @@ async function startAttack() {
 
   try {
     const result = await postJSON('/api/attack/start', config);
-    if (result.error) {
-      appendLog(`[-] ${result.error}`);
+    if (result.status === 'error' || result.error) {
+      const errMsg = result.message || result.error || 'Unknown error';
+      appendLog(`[-] ${errMsg}`);
       DOM.btnStart.disabled = false;
       DOM.btnStop.disabled = true;
       stopElapsedTicker();
-      showToast(result.error, 'error');
+      showToast(errMsg, 'error');
     } else {
       appendLog(`[+] ${result.message || 'Attack launched successfully.'}`);
     }
@@ -840,10 +847,11 @@ async function scanTargetTechnology() {
   appendLog(`[*] Fingerprinting technology stack for: ${url}`);
 
   try {
-    const res = await postJSON('/api/target/fingerprint', { url });
-    if (res.error) {
-      appendLog(`[-] Fingerprint failed: ${res.error}`);
-      showToast(res.error, 'error');
+    const res = await postJSON('/api/target/fingerprint', { target_url: url });
+    if (res.status === 'error' || res.error) {
+      const errMsg = res.message || res.error || 'Fingerprint failed';
+      appendLog(`[-] Fingerprint failed: ${errMsg}`);
+      showToast(errMsg, 'error');
     } else {
       renderTechBadges(res);
       showToast('Technology stack identified', 'success');
@@ -936,22 +944,19 @@ async function generateCupp() {
 
   try {
     const result = await postJSON('/api/cupp/generate', profile);
-    if (result.error) {
-      appendLog(`[-] CUPP error: ${result.error}`);
+    if (result.status === 'error' || result.error) {
+      const errMsg = result.message || result.error || 'CUPP error';
+      appendLog(`[-] CUPP error: ${errMsg}`);
       DOM.cuppStatus.textContent = 'Failed';
-      showToast(result.error, 'error');
+      showToast(errMsg, 'error');
+      DOM.btnGenerateCupp.disabled = false;
     } else {
-      cuppResultPath = result.path || '';
-      const count = result.count || '?';
-      appendLog(`[+] CUPP synthesized: ${count} entries → ${cuppResultPath}`);
-      DOM.cuppStatus.textContent = `${count} passwords generated`;
-      DOM.btnUseCupp.disabled = false;
-      showToast(`Generated ${count} passwords with CUPP`, 'success');
+      appendLog(`[*] CUPP generation started, waiting for completion…`);
+      DOM.cuppStatus.textContent = 'Generating…';
     }
   } catch (err) {
     appendLog(`[-] CUPP request failed: ${err.message}`);
     DOM.cuppStatus.textContent = 'Error';
-  } finally {
     DOM.btnGenerateCupp.disabled = false;
   }
 }
@@ -981,22 +986,19 @@ async function generateSequence() {
 
   try {
     const result = await postJSON('/api/sequence/generate', payload);
-    if (result.error) {
-      appendLog(`[-] Sequence error: ${result.error}`);
+    if (result.status === 'error' || result.error) {
+      const errMsg = result.message || result.error || 'Sequence error';
+      appendLog(`[-] Sequence error: ${errMsg}`);
       DOM.seqStatus.textContent = 'Failed';
-      showToast(result.error, 'error');
+      showToast(errMsg, 'error');
+      DOM.btnGenerateSeq.disabled = false;
     } else {
-      sequenceResultPath = result.path || '';
-      const count = result.count || '?';
-      appendLog(`[+] Sequence wordlist generated: ${count} entries → ${sequenceResultPath}`);
-      DOM.seqStatus.textContent = `${count} items generated`;
-      DOM.btnUseSeq.disabled = false;
-      showToast(`Generated ${count} sequence entries`, 'success');
+      appendLog(`[*] Sequence generation started, waiting for completion…`);
+      DOM.seqStatus.textContent = 'Generating…';
     }
   } catch (err) {
     appendLog(`[-] Sequence failed: ${err.message}`);
     DOM.seqStatus.textContent = 'Error';
-  } finally {
     DOM.btnGenerateSeq.disabled = false;
   }
 }
@@ -1340,13 +1342,7 @@ socket.on('credential_found', data => {
   if (DOM.statHits) DOM.statHits.textContent = String(currentHits + 1);
 });
 
-socket.on('found', data => {
-  if (!data) return;
-  appendLog(`[+] 🔥 FOUND CREDENTIALS → User: ${data.username} | Pass: ${data.password}`);
-  showToast(`Found Credentials: ${data.username} / ${data.password}`, 'success');
-  const currentHits = parseInt(DOM.statHits?.textContent || '0', 10) || 0;
-  if (DOM.statHits) DOM.statHits.textContent = String(currentHits + 1);
-});
+// 'found' is a legacy alias for 'credential_found' — handled above to avoid double counting
 
 socket.on('finished', data => {
   if (DOM.btnStart) DOM.btnStart.disabled = false;
@@ -1494,14 +1490,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // CUPP & Sequence
   DOM.btnGenerateCupp?.addEventListener('click', generateCupp);
   DOM.btnUseCupp?.addEventListener('click', useCuppResult);
-  DOM.btnGenerateSeq?.addEventListener('click', generateSequenceWordlist);
+  DOM.btnGenerateSeq?.addEventListener('click', generateSequence);
   DOM.btnUseSeq?.addEventListener('click', useSequenceResult);
 
   // Targets Queue & Scheduler
-  DOM.btnQueueTarget?.addEventListener('click', addCurrentTargetToQueue);
+  DOM.btnAddTarget?.addEventListener('click', addCurrentTargetToQueue);
   DOM.btnStartAllTargets?.addEventListener('click', startAllTargets);
-  DOM.btnClearTargets?.addEventListener('click', clearTargetsQueue);
-  DOM.btnSchedule?.addEventListener('click', scheduleAttack);
+  DOM.btnScheduleAttack?.addEventListener('click', scheduleAttack);
 
   // Session Resume Bar
   DOM.btnResume?.addEventListener('click', resumeAttack);
@@ -1510,17 +1505,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Notifications
-  DOM.btnSaveNotifications?.addEventListener('click', saveNotificationSettings);
-  DOM.btnTestDiscord?.addEventListener('click', testDiscordWebhook);
-  DOM.btnTestTelegram?.addEventListener('click', testTelegramAlert);
+  DOM.btnSaveNotifications?.addEventListener('click', saveNotifications);
+  DOM.btnTestDiscord?.addEventListener('click', testDiscord);
+  DOM.btnTestTelegram?.addEventListener('click', testTelegram);
 
   // Header quick pills
-  DOM.btnQuickDoctor?.addEventListener('click', () => {
+  DOM.btnDoctor?.addEventListener('click', () => {
     DOM.doctorModal?.classList.add('open');
     runDoctorDiagnostics();
   });
-  DOM.btnQuickDemo?.addEventListener('click', launchDemoMode);
-  DOM.btnQuickGuide?.addEventListener('click', () => {
+  DOM.btnLaunchDemo?.addEventListener('click', launchDemoMode);
+  DOM.btnInfo?.addEventListener('click', () => {
     DOM.tutorialModal?.classList.add('open');
     DOM.panelDisclaimer?.classList.remove('active');
     DOM.panelTutorial?.classList.add('active');
@@ -1528,8 +1523,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Modal Closers
   DOM.btnCloseDoctor?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
-  DOM.btnCloseTutorial?.addEventListener('click', () => DOM.tutorialModal?.classList.remove('open'));
-  DOM.btnAcceptDisclaimer?.addEventListener('click', () => {
+  DOM.btnCloseModal?.addEventListener('click', () => DOM.tutorialModal?.classList.remove('open'));
+  DOM.btnAgreeDisclaimer?.addEventListener('click', () => {
+    DOM.tutorialModal?.classList.remove('open');
+    try { localStorage.setItem('bluecrack_disclaimer_agreed', 'true'); } catch (e) {}
+  });
+
+  // Doctor modal actions
+  DOM.btnCloseDoctorBtn?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
+  DOM.btnRerunDoctor?.addEventListener('click', runDoctorDiagnostics);
+
+  // Tutorial / Disclaimer navigation
+  DOM.btnShowTutorialFromStart?.addEventListener('click', () => {
+    DOM.panelDisclaimer?.classList.remove('active');
+    DOM.panelTutorial?.classList.add('active');
+  });
+  DOM.btnBackToDisclaimer?.addEventListener('click', () => {
+    DOM.panelTutorial?.classList.remove('active');
+    DOM.panelDisclaimer?.classList.add('active');
+  });
+  DOM.btnFinishTutorial?.addEventListener('click', () => {
     DOM.tutorialModal?.classList.remove('open');
     try { localStorage.setItem('bluecrack_disclaimer_agreed', 'true'); } catch (e) {}
   });

@@ -15,9 +15,17 @@ class ReportGenerator:
     """Generates premium HTML and JSON attack reports."""
 
     @staticmethod
+    def _unpack_cred(cred: Any) -> Tuple[str, str]:
+        if isinstance(cred, dict):
+            return str(cred.get("username", "")), str(cred.get("password", ""))
+        elif isinstance(cred, (list, tuple)) and len(cred) >= 2:
+            return str(cred[0]), str(cred[1])
+        return str(cred), ""
+
+    @staticmethod
     def generate_html(
         metrics: Dict[str, Any],
-        found_creds: List[Tuple[str, str]],
+        found_creds: List[Any],
         logs: List[str],
         config: Dict[str, Any],
         start_time: float,
@@ -41,12 +49,18 @@ class ReportGenerator:
             attempted = successes = failures = errors = skipped = 0
 
         speed = float(attempted / elapsed) if elapsed > 0 else 0.0
-        start_str = time.strftime(
-            "%Y-%m-%d %H:%M:%S", time.localtime(start_time)
-        )
-        end_str = time.strftime(
-            "%Y-%m-%d %H:%M:%S", time.localtime(end_time)
-        )
+        try:
+            start_str = time.strftime(
+                "%Y-%m-%d %H:%M:%S", time.localtime(start_time)
+            )
+        except Exception:
+            start_str = time.strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            end_str = time.strftime(
+                "%Y-%m-%d %H:%M:%S", time.localtime(end_time)
+            )
+        except Exception:
+            end_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
         # Escape all user-provided data
         target = html.escape(str(config.get("target_url", "N/A")))
@@ -57,8 +71,9 @@ class ReportGenerator:
         tor_val = "Enabled" if config.get("use_tor") else "Disabled"
 
         creds_rows = ""
-        for i, (u, p) in enumerate(found_creds, 1):
-            eu, ep = html.escape(str(u)), html.escape(str(p))
+        for i, cred in enumerate(found_creds, 1):
+            u, p = ReportGenerator._unpack_cred(cred)
+            eu, ep = html.escape(u), html.escape(p)
             creds_rows += (
                 f"<tr><td>{i}</td><td>{eu}</td><td>{ep}</td></tr>\n"
             )
@@ -198,24 +213,37 @@ new Chart(document.getElementById('resultsChart'), {{
     ) -> str:
         """Generate a JSON report string."""
         elapsed = max(0.0, float(end_time - start_time))
+        try:
+            start_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time))
+        except Exception:
+            start_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            end_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(end_time))
+        except Exception:
+            end_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+        parsed_creds = []
+        for c in found_creds:
+            u, p = ReportGenerator._unpack_cred(c)
+            parsed_creds.append({"username": u, "password": p})
+
         report = {
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "target_url": config.get("target_url", ""),
-            "start_time": time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time)
-            ),
-            "end_time": time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(end_time)
-            ),
+            "start_time": start_str,
+            "end_time": end_str,
             "elapsed_seconds": round(elapsed, 1),
             "metrics": dict(metrics),
-            "found_credentials": [
-                {"username": u, "password": p} for u, p in found_creds
-            ],
+            "found_credentials": parsed_creds,
             "config": {
                 k: v
                 for k, v in config.items()
-                if k not in ("users", "passwords", "proxies")
+                if k not in (
+                    "users", "passwords", "proxies",
+                    "webhook_url", "bot_token", "discord_url",
+                    "telegram_token", "telegram_chat_id",
+                    "api_key", "token", "secret"
+                )
             },
         }
         return json.dumps(report, indent=2, default=str)
