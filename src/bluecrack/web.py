@@ -673,10 +673,26 @@ def save_config_to_disk():
             return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+@app.route("/api/attack/reset", methods=["POST"])
+def reset_attack_metrics():
+    """Reset attack engine metrics and logs when idle."""
+    if engine.is_running:
+        return jsonify({"status": "error", "message": "Cannot reset while attack is running."}), 409
+    if hasattr(engine, "reset"):
+        engine.reset()
+    with _log_history_lock:
+        _log_history.clear()
+    return jsonify({"status": "ok", "message": "Metrics and logs reset."})
+
+
 @app.route("/api/config/reset", methods=["POST"])
 def reset_saved_config():
-    """Reset saved configuration on disk."""
+    """Reset saved configuration on disk and engine state."""
     notifier.clear()
+    if hasattr(engine, "reset") and not engine.is_running:
+        engine.reset()
+    with _log_history_lock:
+        _log_history.clear()
     with _config_lock:
         try:
             if os.path.isfile(_CONFIG_FILE):

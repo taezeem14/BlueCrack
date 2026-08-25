@@ -410,7 +410,12 @@ async function resetFormState() {
   try {
     localStorage.removeItem('bluecrack_config');
     await postJSON('/api/config/reset', {});
+    await postJSON('/api/attack/reset', {});
   } catch (e) {}
+
+  resetStats();
+  setProgress(0);
+  if (DOM.terminal) DOM.terminal.innerHTML = '';
 
   if (DOM.targetUrl) DOM.targetUrl.value = '';
   if (DOM.username) DOM.username.value = '';
@@ -449,8 +454,8 @@ async function resetFormState() {
   if (DOM.telegramChatId) DOM.telegramChatId.value = '';
 
   onModeChange();
-  appendLog('[~] Form parameters reset to factory defaults.');
-  showToast('Configuration reset to defaults', 'info');
+  appendLog('[~] Form parameters and metrics reset to factory defaults.');
+  showToast('Configuration and stats reset to defaults', 'info');
 }
 
 function bindAutoSave() {
@@ -610,15 +615,19 @@ function initCharts() {
 
 function updateCharts(metrics) {
   if (speedChart && metrics.speed !== undefined) {
-    const now = new Date().toLocaleTimeString();
-    speedChart.data.labels.push(now);
-    speedChart.data.datasets[0].data.push(parseFloat(metrics.speed) || 0);
+    const isRunning = DOM.btnStop && !DOM.btnStop.disabled;
+    const speedVal = parseFloat(metrics.speed) || 0;
+    if (isRunning || speedVal > 0) {
+      const now = new Date().toLocaleTimeString();
+      speedChart.data.labels.push(now);
+      speedChart.data.datasets[0].data.push(speedVal);
 
-    if (speedChart.data.labels.length > 30) {
-      speedChart.data.labels.shift();
-      speedChart.data.datasets[0].data.shift();
+      if (speedChart.data.labels.length > 30) {
+        speedChart.data.labels.shift();
+        speedChart.data.datasets[0].data.shift();
+      }
+      speedChart.update('none');
     }
-    speedChart.update('none');
   }
 
   if (resultsChart && (metrics.hits !== undefined || metrics.attempted !== undefined)) {
@@ -658,11 +667,16 @@ function updateStats(metrics) {
   if (metrics.elapsed != null && DOM.statElapsed) {
     DOM.statElapsed.textContent = formatTime(metrics.elapsed);
   }
-  if (metrics.speed != null && DOM.statSpeed) {
-    DOM.statSpeed.textContent = `${parseFloat(metrics.speed).toFixed(1)} att/s`;
+  if (DOM.statSpeed) {
+    const sp = parseFloat(metrics.speed) || 0;
+    DOM.statSpeed.textContent = `${sp.toFixed(1)} att/s`;
   }
-  if (metrics.eta != null && DOM.statEta) {
-    DOM.statEta.textContent = formatTime(metrics.eta);
+  if (DOM.statEta) {
+    if (metrics.eta == null || metrics.eta <= 0 || !isFinite(metrics.eta)) {
+      DOM.statEta.textContent = '--:--:--';
+    } else {
+      DOM.statEta.textContent = formatTime(metrics.eta);
+    }
   }
 
   const hits = metrics.hits != null ? metrics.hits : (metrics.successes != null ? metrics.successes : 0);
@@ -1391,16 +1405,25 @@ async function syncAttackStatus() {
       if (DOM.btnStart) DOM.btnStart.disabled = true;
       if (DOM.btnStop) DOM.btnStop.disabled = false;
       if (!elapsedTicker) startElapsedTicker();
+      if (data.metrics) updateStats(data.metrics);
+      if (data.progress !== undefined) setProgress(data.progress);
     } else {
       if (DOM.btnStart) DOM.btnStart.disabled = false;
       if (DOM.btnStop) DOM.btnStop.disabled = true;
       stopElapsedTicker();
+      if (data.metrics && data.metrics.attempted > 0) {
+        updateStats({
+          ...data.metrics,
+          speed: 0,
+          eta: 0,
+        });
+      } else {
+        resetStats();
+      }
+      if (data.progress !== undefined) setProgress(data.progress);
     }
 
-    if (data.metrics) updateStats(data.metrics);
-    if (data.progress !== undefined) setProgress(data.progress);
-
-    if (data.logs && Array.isArray(data.logs) && DOM.terminal.childNodes.length <= 1) {
+    if (data.logs && Array.isArray(data.logs) && DOM.terminal && DOM.terminal.childNodes.length <= 1) {
       data.logs.forEach(msg => appendLog(msg));
     }
   } catch (e) {}
@@ -1557,9 +1580,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Terminal actions
-  DOM.btnClear?.addEventListener('click', () => {
+  DOM.btnClear?.addEventListener('click', async () => {
     if (DOM.terminal) DOM.terminal.innerHTML = '';
-    showToast('Terminal cleared', 'info');
+    try {
+      await postJSON('/api/logs/clear', {});
+      await postJSON('/api/attack/reset', {});
+    } catch (e) {}
+    resetStats();
+    setProgress(0);
+    showToast('Terminal and stats cleared', 'info');
   });
 
   DOM.btnCopyTerminal?.addEventListener('click', () => {

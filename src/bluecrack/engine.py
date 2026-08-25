@@ -53,6 +53,7 @@ class AttackEngine:
         self._global_stop: threading.Event = threading.Event()
         self._found_event: threading.Event = threading.Event()
         self._start_time: float = 0.0
+        self._end_time: float = 0.0
         self._running: bool = False
         self._attack_thread: Optional[threading.Thread] = None
 
@@ -130,19 +131,25 @@ class AttackEngine:
         """Build the full metrics snapshot including speed, eta, and hits."""
         with self._metrics_lock:
             m = dict(self.metrics)
-        elapsed = time.time() - self._start_time if self._start_time else 0
+
+        if self._running:
+            elapsed = time.time() - self._start_time if self._start_time else 0.0
+        elif self._start_time and self._end_time and self._end_time >= self._start_time:
+            elapsed = self._end_time - self._start_time
+        else:
+            elapsed = 0.0
         m["elapsed"] = elapsed
 
-        # Calculate speed (attempts per second)
+        # Calculate speed (attempts per second) — only when actively running
         speed = 0.0
-        if elapsed > 0:
+        if self._running and elapsed > 0:
             speed = m.get("attempted", 0) / elapsed
         m["speed"] = speed
 
-        # Calculate ETA (seconds remaining)
+        # Calculate ETA (seconds remaining) — only when actively running
         eta = 0.0
         total = getattr(self, "total", 0)
-        if speed > 0 and total:
+        if self._running and speed > 0 and total:
             left = max(0, total - m.get("attempted", 0))
             eta = left / speed
         m["eta"] = eta
@@ -164,6 +171,30 @@ class AttackEngine:
         """Return a copy of current metrics."""
         return self._build_metrics_snapshot()
 
+    def reset(self) -> None:
+        """Reset all metrics, logs, and state to pristine defaults."""
+        if self._running:
+            return
+        self._start_time = 0.0
+        self._end_time = 0.0
+        with self._metrics_lock:
+            self.metrics = {
+                "attempted": 0,
+                "successes": 0,
+                "failures": 0,
+                "errors": 0,
+                "rate_limit_hits": 0,
+                "skipped_empty": 0,
+                "skipped_solved_user": 0,
+                "requeued": 0,
+                "rate_retry_exhausted": 0,
+            }
+        with self._found_lock:
+            self._found_users.clear()
+            self._found_creds.clear()
+        with self._logs_lock:
+            self._logs.clear()
+
     def get_logs(self) -> List[str]:
         """Return a copy of all log messages."""
         with self._logs_lock:
@@ -178,6 +209,8 @@ class AttackEngine:
         """Request graceful stop of the attack."""
         self._stop_flag.set()
         self._global_stop.set()
+        if self._running:
+            self._end_time = time.time()
 
     def start(self, ctx: Dict[str, Any]) -> None:
         """Start the attack in a background thread.
@@ -201,6 +234,7 @@ class AttackEngine:
             self._logs.clear()
         self._running = True
         self._start_time = time.time()
+        self._end_time = 0.0
         self._target_url = ctx.get("target_url", "")
         if "combos" in ctx and ctx["combos"]:
             self.total = len(ctx["combos"])
@@ -672,6 +706,8 @@ class AttackEngine:
                     self._finished_callback(False, "No valid credentials found.")
 
         finally:
+            if not self._end_time:
+                self._end_time = time.time()
             if hasattr(self, "_session_mgr") and self._session_mgr:
                 self._session_mgr.clear_session()
             self._running = False

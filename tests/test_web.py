@@ -160,4 +160,9 @@ def test_attack_status_and_logs_api(client):
     clear_resp = client.post("/api/logs/clear")
     assert clear_resp.status_code == 200
 
+    reset_resp = client.post("/api/attack/reset")
+    assert reset_resp.status_code == 200
+    assert reset_resp.get_json()["status"] == "ok"
+
+
 
