@@ -633,13 +633,52 @@ function updateCharts(metrics) {
 }
 
 // ─── Stats & Progress Updates ──────────────────────────────────────
+let attackStartTime = null;
+let elapsedTicker = null;
+
+function startElapsedTicker() {
+  stopElapsedTicker();
+  attackStartTime = Date.now();
+  elapsedTicker = setInterval(() => {
+    if (attackStartTime && DOM.statElapsed) {
+      const elapsedSec = (Date.now() - attackStartTime) / 1000;
+      DOM.statElapsed.textContent = formatTime(elapsedSec);
+    }
+  }, 1000);
+}
+
+function stopElapsedTicker() {
+  if (elapsedTicker) {
+    clearInterval(elapsedTicker);
+    elapsedTicker = null;
+  }
+}
+
 function updateStats(metrics) {
-  if (metrics.elapsed != null && DOM.statElapsed) DOM.statElapsed.textContent = formatTime(metrics.elapsed);
-  if (metrics.speed != null && DOM.statSpeed) DOM.statSpeed.textContent = `${parseFloat(metrics.speed).toFixed(1)} att/s`;
-  if (metrics.eta != null && DOM.statEta) DOM.statEta.textContent = formatTime(metrics.eta);
-  if (metrics.hits != null && DOM.statHits) DOM.statHits.textContent = String(metrics.hits);
-  if (metrics.attempted != null && DOM.statAttempted) DOM.statAttempted.textContent = String(metrics.attempted);
-  if (metrics.errors != null && DOM.statErrors) DOM.statErrors.textContent = String(metrics.errors);
+  if (!metrics) return;
+  if (metrics.elapsed != null && DOM.statElapsed) {
+    DOM.statElapsed.textContent = formatTime(metrics.elapsed);
+  }
+  if (metrics.speed != null && DOM.statSpeed) {
+    DOM.statSpeed.textContent = `${parseFloat(metrics.speed).toFixed(1)} att/s`;
+  }
+  if (metrics.eta != null && DOM.statEta) {
+    DOM.statEta.textContent = formatTime(metrics.eta);
+  }
+
+  const hits = metrics.hits != null ? metrics.hits : (metrics.successes != null ? metrics.successes : 0);
+  if (DOM.statHits) DOM.statHits.textContent = String(hits);
+
+  if (metrics.attempted != null && DOM.statAttempted) {
+    DOM.statAttempted.textContent = String(metrics.attempted);
+  }
+
+  const errors = metrics.errors != null ? metrics.errors : (metrics.rate_limits != null ? metrics.rate_limits : 0);
+  if (DOM.statErrors) DOM.statErrors.textContent = String(errors);
+
+  if (metrics.progress !== undefined) {
+    setProgress(metrics.progress);
+  }
 
   updateCharts(metrics);
 }
@@ -665,7 +704,7 @@ function resetStats() {
 
 function setProgress(percent) {
   if (!DOM.progressFill || !DOM.progressText) return;
-  const clamped = Math.max(0, Math.min(100, percent));
+  const clamped = Math.max(0, Math.min(100, parseFloat(percent) || 0));
   DOM.progressFill.style.width = `${clamped}%`;
   DOM.progressText.textContent = `${Math.round(clamped)}%`;
 }
@@ -746,6 +785,7 @@ async function startAttack() {
   DOM.terminal.innerHTML = '';
   resetStats();
   setProgress(0);
+  startElapsedTicker();
 
   appendLog('[*] Initializing attack routine…');
   showToast('Starting attack…', 'info');
@@ -756,6 +796,7 @@ async function startAttack() {
       appendLog(`[-] ${result.error}`);
       DOM.btnStart.disabled = false;
       DOM.btnStop.disabled = true;
+      stopElapsedTicker();
       showToast(result.error, 'error');
     } else {
       appendLog(`[+] ${result.message || 'Attack launched successfully.'}`);
@@ -764,12 +805,14 @@ async function startAttack() {
     appendLog(`[-] Connection error: ${err.message}`);
     DOM.btnStart.disabled = false;
     DOM.btnStop.disabled = true;
+    stopElapsedTicker();
     showToast(`Network error: ${err.message}`, 'error');
   }
 }
 
 async function stopAttack() {
   DOM.btnStop.disabled = true;
+  stopElapsedTicker();
   appendLog('[!] Terminating active attack…');
   showToast('Stopping attack…', 'info');
 
@@ -781,6 +824,7 @@ async function stopAttack() {
   }
 
   DOM.btnStart.disabled = false;
+  syncAttackStatus();
 }
 
 // ─── Target Fingerprint Scanner ────────────────────────────────────
@@ -1236,33 +1280,70 @@ socket.on('connect_error', () => {
   if (DOM.connectionLabel) DOM.connectionLabel.textContent = 'Offline';
 });
 
+// Metrics updates directly from engine
+socket.on('metrics', data => {
+  if (data) updateStats(data);
+});
+
+// Progress updates directly from engine
+socket.on('progress', data => {
+  if (!data) return;
+  if (data.percent !== undefined) {
+    setProgress(data.percent);
+  } else if (data.total > 0) {
+    setProgress((data.current / data.total) * 100);
+  } else if (data.progress !== undefined) {
+    setProgress(data.progress);
+  }
+});
+
+// General status updates
 socket.on('status', data => {
+  if (!data) return;
   if (data.metrics) updateStats(data.metrics);
   if (data.progress !== undefined) setProgress(data.progress);
   if (data.running !== undefined) {
-    DOM.btnStart.disabled = data.running;
-    DOM.btnStop.disabled = !data.running;
+    if (DOM.btnStart) DOM.btnStart.disabled = data.running;
+    if (DOM.btnStop) DOM.btnStop.disabled = !data.running;
+    if (data.running) {
+      if (!elapsedTicker) startElapsedTicker();
+    } else {
+      stopElapsedTicker();
+    }
   }
 });
 
 socket.on('log', data => {
-  if (data.message) appendLog(data.message);
+  if (data && data.message) appendLog(data.message);
+});
+
+socket.on('credential_found', data => {
+  if (!data) return;
+  appendLog(`[+] 🔥 FOUND CREDENTIALS → User: ${data.username} | Pass: ${data.password}`);
+  showToast(`Found Credentials: ${data.username} / ${data.password}`, 'success');
+  const currentHits = parseInt(DOM.statHits?.textContent || '0', 10) || 0;
+  if (DOM.statHits) DOM.statHits.textContent = String(currentHits + 1);
 });
 
 socket.on('found', data => {
+  if (!data) return;
   appendLog(`[+] 🔥 FOUND CREDENTIALS → User: ${data.username} | Pass: ${data.password}`);
   showToast(`Found Credentials: ${data.username} / ${data.password}`, 'success');
+  const currentHits = parseInt(DOM.statHits?.textContent || '0', 10) || 0;
+  if (DOM.statHits) DOM.statHits.textContent = String(currentHits + 1);
 });
 
 socket.on('finished', data => {
-  DOM.btnStart.disabled = false;
-  DOM.btnStop.disabled = true;
-  appendLog(`[*] Attack finished: ${data.message || 'Complete'}`);
+  if (DOM.btnStart) DOM.btnStart.disabled = false;
+  if (DOM.btnStop) DOM.btnStop.disabled = true;
+  stopElapsedTicker();
+  appendLog(`[*] Attack finished: ${data?.message || 'Complete'}`);
   showToast('Attack cycle completed', 'info');
+  syncAttackStatus();
 });
 
 socket.on('tor_identity', data => {
-  appendLog(`[*] Tor identity shifted. New egress IP: ${data.ip || 'Rotated'}`);
+  if (data) appendLog(`[*] Tor identity shifted. New egress IP: ${data.ip || 'Rotated'}`);
 });
 
 async function syncAttackStatus() {
@@ -1271,11 +1352,13 @@ async function syncAttackStatus() {
     const data = await res.json();
 
     if (data.running) {
-      DOM.btnStart.disabled = true;
-      DOM.btnStop.disabled = false;
+      if (DOM.btnStart) DOM.btnStart.disabled = true;
+      if (DOM.btnStop) DOM.btnStop.disabled = false;
+      if (!elapsedTicker) startElapsedTicker();
     } else {
-      DOM.btnStart.disabled = false;
-      DOM.btnStop.disabled = true;
+      if (DOM.btnStart) DOM.btnStart.disabled = false;
+      if (DOM.btnStop) DOM.btnStop.disabled = true;
+      stopElapsedTicker();
     }
 
     if (data.metrics) updateStats(data.metrics);

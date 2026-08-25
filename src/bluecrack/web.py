@@ -132,35 +132,33 @@ def _on_log(msg: str) -> None:
 
 def _on_progress(current: int, total: int) -> None:
     """Forward progress updates to all connected clients."""
-    socketio.emit("progress", {"current": current, "total": total})
+    percent = round((current / total * 100) if total else 0, 1)
+    socketio.emit("progress", {"current": current, "total": total, "percent": percent})
 
 
 def _on_metrics(metrics: Dict[str, Any]) -> None:
     """Forward metrics snapshot to all connected clients."""
     socketio.emit("metrics", metrics)
+    socketio.emit("status", {"metrics": metrics, "running": True})
 
 
 def _on_found(user: str, pwd: str, target_url: str) -> None:
     """Forward found credentials to socket and send instant notification alert."""
-    socketio.emit("credential_found", {"username": user, "password": pwd, "target_url": target_url})
+    payload = {"username": user, "password": pwd, "target_url": target_url}
+    socketio.emit("credential_found", payload)
+    socketio.emit("found", payload)
     if notifier and notifier.has_backends:
         try:
             _on_log(f"[+] 📢 Dispatching alert to notifications (User: '{user}')...")
-            notifier.notify(
-                "credential_found",
-                {
-                    "username": user,
-                    "password": pwd,
-                    "target_url": target_url,
-                },
-            )
+            notifier.notify("credential_found", payload)
         except Exception as exc:
             _on_log(f"[-] Notification dispatch error: {exc}")
 
 
 def _on_finished(found: bool, message: str) -> None:
     """Forward attack completion to all connected clients and trigger alert."""
-    socketio.emit("finished", {"found": found, "message": message})
+    socketio.emit("finished", {"found": found, "message": message, "running": False})
+    socketio.emit("status", {"running": False, "finished": True, "message": message})
     if notifier and notifier.has_backends:
         try:
             m = engine.get_metrics() if engine else {}
