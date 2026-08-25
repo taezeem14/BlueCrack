@@ -56,7 +56,6 @@ function showToast(message, type = 'info') {
 const DOM = {
   // Header Actions
   btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
-  btnToggleEco:    document.getElementById('btnToggleEco'),
   btnDoctor:       document.getElementById('btnDoctor'),
   btnInfo:         document.getElementById('btnInfo'),
 
@@ -1543,16 +1542,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Cosmic Glow Mode Toggle
-  let cosmicMode = localStorage.getItem('bluecrack_cosmic') === 'true';
-  if (cosmicMode) document.body.classList.add('cosmic-mode');
-
-  DOM.btnToggleEco?.addEventListener('click', () => {
-    cosmicMode = !cosmicMode;
-    document.body.classList.toggle('cosmic-mode', cosmicMode);
-    try { localStorage.setItem('bluecrack_cosmic', String(cosmicMode)); } catch (e) {}
-    showToast(cosmicMode ? 'Cosmic Glow enabled' : 'Lightweight mode active', 'info');
-  });
 
   // Terminal actions
   DOM.btnClear?.addEventListener('click', () => {
