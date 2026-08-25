@@ -40,10 +40,11 @@ def test_session_status_api(client):
 
 
 def test_targets_queue_api(client):
-    """Verify /api/targets/list and /api/targets/add."""
+    """Verify /api/targets/list, /api/targets, /api/targets/add, and /api/targets/clear."""
     # List targets
-    resp = client.get("/api/targets/list")
+    resp = client.get("/api/targets")
     assert resp.status_code == 200
+    assert resp.get_json()["status"] == "ok"
 
     # Add target
     add_resp = client.post("/api/targets/add", json={
@@ -52,12 +53,61 @@ def test_targets_queue_api(client):
     assert add_resp.status_code == 200
     assert add_resp.get_json()["status"] == "ok"
 
+    # Clear targets
+    clear_resp = client.post("/api/targets/clear")
+    assert clear_resp.status_code == 200
+    assert clear_resp.get_json()["status"] == "ok"
+
 
 def test_schedule_api(client):
-    """Verify /api/schedule/list endpoint."""
-    resp = client.get("/api/schedule/list")
+    """Verify /api/schedule, /api/schedule/list, /api/schedule/create, and /api/schedule/cancel."""
+    resp = client.get("/api/schedule")
     assert resp.status_code == 200
-    assert "scheduled" in resp.get_json()
+    assert "tasks" in resp.get_json()
+
+    # Create scheduled task
+    create_resp = client.post("/api/schedule/create", json={
+        "target_url": "http://127.0.0.1:5001/login",
+        "run_at": "2030-01-01T00:00:00",
+        "config": {"target_url": "http://127.0.0.1:5001/login", "username": "admin", "password": "123"}
+    })
+    assert create_resp.status_code == 200
+    task_id = create_resp.get_json()["id"]
+
+    # Cancel scheduled task
+    cancel_resp = client.post("/api/schedule/cancel", json={"task_id": task_id})
+    assert cancel_resp.status_code == 200
+    assert cancel_resp.get_json()["status"] == "ok"
+
+
+def test_demo_server_lifecycle_api(client):
+    """Verify /api/demo/status and /api/demo/stop."""
+    status_resp = client.get("/api/demo/status")
+    assert status_resp.status_code == 200
+    assert "running" in status_resp.get_json()
+
+    stop_resp = client.post("/api/demo/stop")
+    assert stop_resp.status_code == 200
+    assert stop_resp.get_json()["status"] == "ok"
+
+
+def test_cupp_and_sequence_generators_api(client):
+    """Verify /api/cupp/generate and /api/sequence/generate endpoints."""
+    cupp_resp = client.post("/api/cupp/generate", json={
+        "first_name": "targetuser",
+        "last_name": "smith",
+        "keywords": "summer,admin,2026",
+    })
+    assert cupp_resp.status_code == 200
+    assert cupp_resp.get_json()["status"] == "ok"
+
+    seq_resp = client.post("/api/sequence/generate", json={
+        "start": 0,
+        "end": 20,
+        "pad_width": 2,
+    })
+    assert seq_resp.status_code == 200
+    assert seq_resp.get_json()["status"] == "ok"
 
 
 def test_config_save_load_reset_api(client):

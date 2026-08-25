@@ -860,11 +860,17 @@ async function scanTargetTechnology() {
 function renderTechBadges(data) {
   if (!DOM.targetTechBadge) return;
   DOM.targetTechBadge.innerHTML = '';
-  DOM.targetTechBadge.style.display = 'flex';
 
-  const frameworks = data.frameworks || [];
-  const servers = data.servers || [];
-  const protections = data.protections || [];
+  const fp = (data && data.fingerprint) ? data.fingerprint : (data || {});
+  const frameworks = fp.frameworks || [];
+  const servers = fp.servers || [];
+  const protections = fp.protections || [];
+
+  if (frameworks.length === 0 && servers.length === 0 && protections.length === 0) {
+    DOM.targetTechBadge.style.display = 'none';
+  } else {
+    DOM.targetTechBadge.style.display = 'flex';
+  }
 
   frameworks.forEach(f => {
     const tag = document.createElement('span');
@@ -887,20 +893,20 @@ function renderTechBadges(data) {
     DOM.targetTechBadge.appendChild(tag);
   });
 
-  if (data.form && data.form.has_login_form) {
-    if (data.form.action && DOM.formAction && !DOM.formAction.value) {
-      DOM.formAction.value = data.form.action;
+  if (fp.form && fp.form.has_login_form) {
+    if (fp.form.action && DOM.formAction && !DOM.formAction.value) {
+      DOM.formAction.value = fp.form.action;
     }
-    if (data.form.username_field && DOM.usernameField && !DOM.usernameField.value) {
-      DOM.usernameField.value = data.form.username_field;
+    if (fp.form.username_field && DOM.usernameField && !DOM.usernameField.value) {
+      DOM.usernameField.value = fp.form.username_field;
     }
-    if (data.form.password_field && DOM.passwordField && !DOM.passwordField.value) {
-      DOM.passwordField.value = data.form.password_field;
+    if (fp.form.password_field && DOM.passwordField && !DOM.passwordField.value) {
+      DOM.passwordField.value = fp.form.password_field;
     }
-    if (data.form.csrf_field && DOM.csrfField && !DOM.csrfField.value) {
-      DOM.csrfField.value = data.form.csrf_field;
+    if (fp.form.csrf_field && DOM.csrfField && !DOM.csrfField.value) {
+      DOM.csrfField.value = fp.form.csrf_field;
     }
-    appendLog(`[+] Auto-filled form parameters for action: ${data.form.action}`);
+    appendLog(`[+] Auto-filled form parameters for action: ${fp.form.action}`);
   }
 }
 
@@ -1019,17 +1025,27 @@ async function runDoctorDiagnostics() {
     const data = await res.json();
     DOM.doctorChecksContainer.innerHTML = '';
 
-    const checks = data.checks || [];
+    const checks = data.checks || (data.report && data.report.checks) || [];
+    if (checks.length === 0) {
+      DOM.doctorChecksContainer.innerHTML = '<div class="empty-state"><p>No diagnostics data returned.</p></div>';
+      return;
+    }
+
     checks.forEach(chk => {
       const item = document.createElement('div');
       item.className = 'doctor-item';
+      const isPass = chk.status === 'ok' || chk.passed === true;
+      const isWarn = chk.status === 'warn';
+      const badgeClass = isPass ? 'pass' : (isWarn ? 'warn' : 'fail');
+      const badgeText = isPass ? 'PASS' : (isWarn ? 'WARN' : 'FAIL');
+
       item.innerHTML = `
         <div>
           <div class="doctor-item-name">${escapeHTML(chk.name)}</div>
           <div class="doctor-item-desc">${escapeHTML(chk.detail || '')}</div>
         </div>
-        <span class="doctor-badge ${chk.passed ? 'pass' : 'fail'}">
-          ${chk.passed ? 'PASS' : 'FAIL'}
+        <span class="doctor-badge ${badgeClass}">
+          ${badgeText}
         </span>
       `;
       DOM.doctorChecksContainer.appendChild(item);
@@ -1346,6 +1362,31 @@ socket.on('tor_identity', data => {
   if (data) appendLog(`[*] Tor identity shifted. New egress IP: ${data.ip || 'Rotated'}`);
 });
 
+socket.on('cupp_done', data => {
+  if (data && data.success && data.path) {
+    cuppResultPath = data.path;
+    const countText = data.count ? ` (${data.count} passwords)` : '';
+    if (DOM.cuppStatus) DOM.cuppStatus.textContent = `Ready${countText}`;
+    if (DOM.btnUseCupp) DOM.btnUseCupp.disabled = false;
+    showToast(`CUPP wordlist ready${countText}`, 'success');
+  }
+});
+
+socket.on('sequence_done', data => {
+  if (data && data.success && data.path) {
+    sequenceResultPath = data.path;
+    const countText = data.count ? ` (${data.count} passwords)` : '';
+    if (DOM.seqStatus) DOM.seqStatus.textContent = `Ready${countText}`;
+    if (DOM.btnUseSeq) DOM.btnUseSeq.disabled = false;
+    showToast(`Sequence wordlist ready${countText}`, 'success');
+  }
+});
+
+socket.on('targets_queue_finished', data => {
+  showToast(data?.message || 'Multi-target queue finished', 'success');
+  loadTargetsQueue();
+});
+
 async function syncAttackStatus() {
   try {
     const res = await fetch('/api/attack/status');
@@ -1366,6 +1407,56 @@ async function syncAttackStatus() {
 
     if (data.logs && Array.isArray(data.logs) && DOM.terminal.childNodes.length <= 1) {
       data.logs.forEach(msg => appendLog(msg));
+    }
+  } catch (e) {}
+}
+
+async function resumeAttack() {
+  if (DOM.resumeBanner) DOM.resumeBanner.classList.remove('visible');
+  appendLog('[*] Resuming attack from saved checkpoint session…');
+  showToast('Resuming attack session…', 'info');
+  try {
+    const res = await postJSON('/api/attack/resume', {});
+    if (res.status === 'ok') {
+      if (DOM.btnStart) DOM.btnStart.disabled = true;
+      if (DOM.btnStop) DOM.btnStop.disabled = false;
+      startElapsedTicker();
+      showToast(res.message || 'Attack resumed successfully', 'success');
+    } else {
+      appendLog(`[-] Resume failed: ${res.message}`);
+      showToast(res.message || 'Resume failed', 'error');
+    }
+  } catch (err) {
+    appendLog(`[-] Resume error: ${err.message}`);
+    showToast(`Resume error: ${err.message}`, 'error');
+  }
+}
+
+async function startAllTargets() {
+  if (DOM.btnStartAllTargets) DOM.btnStartAllTargets.disabled = true;
+  appendLog('[*] Initiating sequential attack for all queued targets…');
+  showToast('Starting multi-target attack queue…', 'info');
+  try {
+    const res = await postJSON('/api/targets/start', {});
+    if (res.status === 'ok') {
+      showToast(res.message || 'Targets queue started', 'success');
+      loadTargetsQueue();
+    } else {
+      showToast(res.message || 'Could not start targets', 'error');
+      if (DOM.btnStartAllTargets) DOM.btnStartAllTargets.disabled = false;
+    }
+  } catch (err) {
+    showToast(`Queue error: ${err.message}`, 'error');
+    if (DOM.btnStartAllTargets) DOM.btnStartAllTargets.disabled = false;
+  }
+}
+
+async function clearTargetsQueue() {
+  try {
+    const res = await postJSON('/api/targets/clear', {});
+    if (res.status === 'ok') {
+      showToast('Targets queue cleared', 'info');
+      loadTargetsQueue();
     }
   } catch (e) {}
 }
@@ -1404,49 +1495,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   // CUPP & Sequence
   DOM.btnGenerateCupp?.addEventListener('click', generateCupp);
   DOM.btnUseCupp?.addEventListener('click', useCuppResult);
-  DOM.btnGenerateSeq?.addEventListener('click', generateSequence);
+  DOM.btnGenerateSeq?.addEventListener('click', generateSequenceWordlist);
   DOM.btnUseSeq?.addEventListener('click', useSequenceResult);
 
-  // Targets & Schedule
-  DOM.btnAddTarget?.addEventListener('click', addCurrentTargetToQueue);
-  DOM.btnScheduleAttack?.addEventListener('click', scheduleAttack);
+  // Targets Queue & Scheduler
+  DOM.btnQueueTarget?.addEventListener('click', addCurrentTargetToQueue);
+  DOM.btnStartAllTargets?.addEventListener('click', startAllTargets);
+  DOM.btnClearTargets?.addEventListener('click', clearTargetsQueue);
+  DOM.btnSchedule?.addEventListener('click', scheduleAttack);
+
+  // Session Resume Bar
+  DOM.btnResume?.addEventListener('click', resumeAttack);
+  DOM.btnDismissResume?.addEventListener('click', () => {
+    DOM.resumeBanner?.classList.remove('visible');
+  });
 
   // Notifications
-  DOM.btnSaveNotifications?.addEventListener('click', saveNotifications);
-  DOM.btnTestDiscord?.addEventListener('click', testDiscord);
-  DOM.btnTestTelegram?.addEventListener('click', testTelegram);
+  DOM.btnSaveNotifications?.addEventListener('click', saveNotificationSettings);
+  DOM.btnTestDiscord?.addEventListener('click', testDiscordWebhook);
+  DOM.btnTestTelegram?.addEventListener('click', testTelegramAlert);
 
-  // Header quick actions
-  DOM.btnLaunchDemo?.addEventListener('click', launchDemoMode);
-
-  DOM.btnDoctor?.addEventListener('click', () => {
+  // Header quick pills
+  DOM.btnQuickDoctor?.addEventListener('click', () => {
     DOM.doctorModal?.classList.add('open');
     runDoctorDiagnostics();
   });
-  DOM.btnCloseDoctor?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
-  DOM.btnCloseDoctorBtn?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
-  DOM.btnRerunDoctor?.addEventListener('click', runDoctorDiagnostics);
-
-  // Tutorial / Info Modal
-  DOM.btnInfo?.addEventListener('click', () => {
+  DOM.btnQuickDemo?.addEventListener('click', launchDemoMode);
+  DOM.btnQuickGuide?.addEventListener('click', () => {
     DOM.tutorialModal?.classList.add('open');
     DOM.panelDisclaimer?.classList.remove('active');
     DOM.panelTutorial?.classList.add('active');
   });
-  DOM.btnCloseModal?.addEventListener('click', () => DOM.tutorialModal?.classList.remove('open'));
-  DOM.btnAgreeDisclaimer?.addEventListener('click', () => {
-    DOM.tutorialModal?.classList.remove('open');
-    try { localStorage.setItem('bluecrack_disclaimer_agreed', 'true'); } catch (e) {}
-  });
-  DOM.btnShowTutorialFromStart?.addEventListener('click', () => {
-    DOM.panelDisclaimer?.classList.remove('active');
-    DOM.panelTutorial?.classList.add('active');
-  });
-  DOM.btnBackToDisclaimer?.addEventListener('click', () => {
-    DOM.panelTutorial?.classList.remove('active');
-    DOM.panelDisclaimer?.classList.add('active');
-  });
-  DOM.btnFinishTutorial?.addEventListener('click', () => {
+
+  // Modal Closers
+  DOM.btnCloseDoctor?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
+  DOM.btnCloseTutorial?.addEventListener('click', () => DOM.tutorialModal?.classList.remove('open'));
+  DOM.btnAcceptDisclaimer?.addEventListener('click', () => {
     DOM.tutorialModal?.classList.remove('open');
     try { localStorage.setItem('bluecrack_disclaimer_agreed', 'true'); } catch (e) {}
   });
@@ -1527,6 +1611,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     DOM.panelDisclaimer?.classList.add('active');
     DOM.panelTutorial?.classList.remove('active');
   }
+
+  // Check session status on page load for resume banner
+  try {
+    const sessRes = await fetch('/api/session/status');
+    const sessData = await sessRes.json();
+    if (sessData && sessData.has_session && DOM.resumeBanner) {
+      DOM.resumeBanner.classList.add('visible');
+    }
+  } catch (e) {}
 
   // Load targets & schedules
   loadTargetsQueue();

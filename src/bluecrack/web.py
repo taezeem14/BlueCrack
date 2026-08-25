@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask, Response, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
@@ -201,32 +201,31 @@ def index():
 # ═══════════════════════════════════════════════════════════════════
 # API ROUTES
 # ═══════════════════════════════════════════════════════════════════
-@app.route("/api/attack/start", methods=["POST"])
-def start_attack():
-    """Start a brute-force attack with the given configuration."""
+def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
+    """Parse configuration data and launch the attack engine.
+
+    Returns:
+        (success: bool, message: str, details: dict)
+    """
     global engine
 
-    if engine.is_running:
-        return jsonify({"status": "error", "message": "Attack already running."}), 409
-
-    data = request.get_json(silent=True) or {}
     _sync_notifier_from_config(data)
 
     # Parse attack mode
-    attack_mode = data.get("mode", "browser").strip().lower()
+    attack_mode = str(data.get("mode", "browser")).strip().lower()
     if attack_mode not in ("browser", "http"):
         attack_mode = "browser"
 
     # Parse target URL
-    target_url = data.get("target_url", "").strip()
+    target_url = str(data.get("target_url", "")).strip()
     if not target_url:
-        return jsonify({"status": "error", "message": "Target URL is required."}), 400
+        return False, "Target URL is required.", {}
     if not target_url.startswith("http"):
         target_url = "http://" + target_url
 
     # Parse users
     users: List[str] = []
-    user_input = data.get("username", "").strip()
+    user_input = str(data.get("username", "")).strip()
     if user_input:
         if os.path.isfile(user_input):
             with open(user_input, encoding="utf-8", errors="ignore") as f:
@@ -235,11 +234,11 @@ def start_attack():
             users = [user_input]
 
     if not users:
-        return jsonify({"status": "error", "message": "Username is required."}), 400
+        return False, "Username is required.", {}
 
     # Parse passwords
     passwords: List[str] = []
-    pass_input = data.get("password", "").strip()
+    pass_input = str(data.get("password", "")).strip()
     if pass_input:
         if os.path.isfile(pass_input):
             with open(pass_input, encoding="utf-8", errors="ignore") as f:
@@ -248,11 +247,11 @@ def start_attack():
             passwords = [pass_input]
 
     if not passwords:
-        return jsonify({"status": "error", "message": "Password is required."}), 400
+        return False, "Password is required.", {}
 
     # Parse proxies
     proxies: List[str] = []
-    proxy_input = data.get("proxy", "").strip()
+    proxy_input = str(data.get("proxy", "")).strip()
     if proxy_input:
         if os.path.isfile(proxy_input):
             with open(proxy_input, encoding="utf-8", errors="ignore") as f:
@@ -277,7 +276,7 @@ def start_attack():
         tor_shift_every = int(data.get("tor_shift_every", 10))
         max_attempts = int(data.get("max_attempts", 0))
     except (ValueError, TypeError) as e:
-        return jsonify({"status": "error", "message": f"Invalid configuration parameter: {e}"}), 400
+        return False, f"Invalid configuration parameter: {e}", {}
 
     ctx: Dict[str, Any] = {
         "target_url": target_url,
@@ -286,9 +285,9 @@ def start_attack():
         "threads": threads,
         "delay": delay,
         "jitter": jitter,
-        "error_msg": data.get("error_msg", "").strip().lower(),
-        "success_msg": data.get("success_msg", "").strip(),
-        "limit_text": data.get("limit_text", "too many requests").strip().lower(),
+        "error_msg": str(data.get("error_msg", "")).strip().lower(),
+        "success_msg": str(data.get("success_msg", "")).strip(),
+        "limit_text": str(data.get("limit_text", "too many requests")).strip().lower(),
         "cooldown": cooldown,
         "headless": bool(data.get("headless", False)),
         "proxies": proxies,
@@ -303,10 +302,10 @@ def start_attack():
 
     # Add HTTP-mode-specific fields
     if attack_mode == "http":
-        ctx["form_action"] = data.get("form_action", "").strip()
-        ctx["username_field"] = data.get("username_field", "").strip()
-        ctx["password_field"] = data.get("password_field", "").strip()
-        ctx["csrf_field"] = data.get("csrf_field", "").strip()
+        ctx["form_action"] = str(data.get("form_action", "")).strip()
+        ctx["username_field"] = str(data.get("username_field", "")).strip()
+        ctx["password_field"] = str(data.get("password_field", "")).strip()
+        ctx["csrf_field"] = str(data.get("csrf_field", "")).strip()
         ctx["follow_redirects"] = bool(data.get("follow_redirects", False))
         ctx["json_mode"] = bool(data.get("json_mode", False))
 
@@ -344,7 +343,7 @@ def start_attack():
             ctx["success_status_codes"] = [int(c) for c in success_codes_raw if str(c).isdigit()]
 
         # Parse extra_fields from comma-separated key=value pairs
-        extra_raw = data.get("extra_fields", "").strip()
+        extra_raw = str(data.get("extra_fields", "")).strip()
         extra_fields: Dict[str, str] = {}
         if extra_raw:
             for pair in extra_raw.split(","):
@@ -357,11 +356,32 @@ def start_attack():
     mode_label = "⚡ HTTP (JSON)" if (attack_mode == "http" and ctx.get("json_mode")) else ("⚡ HTTP" if attack_mode == "http" else "🌐 Browser")
     engine.start(ctx)
 
-    return jsonify({
-        "status": "ok",
-        "message": f"{mode_label} attack started: {len(users)} user(s) × {len(passwords)} password(s) = {total} combos",
+    return True, f"{mode_label} attack started: {len(users)} user(s) × {len(passwords)} password(s) = {total} combos", {
         "total": total,
         "mode": attack_mode,
+        "users_count": len(users),
+        "passwords_count": len(passwords),
+        "target_url": target_url,
+    }
+
+
+@app.route("/api/attack/start", methods=["POST"])
+def start_attack():
+    """Start a brute-force attack with the given configuration."""
+    global engine
+
+    if engine.is_running:
+        return jsonify({"status": "error", "message": "Attack already running."}), 409
+
+    data = request.get_json(silent=True) or {}
+    ok, msg, details = _prepare_and_start_attack(data)
+    if not ok:
+        return jsonify({"status": "error", "message": msg}), 400
+
+    return jsonify({
+        "status": "ok",
+        "message": msg,
+        **details,
     })
 
 
@@ -412,26 +432,31 @@ def generate_cupp():
     global _last_wordlist_path
     data = request.get_json(silent=True) or {}
 
-    profile = {
-        "name": data.get("name", "").strip(),
-        "surname": data.get("surname", "").strip(),
-        "nick": data.get("nick", "").strip(),
-        "birthdate": data.get("birthdate", "").strip(),
-        "wife": data.get("wife", "").strip(),
-        "wifen": data.get("wifen", "").strip(),
-        "wifeb": data.get("wifeb", "").strip(),
-        "kid": data.get("kid", "").strip(),
-        "kidb": data.get("kidb", "").strip(),
-        "pet": data.get("pet", "").strip(),
-        "company": data.get("company", "").strip(),
-        "words": data.get("words", "").strip().split(",") if data.get("words") else [],
-        "spechars1": "y" if data.get("special_chars") else "n",
-        "randnum": "y" if data.get("random_numbers") else "n",
-        "leetmode": "y" if data.get("leet_mode") else "n",
-    }
-
-    if not profile["name"]:
+    first_name = (data.get("first_name") or data.get("name") or "").strip()
+    if not first_name:
         return jsonify({"status": "error", "message": "First name is required."}), 400
+
+    profile = {
+        "name": first_name,
+        "surname": (data.get("last_name") or data.get("surname") or "").strip(),
+        "nick": (data.get("nickname") or data.get("nick") or "").strip(),
+        "birthdate": (data.get("birthdate") or "").strip(),
+        "wife": (data.get("partner_name") or data.get("wife") or "").strip(),
+        "wifen": (data.get("partner_nickname") or data.get("wifen") or "").strip(),
+        "wifeb": (data.get("partner_birthdate") or data.get("wifeb") or "").strip(),
+        "kid": (data.get("child_name") or data.get("kid") or "").strip(),
+        "kidb": (data.get("child_birthdate") or data.get("kidb") or "").strip(),
+        "pet": (data.get("pet_name") or data.get("pet") or "").strip(),
+        "company": (data.get("company") or "").strip(),
+        "words": (
+            data.get("words", "").strip().split(",")
+            if data.get("words")
+            else (data.get("keywords", "").strip().split(",") if data.get("keywords") else [])
+        ),
+        "spechars1": "y" if (data.get("special_chars") or data.get("spechars1")) else "n",
+        "randnum": "y" if (data.get("random_numbers") or data.get("randnum")) else "n",
+        "leetmode": "y" if (data.get("leet") or data.get("leet_mode") or data.get("leetmode")) else "n",
+    }
 
     def _run_cupp():
         global _last_wordlist_path
@@ -439,10 +464,14 @@ def generate_cupp():
             result = generate_cupp_wordlist(profile, log_callback=_on_log)
             with _wordlist_lock:
                 _last_wordlist_path = result
-            socketio.emit("cupp_done", {"path": result, "success": bool(result)})
+            cnt = 0
+            if result and os.path.exists(result):
+                with open(result, encoding="utf-8", errors="ignore") as f:
+                    cnt = sum(1 for _ in f)
+            socketio.emit("cupp_done", {"path": result, "count": cnt, "success": bool(result)})
         except Exception as e:
             _on_log(f"[-] CUPP generation error: {e}")
-            socketio.emit("cupp_done", {"path": None, "success": False, "error": str(e)})
+            socketio.emit("cupp_done", {"path": None, "count": 0, "success": False, "error": str(e)})
 
     threading.Thread(target=_run_cupp, daemon=True).start()
     return jsonify({"status": "ok", "message": "CUPP generation started."})
@@ -457,8 +486,8 @@ def generate_sequence():
     try:
         start = int(data.get("start", 0))
         end = int(data.get("end", 100))
-        prefix = data.get("prefix", "").strip()
-        suffix = data.get("suffix", "").strip()
+        prefix = str(data.get("prefix", "")).strip()
+        suffix = str(data.get("suffix", "")).strip()
         pad_width = int(data.get("pad_width", 0))
     except (ValueError, TypeError) as e:
         return jsonify({"status": "error", "message": f"Invalid sequence parameters: {e}"}), 400
@@ -476,10 +505,11 @@ def generate_sequence():
             )
             with _wordlist_lock:
                 _last_wordlist_path = result
-            socketio.emit("sequence_done", {"path": result, "success": bool(result)})
+            cnt = end - start + 1 if (result and os.path.exists(result)) else 0
+            socketio.emit("sequence_done", {"path": result, "count": cnt, "success": bool(result)})
         except Exception as e:
             _on_log(f"[-] Sequence generation error: {e}")
-            socketio.emit("sequence_done", {"path": None, "success": False, "error": str(e)})
+            socketio.emit("sequence_done", {"path": None, "count": 0, "success": False, "error": str(e)})
 
     threading.Thread(target=_run_seq, daemon=True).start()
     return jsonify({"status": "ok", "message": "Sequence generation started."})
@@ -537,19 +567,21 @@ def resume_attack():
     return jsonify({"status": "ok", "message": "Attack resumed from saved session."})
 
 
+@app.route("/api/targets", methods=["GET"])
+@app.route("/api/targets/list", methods=["GET"])
+def list_targets():
+    return jsonify({
+        "status": "ok",
+        "targets": target_queue.get_targets(),
+        "progress": target_queue.get_progress(),
+    })
+
+
 @app.route("/api/targets/add", methods=["POST"])
 def add_target():
     data = request.get_json(silent=True) or {}
     index = target_queue.add_target(data)
     return jsonify({"status": "ok", "index": index})
-
-
-@app.route("/api/targets/list", methods=["GET"])
-def list_targets():
-    return jsonify({
-        "targets": target_queue.get_targets(),
-        "progress": target_queue.get_progress()
-    })
 
 
 @app.route("/api/targets/remove", methods=["POST"])
@@ -562,6 +594,47 @@ def remove_target():
         return jsonify({"status": "error", "message": "Invalid target index."}), 400
     ok = target_queue.remove_target(index)
     return jsonify({"status": "ok" if ok else "error"})
+
+
+@app.route("/api/targets/clear", methods=["POST"])
+def clear_targets():
+    """Clear all queued targets."""
+    target_queue.reset()
+    return jsonify({"status": "ok", "message": "Target queue cleared."})
+
+
+@app.route("/api/targets/start", methods=["POST"])
+@app.route("/api/targets/start_all", methods=["POST"])
+def start_all_targets():
+    """Execute all queued pending targets in sequential succession."""
+    global engine
+    if engine.is_running:
+        return jsonify({"status": "error", "message": "An attack is already running."}), 409
+
+    targets = target_queue.get_targets()
+    pending = [t for t in targets if t.get("status") == "pending"]
+    if not pending:
+        return jsonify({"status": "error", "message": "No pending targets in the queue."}), 400
+
+    def _run_queue_worker():
+        while True:
+            t = target_queue.next_target()
+            if not t:
+                _on_log("[+] 🎉 Multi-Target Queue: All targets completed!")
+                socketio.emit("targets_queue_finished", {"message": "All targets processed."})
+                break
+            cfg = t.get("config", t)
+            target_name = cfg.get("target_url", "Target")
+            _on_log(f"[*] 🎯 Target Queue: Launching next attack on: {target_name}...")
+            ok, msg, _ = _prepare_and_start_attack(cfg)
+            if not ok:
+                _on_log(f"[-] Target Queue: Skipping {target_name} ({msg})")
+                continue
+            while engine.is_running:
+                time.sleep(0.5)
+
+    threading.Thread(target=_run_queue_worker, daemon=True).start()
+    return jsonify({"status": "ok", "message": f"Starting sequential attack for {len(pending)} queued target(s)."})
 
 
 @app.route("/api/config/load", methods=["GET"])
@@ -624,28 +697,54 @@ def test_notifications():
     return jsonify({"status": "ok", "results": results})
 
 
+def _on_schedule_fire(config: Dict[str, Any]) -> None:
+    """Callback triggered when a scheduled attack timer fires."""
+    global engine
+    target = config.get("target_url", "Target")
+    _on_log(f"[*] ⏰ Scheduled attack timer triggered for: {target}")
+    if engine.is_running:
+        _on_log(f"[-] ⏰ Skipping scheduled attack for {target}: another attack is currently active.")
+        return
+    ok, msg, _ = _prepare_and_start_attack(config)
+    if not ok:
+        _on_log(f"[-] ⏰ Failed to start scheduled attack: {msg}")
+
+
+attack_scheduler.set_fire_callback(_on_schedule_fire)
+
+
+@app.route("/api/schedule", methods=["GET"])
+@app.route("/api/schedule/list", methods=["GET"])
+def list_scheduled():
+    tasks = attack_scheduler.list_scheduled()
+    return jsonify({"status": "ok", "tasks": tasks, "scheduled": tasks})
+
+
+@app.route("/api/schedule/create", methods=["POST"])
 @app.route("/api/schedule/add", methods=["POST"])
 def add_scheduled():
     data = request.get_json(silent=True) or {}
-    target_url = data.get("target_url", "")
-    run_at_iso = data.get("run_at", "")
+    target_url = str(data.get("target_url", "") or data.get("config", {}).get("target_url", "")).strip()
+    run_at_iso = str(data.get("run_at", "")).strip()
     if not target_url or not run_at_iso:
         return jsonify({"status": "error", "message": "target_url and run_at are required."}), 400
-    task_id = attack_scheduler.schedule(target_url, run_at_iso, data)
-    if task_id:
-        return jsonify({"status": "ok", "id": task_id})
+    config = dict(data.get("config", data))
+    if not config.get("target_url"):
+        config["target_url"] = target_url
+    try:
+        task_id = attack_scheduler.schedule(config, run_at_iso)
+        if task_id:
+            return jsonify({"status": "ok", "id": task_id, "task_id": task_id})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": f"Failed to schedule: {exc}"}), 400
     return jsonify({"status": "error", "message": "Failed to schedule attack (invalid time or format)."}), 400
-
-
-@app.route("/api/schedule/list", methods=["GET"])
-def list_scheduled():
-    return jsonify({"scheduled": attack_scheduler.list_scheduled()})
 
 
 @app.route("/api/schedule/cancel", methods=["POST"])
 def cancel_scheduled():
     data = request.get_json(silent=True) or {}
-    ok = attack_scheduler.cancel(data.get("id", ""))
+    schedule_id = str(data.get("task_id", "") or data.get("id", "")).strip()
+    ok = attack_scheduler.cancel(schedule_id)
     return jsonify({"status": "ok" if ok else "error"})
 
 
@@ -787,6 +886,40 @@ def start_demo_server():
                 "error": "exception",
                 "message": f"Failed to launch demo server: {str(e)}",
             }), 500
+
+
+@app.route("/api/demo/stop", methods=["POST"])
+def stop_demo_server():
+    """Stop the background demo server if running."""
+    global demo_process, demo_port
+    with demo_lock:
+        if demo_process is not None:
+            try:
+                demo_process.terminate()
+                demo_process.wait(timeout=2)
+            except Exception:
+                try:
+                    demo_process.kill()
+                except Exception:
+                    pass
+            demo_process = None
+            demo_port = None
+            return jsonify({"status": "ok", "message": "Demo server stopped."})
+        return jsonify({"status": "ok", "message": "Demo server was not running."})
+
+
+@app.route("/api/demo/status", methods=["GET"])
+def get_demo_status():
+    """Check if demo server is currently active."""
+    global demo_process, demo_port
+    with demo_lock:
+        is_running = demo_process is not None and demo_process.poll() is None
+        return jsonify({
+            "status": "ok",
+            "running": is_running,
+            "port": demo_port if is_running else None,
+            "url": f"http://127.0.0.1:{demo_port}/login" if is_running else None,
+        })
 
 
 # ═══════════════════════════════════════════════════════════════════
