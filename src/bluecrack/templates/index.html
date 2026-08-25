@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="BlueCrack — Hydra-style browser-based login tester powered by Selenium WebDriver with real-time dashboard" />
-  <meta name="theme-color" content="#060212" />
-  <title>BlueCrack — Advanced Browser Penetration Framework</title>
+  <meta name="description" content="BlueCrack — Next-Gen High Performance Browser & HTTP Penetration Testing Framework" />
+  <meta name="theme-color" content="#090d16" />
+  <title>BlueCrack — Penetration Testing Command Center</title>
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Inter (UI) & JetBrains Mono (Code/Terminal) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
     rel="stylesheet"
   />
 
@@ -24,664 +24,1013 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 
-  <!-- App Stylesheet -->
+  <!-- Main Stylesheet -->
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
+  <!-- Optional lightweight starfield canvas (Opt-in Cosmic Mode) -->
   <canvas id="starfield"></canvas>
 
-  <div class="container">
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
-    <!-- ════════════════════════════════════════════
-         HEADER
-         ════════════════════════════════════════════ -->
-    <header class="header">
-      <div class="header-text">
-        <h1 class="header-title">BLUECRACK</h1>
-        <p class="header-subtitle">Advanced Browser Penetration Framework</p>
+  <!-- App Wrapper -->
+  <div class="app-layout">
+
+    <!-- ════════════════════════════════════════════════════════════
+         TOP APP BAR
+         ════════════════════════════════════════════════════════════ -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-badge">
+          <i class="fa-solid fa-shield-halved brand-icon"></i>
+        </div>
+        <div class="brand-titles">
+          <div class="brand-name">
+            BLUECRACK
+            <span class="version-tag">v4.3.0</span>
+          </div>
+          <p class="brand-desc">Advanced Browser &amp; Hydra-Speed HTTP Penetration Framework</p>
+        </div>
       </div>
-      <div class="header-actions">
-        <button class="btn btn-ghost btn-sm" id="btnDoctor" type="button"><i class="fa-solid fa-stethoscope"></i> Doctor</button>
-        <button class="btn btn-ghost btn-sm" id="btnLaunchDemo" type="button"><i class="fa-solid fa-rocket"></i> Demo Mode</button>
-        <button class="btn btn-ghost btn-sm" id="btnToggleEco" type="button"><i class="fa-solid fa-star"></i> Cosmic Mode</button>
-        <div class="header-badge">
+
+      <div class="header-utilities">
+        <!-- Quick Action Buttons -->
+        <button class="nav-pill" id="btnDoctor" type="button" title="System & Dependency Diagnostics">
+          <i class="fa-solid fa-stethoscope"></i>
+          <span>Doctor</span>
+        </button>
+        <button class="nav-pill" id="btnLaunchDemo" type="button" title="Launch Safe Local Testing Sandbox">
+          <i class="fa-solid fa-rocket text-accent"></i>
+          <span>Demo Sandbox</span>
+        </button>
+        <button class="nav-pill" id="btnToggleEco" type="button" title="Toggle Cosmic Visual Glow">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Cosmic Glow</span>
+        </button>
+        <button class="nav-pill" id="btnInfo" type="button" title="User Guide & Legal Disclaimer">
+          <i class="fa-solid fa-circle-question"></i>
+          <span>Guide</span>
+        </button>
+
+        <!-- Live Server Status Indicator -->
+        <div class="connection-pill" id="connectionPill">
           <span class="status-dot" id="connectionDot"></span>
           <span class="status-label" id="connectionLabel">Connecting…</span>
         </div>
       </div>
     </header>
 
-    <!-- ════════════════════════════════════════════
+    <!-- ════════════════════════════════════════════════════════════
          SESSION RESUME BANNER
-         ════════════════════════════════════════════ -->
+         ════════════════════════════════════════════════════════════ -->
     <div class="resume-banner" id="resumeBanner">
-      <span class="resume-text"><i class="fa-solid fa-floppy-disk"></i> <strong>Previous session found!</strong> Resume the interrupted attack where you left off?</span>
-      <button class="btn btn-primary btn-sm" id="btnResume" type="button"><i class="fa-solid fa-play"></i> Resume</button>
-      <button class="btn btn-ghost btn-sm" id="btnDismissResume" type="button">Dismiss</button>
+      <div class="resume-banner-content">
+        <i class="fa-solid fa-clock-rotate-left resume-icon"></i>
+        <div class="resume-text-group">
+          <strong>Interrupted Attack Session Found</strong>
+          <span>Resume previously saved progress without restarting your wordlists?</span>
+        </div>
+      </div>
+      <div class="resume-actions">
+        <button class="btn btn-emerald btn-sm" id="btnResume" type="button">
+          <i class="fa-solid fa-play"></i> Resume Attack
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btnDismissResume" type="button">Dismiss</button>
+      </div>
     </div>
 
-    <!-- ════════════════════════════════════════════
-         TAB NAVIGATION
-         ════════════════════════════════════════════ -->
-    <nav class="tabs-nav" role="tablist">
-      <button class="tab-btn active" data-tab="target" role="tab" aria-selected="true">Target Config</button>
-      <button class="tab-btn" data-tab="engine" role="tab" aria-selected="false">Engine Settings</button>
-      <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false">Tor &amp; Proxy</button>
-      <button class="tab-btn" data-tab="cupp" role="tab" aria-selected="false">CUPP Generator</button>
-      <button class="tab-btn" data-tab="sequence" role="tab" aria-selected="false">Sequence Generator</button>
-      <button class="tab-btn" data-tab="targets" role="tab" aria-selected="false"><i class="fa-solid fa-globe"></i> Targets</button>
-      <button class="tab-btn" data-tab="schedule" role="tab" aria-selected="false"><i class="fa-solid fa-clock"></i> Schedule</button>
-      <button class="tab-btn" data-tab="notifications" role="tab" aria-selected="false"><i class="fa-solid fa-bell"></i> Alerts</button>
+    <!-- ════════════════════════════════════════════════════════════
+         MAIN NAVIGATION TABS
+         ════════════════════════════════════════════════════════════ -->
+    <nav class="main-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="target" role="tab" aria-selected="true">
+        <i class="fa-solid fa-crosshairs"></i> Target Config
+      </button>
+      <button class="tab-btn" data-tab="engine" role="tab" aria-selected="false">
+        <i class="fa-solid fa-gears"></i> Engine Settings
+      </button>
+      <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false">
+        <i class="fa-solid fa-user-shield"></i> Tor &amp; Proxy
+      </button>
+      <button class="tab-btn" data-tab="cupp" role="tab" aria-selected="false">
+        <i class="fa-solid fa-id-card-clip"></i> CUPP Profiler
+      </button>
+      <button class="tab-btn" data-tab="sequence" role="tab" aria-selected="false">
+        <i class="fa-solid fa-arrow-down-1-9"></i> Sequence Gen
+      </button>
+      <button class="tab-btn" data-tab="targets" role="tab" aria-selected="false">
+        <i class="fa-solid fa-layer-group"></i> Targets Queue
+      </button>
+      <button class="tab-btn" data-tab="schedule" role="tab" aria-selected="false">
+        <i class="fa-solid fa-calendar-check"></i> Scheduler
+      </button>
+      <button class="tab-btn" data-tab="notifications" role="tab" aria-selected="false">
+        <i class="fa-solid fa-bell"></i> Alerts &amp; Webhooks
+      </button>
     </nav>
 
-    <!-- ════════════════════════════════════════════
-         TAB PANELS
-         ════════════════════════════════════════════ -->
-    <div class="tabs-container">
+    <!-- ════════════════════════════════════════════════════════════
+         TAB CONTENT PANELS
+         ════════════════════════════════════════════════════════════ -->
+    <main class="tabs-viewport">
 
-      <!-- ── Target Config ── -->
+      <!-- ── 1. Target Config ── -->
       <section class="tab-content active" id="tab-target" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title">Target Configuration</h2>
-
-          <div class="form-group">
-            <label for="targetUrl">Target URL</label>
-            <div class="input-with-btn">
-              <input type="url" id="targetUrl" placeholder="https://example.com/login" autocomplete="off" />
-              <button class="btn btn-ghost btn-sm" id="btnScanTarget" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> Scan Tech</button>
-            </div>
-            <!-- Live Tech Fingerprint Badge container -->
-            <div class="tech-badge-container" id="targetTechBadge" style="display: none;"></div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="username">Username <span class="hint">(single user or file path)</span></label>
-              <input type="text" id="username" placeholder="admin  or  /path/to/users.txt" />
-            </div>
-            <div class="form-group">
-              <label for="password">Password <span class="hint">(single password or file path)</span></label>
-              <input type="text" id="password" placeholder="password123  or  /path/to/wordlist.txt" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="errorString">Error String <span class="hint">(indicates failed login)</span></label>
-              <input type="text" id="errorString" placeholder="Invalid credentials" />
-            </div>
-            <div class="form-group">
-              <label for="successString">Success String <span class="hint">(confirms valid login)</span></label>
-              <input type="text" id="successString" placeholder="Welcome" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Engine Settings ── -->
-      <section class="tab-content" id="tab-engine" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title">Engine Settings</h2>
-
-          <!-- Attack Mode Selector -->
-          <div class="form-group">
-            <label for="attackMode">Attack Mode</label>
-            <select id="attackMode">
-              <option value="browser">🌐 Browser Mode (Selenium — for JS-heavy sites)</option>
-              <option value="http">⚡ HTTP Mode (Hydra-style — 100x faster)</option>
-            </select>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="threads">Threads</label>
-              <input type="number" id="threads" min="1" max="50" value="1" />
-            </div>
-            <div class="form-group">
-              <label for="delay">Delay <span class="hint">(seconds)</span></label>
-              <input type="number" id="delay" min="0" step="0.1" value="0" />
-            </div>
-            <div class="form-group">
-              <label for="jitter">Jitter <span class="hint">(seconds)</span></label>
-              <input type="number" id="jitter" min="0" step="0.1" value="0" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="rateLimit">Rate-Limit Text</label>
-              <input type="text" id="rateLimit" value="too many requests" />
-            </div>
-            <div class="form-group">
-              <label for="cooldown">Cooldown <span class="hint">(seconds)</span></label>
-              <input type="number" id="cooldown" min="0" value="12" />
-            </div>
-            <div class="form-group">
-              <label for="maxAttempts">Max Attempts <span class="hint">(0 = unlimited)</span></label>
-              <input type="number" id="maxAttempts" min="0" value="0" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group checkbox-group" id="headlessGroup">
-              <label class="checkbox-label">
-                <input type="checkbox" id="headless" checked />
-                <span class="checkmark"></span>
-                Headless Mode
-              </label>
-            </div>
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="continueAfterSuccess" />
-                <span class="checkmark"></span>
-                Continue After Success
-              </label>
-            </div>
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label spray-toggle-label">
-                <input type="checkbox" id="sprayMode" />
-                <span class="checkmark"></span>
-                Spray Mode <span class="spray-badge">NEW</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- HTTP Mode Options (shown when HTTP mode selected) -->
-          <div id="httpModeOptions" style="display: none;">
-            <hr style="border-color: rgba(255,255,255,0.08); margin: 20px 0;" />
-            <h3 style="color: var(--accent-primary, #4f46e5); font-size: 0.95rem; margin-bottom: 12px;"><i class="fa-solid fa-bolt"></i> HTTP Mode Options</h3>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="formAction">Form Action URL <span class="hint">(auto-detected if blank)</span></label>
-                <input type="text" id="formAction" placeholder="https://target.com/api/login" />
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-bullseye card-title-icon text-cyan"></i>
+              <div>
+                <h2 class="card-title">Target &amp; Credential Parameters</h2>
+                <p class="card-subtitle">Define the target endpoint, credentials source, and signature validation strings</p>
               </div>
             </div>
+          </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="usernameField">Username Field Name <span class="hint">(auto-detected)</span></label>
-                <input type="text" id="usernameField" placeholder="username" />
+          <div class="card-body">
+            <!-- Target URL Input + Fingerprint Button -->
+            <div class="form-group">
+              <label for="targetUrl" class="field-label">Target URL <span class="required-star">*</span></label>
+              <div class="input-action-group">
+                <input
+                  type="url"
+                  id="targetUrl"
+                  class="form-control mono-font"
+                  placeholder="https://example.com/login"
+                  autocomplete="off"
+                  required
+                />
+                <button class="btn btn-outline-cyan" id="btnScanTarget" type="button" title="Scan target technology and discover login forms">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Scan Tech
+                </button>
               </div>
-              <div class="form-group">
-                <label for="passwordField">Password Field Name <span class="hint">(auto-detected)</span></label>
-                <input type="text" id="passwordField" placeholder="password" />
-              </div>
-              <div class="form-group">
-                <label for="csrfField">CSRF Field Name <span class="hint">(auto-detected)</span></label>
-                <input type="text" id="csrfField" placeholder="csrf_token" />
-              </div>
+              <!-- Technology Discovery Container -->
+              <div class="tech-badge-container" id="targetTechBadge" style="display: none;"></div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group checkbox-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="followRedirects" />
-                  <span class="checkmark"></span>
-                  Follow HTTP Redirects
+            <!-- Username & Password Row -->
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label for="username" class="field-label">
+                  Username <span class="required-star">*</span>
+                  <span class="field-hint">(Single user or file path)</span>
                 </label>
+                <div class="input-icon-wrapper">
+                  <i class="fa-solid fa-user input-icon"></i>
+                  <input
+                    type="text"
+                    id="username"
+                    class="form-control with-icon"
+                    placeholder="admin  or  C:\path\users.txt"
+                    autocomplete="off"
+                    required
+                  />
+                </div>
               </div>
-              <div class="form-group checkbox-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="jsonMode" />
-                  <span class="checkmark"></span>
-                  JSON REST API Mode <span class="spray-badge">API</span>
+
+              <div class="form-group">
+                <label for="password" class="field-label">
+                  Password / Wordlist <span class="required-star">*</span>
+                  <span class="field-hint">(Single pass or file path)</span>
                 </label>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="customHeaders">Custom Headers <span class="hint">(Header: Value per line)</span></label>
-                <textarea id="customHeaders" rows="2" placeholder="Authorization: Bearer token&#10;X-Requested-With: XMLHttpRequest"></textarea>
-              </div>
-              <div class="form-group">
-                <label for="customCookies">Custom Cookies <span class="hint">(Cookie string)</span></label>
-                <input type="text" id="customCookies" placeholder="session=abc123xyz; auth=true" />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="successStatusCodes">Success Status Codes <span class="hint">(comma-separated)</span></label>
-                <input type="text" id="successStatusCodes" placeholder="200, 302, 204" />
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- ── Tor & Proxy ── -->
-      <section class="tab-content" id="tab-proxy" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title">Tor &amp; Proxy Configuration</h2>
-
-          <div class="form-row">
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="enableTor" />
-                <span class="checkmark"></span>
-                Enable Tor
-              </label>
-            </div>
-            <div class="form-group">
-              <label for="torControlPort">Tor Control Port</label>
-              <input type="number" id="torControlPort" min="1" max="65535" value="9051" />
-            </div>
-            <div class="form-group">
-              <label for="torShiftEvery">Shift Identity Every N Attempts</label>
-              <input type="number" id="torShiftEvery" min="1" value="10" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="proxy">Proxy <span class="hint">(single URL or file path)</span></label>
-            <input type="text" id="proxy" placeholder="socks5://127.0.0.1:9050  or  /path/to/proxies.txt" />
-          </div>
-        </div>
-      </section>
-
-      <!-- ── CUPP Generator ── -->
-      <section class="tab-content" id="tab-cupp" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title">CUPP — Common User Passwords Profiler</h2>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="cuppFirstName">First Name</label>
-              <input type="text" id="cuppFirstName" placeholder="John" />
-            </div>
-            <div class="form-group">
-              <label for="cuppLastName">Last Name</label>
-              <input type="text" id="cuppLastName" placeholder="Doe" />
-            </div>
-            <div class="form-group">
-              <label for="cuppNickname">Nickname</label>
-              <input type="text" id="cuppNickname" placeholder="johnd" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="cuppBirthdate">Birthdate</label>
-              <input type="text" id="cuppBirthdate" placeholder="01011990" />
-            </div>
-            <div class="form-group">
-              <label for="cuppPartnerName">Partner Name</label>
-              <input type="text" id="cuppPartnerName" placeholder="Jane" />
-            </div>
-            <div class="form-group">
-              <label for="cuppPartnerNickname">Partner Nickname</label>
-              <input type="text" id="cuppPartnerNickname" placeholder="janey" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="cuppPartnerBirthdate">Partner Birthdate</label>
-              <input type="text" id="cuppPartnerBirthdate" placeholder="15051992" />
-            </div>
-            <div class="form-group">
-              <label for="cuppChildName">Child Name</label>
-              <input type="text" id="cuppChildName" placeholder="Alex" />
-            </div>
-            <div class="form-group">
-              <label for="cuppChildBirthdate">Child Birthdate</label>
-              <input type="text" id="cuppChildBirthdate" placeholder="20032015" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="cuppPetName">Pet Name</label>
-              <input type="text" id="cuppPetName" placeholder="Buddy" />
-            </div>
-            <div class="form-group">
-              <label for="cuppCompany">Company Name</label>
-              <input type="text" id="cuppCompany" placeholder="Acme Corp" />
-            </div>
-            <div class="form-group">
-              <label for="cuppKeywords">Keywords <span class="hint">(comma-separated)</span></label>
-              <input type="text" id="cuppKeywords" placeholder="hacker, security, 2024" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="cuppSpecialChars" />
-                <span class="checkmark"></span>
-                Special Characters
-              </label>
-            </div>
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="cuppRandomNumbers" />
-                <span class="checkmark"></span>
-                Random Numbers
-              </label>
-            </div>
-            <div class="form-group checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="cuppLeet" />
-                <span class="checkmark"></span>
-                Leet Mode
-              </label>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button class="btn btn-primary" id="btnGenerateCupp" type="button">Generate Wordlist</button>
-            <button class="btn btn-secondary" id="btnUseCupp" type="button" disabled>Use Result</button>
-            <span class="cupp-status" id="cuppStatus"></span>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Sequence Generator ── -->
-      <section class="tab-content" id="tab-sequence" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title">Numeric Sequence Generator</h2>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="seqStart">Start Number</label>
-              <input type="number" id="seqStart" value="0" />
-            </div>
-            <div class="form-group">
-              <label for="seqEnd">End Number</label>
-              <input type="number" id="seqEnd" value="9999" />
-            </div>
-            <div class="form-group">
-              <label for="seqPadding">Zero-Padding Width</label>
-              <input type="number" id="seqPadding" min="0" value="4" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="seqPrefix">Prefix</label>
-              <input type="text" id="seqPrefix" placeholder="user_" />
-            </div>
-            <div class="form-group">
-              <label for="seqSuffix">Suffix</label>
-              <input type="text" id="seqSuffix" placeholder="@mail.com" />
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button class="btn btn-secondary" id="btnGenerateSeq" type="button">Generate Sequence</button>
-            <button class="btn btn-primary" id="btnUseSeq" type="button" disabled>Use Result</button>
-            <span class="seq-status" id="seqStatus"></span>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Targets Queue ── -->
-      <section class="tab-content" id="tab-targets" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title"><i class="fa-solid fa-globe"></i> Multi-Target Attack Queue</h2>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
-            Queue multiple targets and attack them sequentially. Each target uses the current configuration.
-          </p>
-          <div class="form-actions" style="margin-bottom: 16px;">
-            <button class="btn btn-primary btn-sm" id="btnAddTarget" type="button"><i class="fa-solid fa-plus"></i> Add Current Config</button>
-            <button class="btn btn-start btn-sm" id="btnStartAllTargets" type="button" disabled><i class="fa-solid fa-play"></i> Start All Targets</button>
-          </div>
-          <div class="target-list" id="targetList">
-            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No targets added yet.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Schedule ── -->
-      <section class="tab-content" id="tab-schedule" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title"><i class="fa-solid fa-clock"></i> Attack Scheduler</h2>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
-            Schedule attacks to run at specific times.
-          </p>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="scheduleTime">Run At (Date & Time)</label>
-              <input type="datetime-local" id="scheduleTime" />
-            </div>
-          </div>
-          <div class="form-actions" style="margin-bottom: 16px;">
-            <button class="btn btn-primary btn-sm" id="btnScheduleAttack" type="button"><i class="fa-solid fa-calendar-plus"></i> Schedule Attack</button>
-          </div>
-          <div class="schedule-list" id="scheduleList">
-            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No scheduled attacks.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Notifications ── -->
-      <section class="tab-content" id="tab-notifications" role="tabpanel">
-        <div class="card">
-          <h2 class="card-title"><i class="fa-solid fa-bell"></i> Notification Alerts</h2>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 16px;">
-            Get instant alerts when credentials are found.
-          </p>
-
-          <div class="notif-section">
-            <h4><i class="fa-brands fa-discord"></i> Discord Webhook</h4>
-            <div class="form-group">
-              <label for="discordWebhook">Webhook URL</label>
-              <div class="input-with-btn">
-                <input type="text" id="discordWebhook" placeholder="https://discord.com/api/webhooks/..." />
-                <button class="btn btn-ghost btn-sm" id="btnTestDiscord" type="button">Test</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="notif-section">
-            <h4><i class="fa-solid fa-paper-plane"></i> Telegram Bot</h4>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="telegramToken">Bot Token</label>
-                <input type="text" id="telegramToken" placeholder="123456:ABC-DEF..." />
-              </div>
-              <div class="form-group">
-                <label for="telegramChatId">Chat ID</label>
-                <div class="input-with-btn">
-                  <input type="text" id="telegramChatId" placeholder="-100123456789" />
-                  <button class="btn btn-ghost btn-sm" id="btnTestTelegram" type="button">Test</button>
+                <div class="input-icon-wrapper">
+                  <i class="fa-solid fa-key input-icon"></i>
+                  <input
+                    type="text"
+                    id="password"
+                    class="form-control with-icon"
+                    placeholder="password123  or  C:\path\wordlist.txt"
+                    autocomplete="off"
+                    required
+                  />
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="form-actions">
-            <button class="btn btn-primary" id="btnSaveNotifications" type="button"><i class="fa-solid fa-floppy-disk"></i> Save Configuration</button>
-            <span id="notifStatus" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+            <!-- Success & Error String Matchers -->
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label for="errorString" class="field-label">
+                  Error Signature Matcher
+                  <span class="field-hint">(Text indicating authentication failure)</span>
+                </label>
+                <input
+                  type="text"
+                  id="errorString"
+                  class="form-control"
+                  placeholder="Invalid credentials / Wrong password"
+                  autocomplete="off"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="successString" class="field-label">
+                  Success Signature Matcher
+                  <span class="field-hint">(Text indicating successful login)</span>
+                </label>
+                <input
+                  type="text"
+                  id="successString"
+                  class="form-control"
+                  placeholder="Welcome / Dashboard / Access Granted"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-    </div><!-- /.tabs-container -->
+      <!-- ── 2. Engine Settings ── -->
+      <section class="tab-content" id="tab-engine" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-microchip card-title-icon text-indigo"></i>
+              <div>
+                <h2 class="card-title">Engine Execution &amp; Throttling</h2>
+                <p class="card-subtitle">Select attack modality (Browser vs. Raw HTTP) and tune concurrency &amp; evasion</p>
+              </div>
+            </div>
+          </div>
 
-    <!-- ════════════════════════════════════════════
-         CONTROL BAR
-         ════════════════════════════════════════════ -->
-    <div class="controls-bar">
-      <button class="btn btn-start" id="btnStart" type="button"><i class="fa-solid fa-play"></i> Start Attack</button>
-      <button class="btn btn-stop" id="btnStop" type="button" disabled><i class="fa-solid fa-stop"></i> Stop</button>
-      <div class="controls-spacer"></div>
-      <button class="btn btn-report btn-sm" id="btnReport" type="button"><i class="fa-solid fa-file-invoice"></i> HTML Report</button>
-      <button class="btn btn-ghost btn-sm" id="btnDownloadJson" type="button"><i class="fa-solid fa-code"></i> JSON</button>
-      <button class="btn btn-ghost" id="btnExport" type="button">Export Logs</button>
-      <button class="btn btn-ghost" id="btnClear" type="button">Clear Logs</button>
-      <button class="btn btn-ghost" id="btnResetConfig" type="button" title="Reset configuration to defaults"><i class="fa-solid fa-rotate-left"></i> Reset Config</button>
-    </div>
+          <div class="card-body">
+            <!-- Mode Switcher -->
+            <div class="form-group">
+              <label for="attackMode" class="field-label">Attack Modality</label>
+              <select id="attackMode" class="form-control select-control">
+                <option value="browser">🌐 Browser Mode (Selenium WebDriver — Full DOM, JavaScript &amp; Captcha support)</option>
+                <option value="http">⚡ HTTP Mode (Hydra-style direct socket requests — Up to 100x faster)</option>
+              </select>
+            </div>
 
-    <!-- ════════════════════════════════════════════
-         STATS DASHBOARD
-         ════════════════════════════════════════════ -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-label">Elapsed Time</span>
-        <span class="stat-value" id="statElapsed">00:00:00</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Speed</span>
-        <span class="stat-value" id="statSpeed">0.0 att/s</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">ETA</span>
-        <span class="stat-value" id="statEta">--:--:--</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Hits</span>
-        <span class="stat-value stat-hits" id="statHits">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Attempted</span>
-        <span class="stat-value" id="statAttempted">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Errors</span>
-        <span class="stat-value stat-errors" id="statErrors">0</span>
-      </div>
-    </div>
+            <!-- Concurrency & Timing -->
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="threads" class="field-label">Worker Threads</label>
+                <input type="number" id="threads" class="form-control" min="1" max="100" value="1" />
+              </div>
+              <div class="form-group">
+                <label for="delay" class="field-label">Delay <span class="field-hint">(Seconds)</span></label>
+                <input type="number" id="delay" class="form-control" min="0" step="0.1" value="0" />
+              </div>
+              <div class="form-group">
+                <label for="jitter" class="field-label">Random Jitter <span class="field-hint">(Max Sec)</span></label>
+                <input type="number" id="jitter" class="form-control" min="0" step="0.1" value="0" />
+              </div>
+            </div>
 
-    <!-- ════════════════════════════════════════════
-         LIVE CHARTS
-         ════════════════════════════════════════════ -->
-    <div class="charts-row">
-      <div class="chart-container">
-        <h3><i class="fa-solid fa-chart-line"></i> Speed Over Time</h3>
-        <canvas id="speedChart"></canvas>
-      </div>
-      <div class="chart-container">
-        <h3><i class="fa-solid fa-chart-pie"></i> Results</h3>
-        <canvas id="resultsChart"></canvas>
-      </div>
-    </div>
+            <!-- Rate-Limit & Attempts -->
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="rateLimit" class="field-label">Rate-Limit Detection Text</label>
+                <input type="text" id="rateLimit" class="form-control" value="too many requests" />
+              </div>
+              <div class="form-group">
+                <label for="cooldown" class="field-label">Cooldown Sleep <span class="field-hint">(Seconds)</span></label>
+                <input type="number" id="cooldown" class="form-control" min="0" value="12" />
+              </div>
+              <div class="form-group">
+                <label for="maxAttempts" class="field-label">Max Attempts Limit <span class="field-hint">(0 = All)</span></label>
+                <input type="number" id="maxAttempts" class="form-control" min="0" value="0" />
+              </div>
+            </div>
 
-    <!-- ════════════════════════════════════════════
-         PROGRESS BAR
-         ════════════════════════════════════════════ -->
-    <div class="progress-container">
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill" style="width: 0%">
-          <span class="progress-text" id="progressText">0%</span>
+            <!-- Toggles Row -->
+            <div class="toggles-grid">
+              <label class="custom-toggle" id="headlessGroup">
+                <input type="checkbox" id="headless" checked />
+                <span class="toggle-track"></span>
+                <span class="toggle-text">Headless Browser</span>
+              </label>
+
+              <label class="custom-toggle">
+                <input type="checkbox" id="continueAfterSuccess" />
+                <span class="toggle-track"></span>
+                <span class="toggle-text">Continue After Hit</span>
+              </label>
+
+              <label class="custom-toggle">
+                <input type="checkbox" id="sprayMode" />
+                <span class="toggle-track"></span>
+                <span class="toggle-text">Password Spray Mode <span class="pill-badge pill-purple">Evasive</span></span>
+              </label>
+            </div>
+
+            <!-- ── HTTP Mode Specific Sub-Panel (Conditional) ── -->
+            <div id="httpModeOptions" class="http-subpanel" style="display: none;">
+              <div class="subpanel-header">
+                <i class="fa-solid fa-bolt text-accent"></i>
+                <h3>HTTP Hydra Configuration Options</h3>
+              </div>
+
+              <div class="form-group">
+                <label for="formAction" class="field-label">POST Form Action URL <span class="field-hint">(Auto-discovered if left blank)</span></label>
+                <input type="text" id="formAction" class="form-control mono-font" placeholder="https://target.com/api/v1/auth" />
+              </div>
+
+              <div class="form-grid form-grid-3">
+                <div class="form-group">
+                  <label for="usernameField" class="field-label">Username Key <span class="field-hint">(Auto)</span></label>
+                  <input type="text" id="usernameField" class="form-control mono-font" placeholder="username / user / email" />
+                </div>
+                <div class="form-group">
+                  <label for="passwordField" class="field-label">Password Key <span class="field-hint">(Auto)</span></label>
+                  <input type="text" id="passwordField" class="form-control mono-font" placeholder="password / pass" />
+                </div>
+                <div class="form-group">
+                  <label for="csrfField" class="field-label">CSRF Field Key <span class="field-hint">(Auto)</span></label>
+                  <input type="text" id="csrfField" class="form-control mono-font" placeholder="csrf_token / _csrf" />
+                </div>
+              </div>
+
+              <div class="toggles-grid" style="margin-top: 12px;">
+                <label class="custom-toggle">
+                  <input type="checkbox" id="followRedirects" />
+                  <span class="toggle-track"></span>
+                  <span class="toggle-text">Follow 3xx Redirects</span>
+                </label>
+
+                <label class="custom-toggle">
+                  <input type="checkbox" id="jsonMode" />
+                  <span class="toggle-track"></span>
+                  <span class="toggle-text">JSON Payload Mode <span class="pill-badge pill-blue">REST API</span></span>
+                </label>
+              </div>
+
+              <div class="form-grid form-grid-2" style="margin-top: 16px;">
+                <div class="form-group">
+                  <label for="customHeaders" class="field-label">Custom HTTP Headers <span class="field-hint">(Header: Value per line)</span></label>
+                  <textarea id="customHeaders" class="form-control mono-font" rows="2" placeholder="X-Requested-With: XMLHttpRequest&#10;Authorization: Bearer token123"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="customCookies" class="field-label">Custom Cookie String <span class="field-hint">(k=v; k2=v2)</span></label>
+                  <textarea id="customCookies" class="form-control mono-font" rows="2" placeholder="session=abc123xyz; secure_token=998877"></textarea>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="successStatusCodes" class="field-label">Success Status Codes <span class="field-hint">(Comma-separated)</span></label>
+                <input type="text" id="successStatusCodes" class="form-control mono-font" placeholder="200, 302, 303, 204" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. Tor & Proxy ── -->
+      <section class="tab-content" id="tab-proxy" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-shield-virus card-title-icon text-cyan"></i>
+              <div>
+                <h2 class="card-title">Anonymity &amp; Proxy Routing</h2>
+                <p class="card-subtitle">Route connections through Tor network with auto-identity shifting or custom proxy pools</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label class="custom-toggle" style="margin-top: 8px;">
+                  <input type="checkbox" id="enableTor" />
+                  <span class="toggle-track"></span>
+                  <span class="toggle-text"><strong>Enable Tor Routing</strong></span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label for="torControlPort" class="field-label">Tor Control Port</label>
+                <input type="number" id="torControlPort" class="form-control" min="1" max="65535" value="9051" />
+              </div>
+              <div class="form-group">
+                <label for="torShiftEvery" class="field-label">Shift IP Every N Attempts</label>
+                <input type="number" id="torShiftEvery" class="form-control" min="1" value="10" />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 16px;">
+              <label for="proxy" class="field-label">
+                Proxy Configuration
+                <span class="field-hint">(Single URL like socks5://127.0.0.1:9050 or path to proxy list)</span>
+              </label>
+              <input
+                type="text"
+                id="proxy"
+                class="form-control mono-font"
+                placeholder="http://user:pass@12.34.56.78:8080  or  C:\proxies.txt"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4. CUPP Generator ── -->
+      <section class="tab-content" id="tab-cupp" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-id-badge card-title-icon text-purple"></i>
+              <div>
+                <h2 class="card-title">CUPP — Common User Passwords Profiler</h2>
+                <p class="card-subtitle">Synthesize targeted wordlists using OSINT details and human password construction patterns</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="cuppFirstName" class="field-label">First Name</label>
+                <input type="text" id="cuppFirstName" class="form-control" placeholder="John" />
+              </div>
+              <div class="form-group">
+                <label for="cuppLastName" class="field-label">Last Name</label>
+                <input type="text" id="cuppLastName" class="form-control" placeholder="Doe" />
+              </div>
+              <div class="form-group">
+                <label for="cuppNickname" class="field-label">Nickname</label>
+                <input type="text" id="cuppNickname" class="form-control" placeholder="johnd" />
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="cuppBirthdate" class="field-label">Birthdate <span class="field-hint">(DDMMYYYY)</span></label>
+                <input type="text" id="cuppBirthdate" class="form-control" placeholder="15081990" />
+              </div>
+              <div class="form-group">
+                <label for="cuppPartnerName" class="field-label">Partner Name</label>
+                <input type="text" id="cuppPartnerName" class="form-control" placeholder="Jane" />
+              </div>
+              <div class="form-group">
+                <label for="cuppPartnerNickname" class="field-label">Partner Nickname</label>
+                <input type="text" id="cuppPartnerNickname" class="form-control" placeholder="janey" />
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="cuppPartnerBirthdate" class="field-label">Partner Birthdate</label>
+                <input type="text" id="cuppPartnerBirthdate" class="form-control" placeholder="22041992" />
+              </div>
+              <div class="form-group">
+                <label for="cuppChildName" class="field-label">Child Name</label>
+                <input type="text" id="cuppChildName" class="form-control" placeholder="Alex" />
+              </div>
+              <div class="form-group">
+                <label for="cuppChildBirthdate" class="field-label">Child Birthdate</label>
+                <input type="text" id="cuppChildBirthdate" class="form-control" placeholder="05062018" />
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="cuppPetName" class="field-label">Pet Name</label>
+                <input type="text" id="cuppPetName" class="form-control" placeholder="Max" />
+              </div>
+              <div class="form-group">
+                <label for="cuppCompany" class="field-label">Company / Org</label>
+                <input type="text" id="cuppCompany" class="form-control" placeholder="AcmeCorp" />
+              </div>
+              <div class="form-group">
+                <label for="cuppKeywords" class="field-label">Keywords <span class="field-hint">(Comma-sep)</span></label>
+                <input type="text" id="cuppKeywords" class="form-control" placeholder="admin, pass, secure, 2024" />
+              </div>
+            </div>
+
+            <div class="toggles-grid" style="margin: 16px 0;">
+              <label class="custom-toggle">
+                <input type="checkbox" id="cuppSpecialChars" />
+                <span class="toggle-track"></span>
+                <span class="toggle-text">Special Characters</span>
+              </label>
+
+              <label class="custom-toggle">
+                <input type="checkbox" id="cuppRandomNumbers" />
+                <span class="toggle-track"></span>
+                <span class="toggle-text">Random Numbers</span>
+              </label>
+
+              <label class="custom-toggle">
+                <input type="checkbox" id="cuppLeet" />
+                <span class="toggle-track"></span>
+                <span class="toggle-text">1337 Mode (Leetspeak)</span>
+              </label>
+            </div>
+
+            <div class="action-bar-sub">
+              <button class="btn btn-primary" id="btnGenerateCupp" type="button">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Profiler Wordlist
+              </button>
+              <button class="btn btn-outline" id="btnUseCupp" type="button" disabled>
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Load as Password Input
+              </button>
+              <span class="status-chip" id="cuppStatus"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. Sequence Generator ── -->
+      <section class="tab-content" id="tab-sequence" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-list-ol card-title-icon text-cyan"></i>
+              <div>
+                <h2 class="card-title">Numeric Sequence Wordlist Generator</h2>
+                <p class="card-subtitle">Quickly compile PIN, index, or structured numeric pattern lists with padding and affix options</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label for="seqStart" class="field-label">Start Value</label>
+                <input type="number" id="seqStart" class="form-control" value="0" />
+              </div>
+              <div class="form-group">
+                <label for="seqEnd" class="field-label">End Value</label>
+                <input type="number" id="seqEnd" class="form-control" value="9999" />
+              </div>
+              <div class="form-group">
+                <label for="seqPadding" class="field-label">Zero-Padding Digits</label>
+                <input type="number" id="seqPadding" class="form-control" min="0" max="16" value="4" />
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label for="seqPrefix" class="field-label">Prefix Text</label>
+                <input type="text" id="seqPrefix" class="form-control" placeholder="user_" />
+              </div>
+              <div class="form-group">
+                <label for="seqSuffix" class="field-label">Suffix Text</label>
+                <input type="text" id="seqSuffix" class="form-control" placeholder="@domain.com" />
+              </div>
+            </div>
+
+            <div class="action-bar-sub" style="margin-top: 16px;">
+              <button class="btn btn-primary" id="btnGenerateSeq" type="button">
+                <i class="fa-solid fa-gears"></i> Generate Sequence
+              </button>
+              <button class="btn btn-outline" id="btnUseSeq" type="button" disabled>
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Load as Target Input
+              </button>
+              <span class="status-chip" id="seqStatus"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 6. Targets Queue ── -->
+      <section class="tab-content" id="tab-targets" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-server card-title-icon text-indigo"></i>
+              <div>
+                <h2 class="card-title">Multi-Target Batch Attack Queue</h2>
+                <p class="card-subtitle">Queue multiple distinct websites and execute sequential penetration routines</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="action-bar-sub" style="margin-bottom: 16px;">
+              <button class="btn btn-primary btn-sm" id="btnAddTarget" type="button">
+                <i class="fa-solid fa-plus"></i> Queue Current Configuration
+              </button>
+              <button class="btn btn-emerald btn-sm" id="btnStartAllTargets" type="button" disabled>
+                <i class="fa-solid fa-play"></i> Run All Targets Sequentially
+              </button>
+            </div>
+
+            <div class="target-list-box" id="targetList">
+              <div class="empty-state">
+                <i class="fa-solid fa-folder-open empty-state-icon"></i>
+                <p>No targets queued yet. Configure a target and click "Queue Current Configuration".</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 7. Attack Scheduler ── -->
+      <section class="tab-content" id="tab-schedule" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-stopwatch card-title-icon text-accent"></i>
+              <div>
+                <h2 class="card-title">Automated Attack Scheduler</h2>
+                <p class="card-subtitle">Schedule penetration jobs to execute at off-peak maintenance hours or specific date/times</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label for="scheduleTime" class="field-label">Scheduled Execution Time (Local)</label>
+                <input type="datetime-local" id="scheduleTime" class="form-control" />
+              </div>
+              <div class="form-group" style="display: flex; align-items: flex-end;">
+                <button class="btn btn-primary" id="btnScheduleAttack" type="button" style="width: 100%;">
+                  <i class="fa-solid fa-calendar-plus"></i> Schedule Attack
+                </button>
+              </div>
+            </div>
+
+            <div class="schedule-list-box" id="scheduleList" style="margin-top: 16px;">
+              <div class="empty-state">
+                <i class="fa-solid fa-calendar-xmark empty-state-icon"></i>
+                <p>No scheduled tasks currently active.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 8. Alerts & Webhooks ── -->
+      <section class="tab-content" id="tab-notifications" role="tabpanel">
+        <div class="panel-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <i class="fa-solid fa-bell-ring card-title-icon text-cyan"></i>
+              <div>
+                <h2 class="card-title">Real-Time Notification Dispatchers</h2>
+                <p class="card-subtitle">Receive instantaneous rich webhook alerts on Discord and Telegram when valid credentials are found</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- Discord Section -->
+            <div class="webhook-section">
+              <div class="section-badge-title">
+                <i class="fa-brands fa-discord discord-color"></i>
+                <span>Discord Webhook Integration</span>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label for="discordWebhook" class="field-label">Discord Webhook URL</label>
+                <div class="input-action-group">
+                  <input
+                    type="url"
+                    id="discordWebhook"
+                    class="form-control mono-font"
+                    placeholder="https://discord.com/api/webhooks/1234567890/token..."
+                  />
+                  <button class="btn btn-outline" id="btnTestDiscord" type="button">
+                    <i class="fa-solid fa-paper-plane"></i> Test Discord
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Telegram Section -->
+            <div class="webhook-section" style="margin-top: 20px;">
+              <div class="section-badge-title">
+                <i class="fa-brands fa-telegram telegram-color"></i>
+                <span>Telegram Bot Integration</span>
+              </div>
+              <div class="form-grid form-grid-2" style="margin-top: 10px;">
+                <div class="form-group">
+                  <label for="telegramToken" class="field-label">Telegram Bot Token</label>
+                  <input
+                    type="text"
+                    id="telegramToken"
+                    class="form-control mono-font"
+                    placeholder="123456789:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="telegramChatId" class="field-label">Target Chat ID</label>
+                  <div class="input-action-group">
+                    <input
+                      type="text"
+                      id="telegramChatId"
+                      class="form-control mono-font"
+                      placeholder="-100123456789 or @channel"
+                    />
+                    <button class="btn btn-outline" id="btnTestTelegram" type="button">
+                      <i class="fa-solid fa-paper-plane"></i> Test Bot
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="action-bar-sub" style="margin-top: 20px;">
+              <button class="btn btn-primary" id="btnSaveNotifications" type="button">
+                <i class="fa-solid fa-floppy-disk"></i> Save &amp; Persist Notification Settings
+              </button>
+              <span class="status-chip" id="notifStatus"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ════════════════════════════════════════════════════════════
+         MISSION CONTROL & COMMAND ACTIONS BAR
+         ════════════════════════════════════════════════════════════ -->
+    <section class="command-bar">
+      <div class="command-primary-group">
+        <button class="btn btn-start-attack" id="btnStart" type="button">
+          <i class="fa-solid fa-play"></i> Start Attack
+        </button>
+        <button class="btn btn-stop-attack" id="btnStop" type="button" disabled>
+          <i class="fa-solid fa-stop"></i> Stop
+        </button>
+      </div>
+
+      <div class="command-secondary-group">
+        <button class="btn btn-toolbar" id="btnReport" type="button" title="Generate and view full standalone HTML penetration report">
+          <i class="fa-solid fa-file-invoice text-cyan"></i> HTML Report
+        </button>
+        <button class="btn btn-toolbar" id="btnDownloadJson" type="button" title="Download machine-readable JSON metrics">
+          <i class="fa-solid fa-code text-indigo"></i> JSON Export
+        </button>
+        <button class="btn btn-toolbar" id="btnExport" type="button" title="Export console output logs to file">
+          <i class="fa-solid fa-download"></i> Save Logs
+        </button>
+        <button class="btn btn-toolbar" id="btnClear" type="button" title="Clear console output window">
+          <i class="fa-solid fa-eraser"></i> Clear Terminal
+        </button>
+        <button class="btn btn-toolbar" id="btnResetConfig" type="button" title="Reset all form configuration fields to defaults">
+          <i class="fa-solid fa-rotate-left text-rose"></i> Reset Form
+        </button>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         LIVE TELEMETRY & METRICS DASHBOARD
+         ════════════════════════════════════════════════════════════ -->
+    <section class="telemetry-section">
+      <div class="kpi-grid">
+        <!-- Elapsed -->
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap"><i class="fa-solid fa-stopwatch text-cyan"></i></div>
+          <div class="kpi-details">
+            <span class="kpi-label">Elapsed Time</span>
+            <span class="kpi-value mono-font" id="statElapsed">00:00:00</span>
+          </div>
+        </div>
+
+        <!-- Speed -->
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap"><i class="fa-solid fa-gauge-high text-indigo"></i></div>
+          <div class="kpi-details">
+            <span class="kpi-label">Attack Speed</span>
+            <span class="kpi-value mono-font" id="statSpeed">0.0 att/s</span>
+          </div>
+        </div>
+
+        <!-- ETA -->
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap"><i class="fa-solid fa-hourglass-half text-purple"></i></div>
+          <div class="kpi-details">
+            <span class="kpi-label">Estimated ETA</span>
+            <span class="kpi-value mono-font" id="statEta">--:--:--</span>
+          </div>
+        </div>
+
+        <!-- Hits (Found) -->
+        <div class="kpi-card kpi-hits-card">
+          <div class="kpi-icon-wrap"><i class="fa-solid fa-key text-emerald"></i></div>
+          <div class="kpi-details">
+            <span class="kpi-label">Found Credentials</span>
+            <span class="kpi-value mono-font text-emerald" id="statHits">0</span>
+          </div>
+        </div>
+
+        <!-- Attempted -->
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap"><i class="fa-solid fa-list-check text-blue"></i></div>
+          <div class="kpi-details">
+            <span class="kpi-label">Total Attempted</span>
+            <span class="kpi-value mono-font" id="statAttempted">0</span>
+          </div>
+        </div>
+
+        <!-- Errors / Rate-limits -->
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap"><i class="fa-solid fa-triangle-exclamation text-rose"></i></div>
+          <div class="kpi-details">
+            <span class="kpi-label">Errors / Blocks</span>
+            <span class="kpi-value mono-font text-rose" id="statErrors">0</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- ════════════════════════════════════════════
-         TERMINAL CONSOLE
-         ════════════════════════════════════════════ -->
-    <div class="terminal-wrapper">
-      <div class="terminal-header">
-        <span class="terminal-dot red"></span>
-        <span class="terminal-dot yellow"></span>
-        <span class="terminal-dot green"></span>
-        <span class="terminal-title">Console Output</span>
-      </div>
-      <div class="terminal" id="terminal">
-        <div class="log-line log-system">[~] BlueCrack — Web Interface Ready</div>
-      </div>
-    </div>
+      <!-- Real-time Charts Row -->
+      <div class="charts-grid">
+        <div class="chart-box">
+          <div class="chart-header">
+            <i class="fa-solid fa-chart-line text-cyan"></i>
+            <span>Throughput Speed History (Attempts / Sec)</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="speedChart"></canvas>
+          </div>
+        </div>
 
-    <!-- FOOTER -->
-    <footer class="footer">
-      BlueCrack — Built by <a href="https://github.com/taezeem14" target="_blank" rel="noopener">Muhammad Taezeem Tariq</a>
+        <div class="chart-box">
+          <div class="chart-header">
+            <i class="fa-solid fa-chart-pie text-indigo"></i>
+            <span>Results &amp; Outcomes Distribution</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="resultsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Fill Bar -->
+      <div class="progress-section">
+        <div class="progress-track">
+          <div class="progress-bar-fill" id="progressFill" style="width: 0%;">
+            <span class="progress-label" id="progressText">0%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         HIGH-PERFORMANCE INTERACTIVE TERMINAL CONSOLE
+         ════════════════════════════════════════════════════════════ -->
+    <section class="terminal-container">
+      <div class="terminal-bar">
+        <div class="terminal-window-controls">
+          <span class="window-dot red"></span>
+          <span class="window-dot yellow"></span>
+          <span class="window-dot green"></span>
+          <span class="terminal-title-text">
+            <i class="fa-solid fa-terminal text-cyan"></i> bluecrack-core-engine &mdash; live output
+          </span>
+        </div>
+
+        <div class="terminal-quick-actions">
+          <input
+            type="text"
+            id="terminalFilter"
+            class="terminal-filter-input"
+            placeholder="Filter logs (e.g. VALID, error, tor)..."
+          />
+          <button class="term-btn" id="btnCopyTerminal" type="button" title="Copy console logs to clipboard">
+            <i class="fa-regular fa-copy"></i> Copy
+          </button>
+          <button class="term-btn" id="btnAutoScroll" type="button" title="Toggle autoscroll" data-autoscroll="true">
+            <i class="fa-solid fa-angles-down"></i> Auto-Scroll
+          </button>
+        </div>
+      </div>
+
+      <!-- Terminal Output Body -->
+      <div class="terminal-body mono-font" id="terminal">
+        <div class="log-entry log-info">[~] BlueCrack Command Center Initialized. System ready.</div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         FOOTER
+         ════════════════════════════════════════════════════════════ -->
+    <footer class="app-footer">
+      <span>BlueCrack Framework &bull; Designed &amp; Maintained by <a href="https://github.com/taezeem14" target="_blank" rel="noopener">Muhammad Taezeem Tariq</a></span>
+      <span class="footer-note">For authorized security research &amp; auditing purposes only.</span>
     </footer>
 
-  </div><!-- /.container -->
+  </div><!-- /.app-layout -->
 
-  <!-- Floating Info Button -->
-  <button class="floating-info-btn" id="btnInfo" type="button" title="View Tutorial & Disclaimer">
-    <i class="fa-solid fa-info"></i>
-  </button>
-
-  <!-- Tutorial & Disclaimer Modal -->
-  <div class="modal-overlay" id="tutorialModal">
-    <div class="modal-container">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modalTitle"><i class="fa-solid fa-circle-info text-indigo"></i> Welcome to BlueCrack</h3>
-        <button class="modal-close" id="btnCloseModal" type="button">&times;</button>
+  <!-- ════════════════════════════════════════════════════════════
+       MODAL 1: SYSTEM ENVIRONMENT DOCTOR
+       ════════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="doctorModal">
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-stethoscope text-cyan"></i>
+          <h3>System Environment &amp; Dependency Doctor</h3>
+        </div>
+        <button class="modal-x" id="btnCloseDoctor" type="button">&times;</button>
       </div>
-      
-      <div class="modal-body">
-        <!-- Panel 1: Disclaimer (Shown always on start) -->
-        <div class="modal-panel active" id="panelDisclaimer">
-          <div class="disclaimer-warning">
-            <i class="fa-solid fa-triangle-exclamation warning-icon"></i>
-            <h4>IMPORTANT DISCLAIMER &amp; WARNING</h4>
-            <p>This software is developed for authorized security testing, research, and educational purposes only.</p>
-            <p class="highlight-warning"><strong>The creator (Muhammad Taezeem Tariq) is not held responsible for any misuse, damage, or illegal activities conducted with this framework.</strong></p>
-            <p>By proceeding, you verify that you have explicit authorization to test the targets you configure, and you agree to use this software in complete compliance with all applicable local and international laws.</p>
+
+      <div class="modal-content">
+        <p class="modal-desc">
+          Automated diagnostic verification of Python runtime, Chrome binary, ChromeDriver compatibility, networking, and optional modules.
+        </p>
+
+        <div id="doctorChecksContainer" class="doctor-results-list">
+          <div class="loading-state">
+            <i class="fa-solid fa-spinner fa-spin"></i> Running diagnostic health checks...
           </div>
-          <div class="modal-actions">
-            <button class="btn btn-primary" id="btnAgreeDisclaimer" type="button">I Agree &amp; Proceed</button>
-            <button class="btn btn-ghost" id="btnShowTutorialFromStart" type="button">Read User Guide</button>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn btn-outline btn-sm" id="btnRerunDoctor" type="button">
+          <i class="fa-solid fa-arrows-rotate"></i> Re-test
+        </button>
+        <button class="btn btn-primary btn-sm" id="btnCloseDoctorBtn" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       MODAL 2: TUTORIAL & DISCLAIMER
+       ════════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="tutorialModal">
+    <div class="modal-dialog modal-dialog-lg">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-shield-halved text-indigo"></i>
+          <h3 id="modalTitle">Welcome to BlueCrack</h3>
+        </div>
+        <button class="modal-x" id="btnCloseModal" type="button">&times;</button>
+      </div>
+
+      <div class="modal-content">
+        <!-- Panel A: Mandatory Legal Disclaimer -->
+        <div class="modal-tab-panel active" id="panelDisclaimer">
+          <div class="disclaimer-callout">
+            <i class="fa-solid fa-triangle-exclamation disclaimer-icon"></i>
+            <h4>LEGAL DISCLAIMER &amp; AUTHORIZATION NOTICE</h4>
+            <p>BlueCrack is strictly developed for authorized penetration testing, vulnerability assessment, defense auditing, and educational demonstrations.</p>
+            <p class="warning-callout">
+              <strong>The creator (Muhammad Taezeem Tariq) accepts no responsibility or liability for unauthorized access, misuse, or damages caused by this tool.</strong>
+            </p>
+            <p>By proceeding, you attest that you own the target infrastructure or possess explicit, written authorization to perform security testing against it.</p>
+          </div>
+
+          <div class="modal-foot" style="padding: 16px 0 0 0;">
+            <button class="btn btn-primary" id="btnAgreeDisclaimer" type="button">
+              <i class="fa-solid fa-check"></i> I Agree &amp; Proceed
+            </button>
+            <button class="btn btn-outline" id="btnShowTutorialFromStart" type="button">
+              <i class="fa-solid fa-book-open"></i> Read User Guide
+            </button>
           </div>
         </div>
 
-        <!-- Panel 2: User Guide / Tutorial -->
-        <div class="modal-panel" id="panelTutorial">
-          <nav class="tutorial-tabs">
-            <button class="tut-tab-btn active" data-tut="tut-general" type="button">General</button>
-            <button class="tut-tab-btn" data-tut="tut-modes" type="button">Modes</button>
-            <button class="tut-tab-btn" data-tut="tut-generators" type="button">Generators</button>
-            <button class="tut-tab-btn" data-tut="tut-advanced" type="button">Advanced</button>
+        <!-- Panel B: Interactive User Guide -->
+        <div class="modal-tab-panel" id="panelTutorial">
+          <nav class="guide-nav-tabs">
+            <button class="tut-tab-btn active" data-tut="tut-general" type="button">Overview</button>
+            <button class="tut-tab-btn" data-tut="tut-modes" type="button">Attack Modes</button>
+            <button class="tut-tab-btn" data-tut="tut-generators" type="button">Wordlist Tools</button>
+            <button class="tut-tab-btn" data-tut="tut-advanced" type="button">Advanced Evasion</button>
           </nav>
 
-          <div class="tutorial-contents">
-            <!-- Tab: General -->
+          <div class="guide-scrollable-body">
+            <!-- Overview -->
             <div class="tut-content active" id="tut-general">
-              <h5><i class="fa-solid fa-crosshairs text-indigo"></i> Target Configuration</h5>
-              <p>Set the target URL where the login form resides. Provide a single username or point it to a text file list. Do the same for the password (or load custom wordlists via Browse).</p>
-              <p>Tell the engine what text confirms a failed login (e.g., <em>Invalid password</em>) or successful login (e.g., <em>Welcome</em>) so it can report hits accurately.</p>
-              
-              <h5><i class="fa-solid fa-gauge-high text-cyan"></i> Dashboard &amp; Console</h5>
-              <p>Once you click <strong>Start Attack</strong>, the dashboard displays live metrics: elapsed time, attempts speed, ETA, hits (successes), attempted count, and any rate-limit errors.</p>
-              <p>The <strong>Console Output</strong> at the bottom streams detailed live logs explaining exactly what background tasks are doing.</p>
+              <h5><i class="fa-solid fa-crosshairs text-cyan"></i> Target &amp; Verification Configuration</h5>
+              <p>Supply the login page URL. Provide either a single user/password or enter local file paths to username/password lists.</p>
+              <p>Set <strong>Error Matcher</strong> (e.g. <code>Invalid credentials</code>) or <strong>Success Matcher</strong> (e.g. <code>Welcome</code>) so the engine accurately confirms authentication outcomes.</p>
+
+              <h5><i class="fa-solid fa-chart-line text-indigo"></i> Real-Time Telemetry &amp; Console</h5>
+              <p>Monitor live throughput speed, estimated time to completion, hits, and rate-limit blocks with smooth 60fps KPI cards and interactive charts.</p>
             </div>
 
-            <!-- Tab: Modes -->
+            <!-- Attack Modes -->
             <div class="tut-content" id="tut-modes">
-              <h5><i class="fa-solid fa-globe text-cyan"></i> Browser Mode (Selenium)</h5>
-              <p>Uses a real browser in the background. It mimics actual user keyboard actions and clicks. Ideal for modern, complex websites that rely heavily on JavaScript.</p>
-              
-              <h5><i class="fa-solid fa-bolt text-indigo"></i> HTTP Mode (Hydra-style)</h5>
-              <p>Bypasses the browser interface and sends network packets directly. It runs up to <strong>100x faster</strong>. Great for legacy portals, API endpoints, and raw speed testing.</p>
+              <h5><i class="fa-solid fa-globe text-cyan"></i> Browser Mode (Selenium WebDriver)</h5>
+              <p>Launches headless Chrome instances that simulate realistic mouse clicks and keyboard typing. Ideal for modern SPA websites with heavy JavaScript, dynamic tokens, and complex event handlers.</p>
 
-              <h5><i class="fa-solid fa-spray-can text-cyan"></i> Spray Mode</h5>
-              <p>Instead of testing thousands of passwords against one username (which locks accounts), Spray Mode tests a single password against a list of multiple users. Safely bypasses lockout thresholds.</p>
+              <h5><i class="fa-solid fa-bolt text-accent"></i> HTTP Mode (Hydra-style)</h5>
+              <p>Sends direct asynchronous raw HTTP requests bypassing full browser rendering overhead. Delivers up to <strong>100x higher throughput</strong> for REST APIs and standard HTML forms with automatic CSRF token extraction.</p>
+
+              <h5><i class="fa-solid fa-spray-can text-purple"></i> Password Spray Mode</h5>
+              <p>Tests a single password against all users before advancing to the next password, evading typical account lockout thresholds.</p>
             </div>
 
-            <!-- Tab: Generators -->
+            <!-- Wordlists -->
             <div class="tut-content" id="tut-generators">
-              <h5><i class="fa-solid fa-wand-magic-sparkles text-indigo"></i> CUPP Generator</h5>
-              <p>Generates target-specific password guesses based on personal profiles. Input a user's details (names, birthdates, pet names, company details, keywords) and CUPP automatically compiles a smart custom wordlist applying common formatting styles.</p>
+              <h5><i class="fa-solid fa-wand-magic-sparkles text-indigo"></i> CUPP Password Profiler</h5>
+              <p>Generates target-specific password permutations based on target intelligence (names, birthdates, partner, pets, company, keywords) with common leetspeak substitutions.</p>
 
-              <h5><i class="fa-solid fa-list-ol text-cyan"></i> Sequence Generator</h5>
-              <p>Quickly generates numeric sequence ranges (e.g. <code>0000</code> to <code>9999</code>) with customizable prefixes (like <code>user_</code>) or suffixes (like <code>@gmail.com</code>). Ideal for pin code or indexed username profiling.</p>
+              <h5><i class="fa-solid fa-arrow-down-1-9 text-cyan"></i> Sequence Generator</h5>
+              <p>Produces formatted numeric sequences (e.g., <code>0000</code> to <code>9999</code>) with customizable prefixes and zero-padding widths.</p>
             </div>
 
-            <!-- Tab: Advanced -->
+            <!-- Advanced -->
             <div class="tut-content" id="tut-advanced">
-              <h5><i class="fa-solid fa-shield-halved text-indigo"></i> Tor &amp; Proxy</h5>
-              <p>Enable Tor to route your traffic anonymously. Set it to shift identity after N attempts to automatically obtain a fresh IP address. You can also supply custom proxy lists.</p>
+              <h5><i class="fa-solid fa-shield-virus text-cyan"></i> Tor &amp; Proxy Anonymity</h5>
+              <p>Route traffic through SOCKS5/HTTP proxies or the Tor network with automatic IP identity rotation after every N attempts.</p>
 
-              <h5><i class="fa-solid fa-globe text-cyan"></i> Targets Queue</h5>
-              <p>Queue multiple sites to be audited sequentially. Set up a target, add it to the queue, configure the next one, and start them all with one click.</p>
-
-              <h5><i class="fa-solid fa-clock text-indigo"></i> Attack Scheduler</h5>
-              <p>Schedule audits to run at a specific future date/time so they run automatically during maintenance or low-traffic windows.</p>
-
-              <h5><i class="fa-solid fa-bell text-cyan"></i> Alerts (Discord &amp; Telegram)</h5>
-              <p>Supply Discord webhook URLs or Telegram bot tokens. The framework will instantly message your chat when a valid login is discovered.</p>
+              <h5><i class="fa-solid fa-bell text-accent"></i> Instant Webhook Alerts</h5>
+              <p>Configure Discord and Telegram webhook tokens to receive instant push alerts on your phone or workstation the moment a valid login is discovered.</p>
             </div>
           </div>
 
-          <div class="modal-actions" style="margin-top: 16px;">
-            <button class="btn btn-ghost" id="btnBackToDisclaimer" type="button">View Disclaimer</button>
+          <div class="modal-foot" style="padding: 16px 0 0 0;">
+            <button class="btn btn-outline" id="btnBackToDisclaimer" type="button">Legal Notice</button>
             <button class="btn btn-primary" id="btnFinishTutorial" type="button">Get Started</button>
           </div>
         </div>
@@ -689,29 +1038,7 @@
     </div>
   </div>
 
-  <!-- System Doctor Modal -->
-  <div class="modal-overlay" id="doctorModal">
-    <div class="modal-container">
-      <div class="modal-header">
-        <h3 class="modal-title"><i class="fa-solid fa-stethoscope text-cyan"></i> BlueCrack Environment Doctor</h3>
-        <button class="modal-close" id="btnCloseDoctor" type="button">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
-          Diagnostic checkup on system dependencies, Chrome browser, networking, and optional security modules.
-        </p>
-        <div id="doctorChecksContainer" class="doctor-checks-grid">
-          <div style="text-align:center; padding: 20px; color: var(--text-muted);">Running diagnostic checks...</div>
-        </div>
-        <div class="modal-actions" style="margin-top: 20px;">
-          <button class="btn btn-ghost" id="btnRerunDoctor" type="button"><i class="fa-solid fa-arrows-rotate"></i> Re-test</button>
-          <button class="btn btn-primary" id="btnCloseDoctorBtn" type="button">Done</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- App JavaScript -->
+  <!-- Application Logic -->
   <script src="/static/js/app.js"></script>
 </body>
 </html>

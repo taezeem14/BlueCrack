@@ -1,13 +1,18 @@
-/* ═══════════════════════════════════════════════════════════════
-   BlueCrack — Frontend Application Logic
-   ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   BlueCrack — Modern Frontend Application Logic (ES6+)
+   Ultra-Lightweight & GPU Optimized (128MB iGPU Ready)
+   ═══════════════════════════════════════════════════════════════════ */
 
 'use strict';
 
-// ─── Socket.IO Connection ──────────────────────────────────────
-const socket = io();
+// ─── Socket.IO Connection ──────────────────────────────────────────
+const socket = io({
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionDelay: 1000,
+});
 
-// ─── Utility: Safe HTML Escaping ───────────────────────────────
+// ─── Safe HTML Escaping Helper ─────────────────────────────────────
 function escapeHTML(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -18,19 +23,49 @@ function escapeHTML(str) {
     .replace(/'/g, '&#039;');
 }
 
-// ─── DOM References ────────────────────────────────────────────
+// ─── Toast Notification System ─────────────────────────────────────
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+
+  const iconMap = {
+    success: 'fa-solid fa-circle-check text-emerald',
+    error:   'fa-solid fa-circle-exclamation text-rose',
+    info:    'fa-solid fa-circle-info text-cyan',
+  };
+
+  toast.innerHTML = `
+    <i class="${iconMap[type] || iconMap.info}"></i>
+    <span>${escapeHTML(message)}</span>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(20px)';
+    toast.style.transition = 'all 0.2s ease';
+    setTimeout(() => toast.remove(), 200);
+  }, 3500);
+}
+
+// ─── DOM References ────────────────────────────────────────────────
 const DOM = {
   // Header Actions
   btnLaunchDemo:   document.getElementById('btnLaunchDemo'),
   btnToggleEco:    document.getElementById('btnToggleEco'),
   btnDoctor:       document.getElementById('btnDoctor'),
+  btnInfo:         document.getElementById('btnInfo'),
 
   // Connection status
   connectionDot:   document.getElementById('connectionDot'),
   connectionLabel: document.getElementById('connectionLabel'),
+  connectionPill:  document.getElementById('connectionPill'),
 
   // Floating Info & Welcome Modal
-  btnInfo:                   document.getElementById('btnInfo'),
   tutorialModal:             document.getElementById('tutorialModal'),
   btnCloseModal:             document.getElementById('btnCloseModal'),
   btnAgreeDisclaimer:        document.getElementById('btnAgreeDisclaimer'),
@@ -144,8 +179,11 @@ const DOM = {
   progressFill: document.getElementById('progressFill'),
   progressText: document.getElementById('progressText'),
 
-  // Terminal
-  terminal: document.getElementById('terminal'),
+  // Terminal & Tools
+  terminal:          document.getElementById('terminal'),
+  terminalFilter:    document.getElementById('terminalFilter'),
+  btnCopyTerminal:   document.getElementById('btnCopyTerminal'),
+  btnAutoScroll:     document.getElementById('btnAutoScroll'),
 
   // Session resume
   resumeBanner:      document.getElementById('resumeBanner'),
@@ -172,15 +210,12 @@ const DOM = {
   notifStatus:          document.getElementById('notifStatus'),
 };
 
-// Cached result paths for generators
-let cuppResultPath    = null;
+// Cached generator paths
+let cuppResultPath = null;
 let sequenceResultPath = null;
+let autoScrollEnabled = true;
 
-
-// ═══════════════════════════════════════════════════════════════
-//  TAB SWITCHING & CONFIG PERSISTENCE
-// ═══════════════════════════════════════════════════════════════
-
+// ─── Tab Switching & Mode Changes ──────────────────────────────────
 function switchTab(targetId) {
   if (!targetId) return;
   DOM.tabButtons.forEach(btn => {
@@ -200,15 +235,15 @@ function switchTab(targetId) {
 
 function onModeChange() {
   if (!DOM.attackMode) return;
-  const mode = DOM.attackMode.value;
-  const isHttp = mode === 'http';
-  if (DOM.httpModeOptions) DOM.httpModeOptions.style.display = isHttp ? 'block' : 'none';
-  if (DOM.headlessGroup) DOM.headlessGroup.style.display = isHttp ? 'none' : '';
+  const isHttp = DOM.attackMode.value === 'http';
+  if (DOM.httpModeOptions) DOM.httpModeOptions.style.display = isHttp ? 'flex' : 'none';
+  if (DOM.headlessGroup) DOM.headlessGroup.style.display = isHttp ? 'none' : 'inline-flex';
   if (isHttp && parseInt(DOM.threads?.value || '1', 10) <= 1 && DOM.threads) {
     DOM.threads.value = '4';
   }
 }
 
+// ─── Form State Serialization & Persistence ────────────────────────
 function getFormState() {
   return {
     target_url: DOM.targetUrl?.value || '',
@@ -288,9 +323,7 @@ async function restoreFormState() {
   let state = null;
   try {
     const raw = localStorage.getItem('bluecrack_config');
-    if (raw) {
-      state = JSON.parse(raw);
-    }
+    if (raw) state = JSON.parse(raw);
   } catch (e) {}
 
   if (!state) {
@@ -369,7 +402,7 @@ async function restoreFormState() {
     postJSON('/api/notifications/configure', {
       discord_url: state.discord_webhook || '',
       telegram_token: state.telegram_token || '',
-      telegram_chat_id: state.telegram_chat_id || ''
+      telegram_chat_id: state.telegram_chat_id || '',
     }).catch(() => {});
   }
 }
@@ -417,7 +450,8 @@ async function resetFormState() {
   if (DOM.telegramChatId) DOM.telegramChatId.value = '';
 
   onModeChange();
-  appendLog('[~] Form configuration reset to default settings.');
+  appendLog('[~] Form parameters reset to factory defaults.');
+  showToast('Configuration reset to defaults', 'info');
 }
 
 function bindAutoSave() {
@@ -428,14 +462,7 @@ function bindAutoSave() {
   });
 }
 
-
-// ═══════════════════════════════════════════════════════════════
-//  HELPER FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Format seconds into HH:MM:SS display string.
- */
+// ─── Timing & Formatting Helpers ───────────────────────────────────
 function formatTime(totalSeconds) {
   if (totalSeconds == null || totalSeconds < 0 || !isFinite(totalSeconds)) {
     return '--:--:--';
@@ -447,125 +474,202 @@ function formatTime(totalSeconds) {
   return `${hh}:${mm}:${ss}`;
 }
 
-/**
- * Determine CSS class for a log line based on its prefix.
- */
 function getLogClass(message) {
+  if (message.includes('VALID CREDENTIALS') || message.includes('HIT')) return 'log-hit';
   if (message.startsWith('[+]')) return 'log-success';
   if (message.startsWith('[-]')) return 'log-error';
-  if (message.startsWith('[!]')) return 'log-warning';
+  if (message.startsWith('[!]')) return 'log-warn';
   if (message.startsWith('[*]')) return 'log-info';
   if (message.startsWith('[~]')) return 'log-system';
   return '';
 }
 
-// Log buffering to prevent lag on rapid emissions
-let logQueue = [];
+// ─── High-Performance Terminal Streaming Buffer ────────────────────
+const logBuffer = [];
 let isLoggingScheduled = false;
-const MAX_LOG_LINES = 500;
+const MAX_LOG_LINES = 600;
 
 function flushLogs() {
-  if (logQueue.length === 0) {
+  if (logBuffer.length === 0) {
     isLoggingScheduled = false;
     return;
   }
 
   const fragment = document.createDocumentFragment();
-  const linesToRender = logQueue.splice(0, 100);
+  const filterQuery = DOM.terminalFilter?.value.toLowerCase().trim() || '';
+  const linesToRender = logBuffer.splice(0, 100);
 
   linesToRender.forEach(message => {
     const line = document.createElement('div');
-    line.className = `log-line ${getLogClass(message)}`;
+    line.className = `log-entry ${getLogClass(message)}`;
     line.textContent = message;
+    if (filterQuery && !message.toLowerCase().includes(filterQuery)) {
+      line.style.display = 'none';
+    }
     fragment.appendChild(line);
   });
 
   DOM.terminal.appendChild(fragment);
 
-  // Keep DOM clean by pruning old lines
+  // Prune old DOM elements
   while (DOM.terminal.childNodes.length > MAX_LOG_LINES) {
     DOM.terminal.removeChild(DOM.terminal.firstChild);
   }
 
-  // Scroll to bottom once per batch
-  DOM.terminal.scrollTop = DOM.terminal.scrollHeight;
+  if (autoScrollEnabled) {
+    DOM.terminal.scrollTop = DOM.terminal.scrollHeight;
+  }
 
-  if (logQueue.length > 0) {
+  if (logBuffer.length > 0) {
     requestAnimationFrame(flushLogs);
   } else {
     isLoggingScheduled = false;
   }
 }
 
-/**
- * Append a log line to the terminal and auto-scroll.
- */
 function appendLog(message) {
-  logQueue.push(message);
+  logBuffer.push(message);
   if (!isLoggingScheduled) {
     isLoggingScheduled = true;
     requestAnimationFrame(flushLogs);
   }
 }
 
-/**
- * Update all stat card values with optional pulse animation.
- */
-function updateStats(metrics) {
-  const updates = {
-    statElapsed:   metrics.elapsed   != null ? formatTime(metrics.elapsed)                 : null,
-    statSpeed:     metrics.speed     != null ? `${parseFloat(metrics.speed).toFixed(1)} att/s` : null,
-    statEta:       metrics.eta       != null ? formatTime(metrics.eta)                     : null,
-    statHits:      metrics.hits      != null ? String(metrics.hits)                        : null,
-    statAttempted: metrics.attempted != null ? String(metrics.attempted)                   : null,
-    statErrors:    metrics.errors    != null ? String(metrics.errors)                      : null,
-  };
+// ─── Chart.js Real-Time Visualizations ─────────────────────────────
+let speedChart = null;
+let resultsChart = null;
 
-  for (const [id, value] of Object.entries(updates)) {
-    if (value === null) continue;
-    const el = DOM[id];
-    if (!el) continue;
+function initCharts() {
+  const ctxSpeed = document.getElementById('speedChart')?.getContext('2d');
+  const ctxResults = document.getElementById('resultsChart')?.getContext('2d');
 
-    // Only update and pulse if value actually changed
-    if (el.textContent !== value) {
-      el.textContent = value;
-      // Only pulse Hits and Errors to avoid excessive layout calculations
-      if (id === 'statHits' || id === 'statErrors') {
-        el.classList.remove('pulse');
-        void el.offsetWidth; // Force reflow only for high priority highlights
-        el.classList.add('pulse');
-      }
-    }
+  if (ctxSpeed) {
+    speedChart = new Chart(ctxSpeed, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Speed (att/s)',
+          data: [],
+          borderColor: '#06b6d4',
+          backgroundColor: 'rgba(6, 182, 212, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.25,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false, // Zero animation overhead for 128MB GPU
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: true },
+        },
+        scales: {
+          x: {
+            display: false,
+            grid: { display: false },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#64748b', font: { size: 10 } },
+          },
+        },
+      },
+    });
   }
 
-  // Update Chart.js live charts
+  if (ctxResults) {
+    resultsChart = new Chart(ctxResults, {
+      type: 'doughnut',
+      data: {
+        labels: ['Hits', 'Failures', 'Errors'],
+        datasets: [{
+          data: [0, 0, 0],
+          backgroundColor: ['#10b981', '#3b82f6', '#f43f5e'],
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 10 },
+          },
+        },
+        cutout: '72%',
+      },
+    });
+  }
+}
+
+function updateCharts(metrics) {
+  if (speedChart && metrics.speed !== undefined) {
+    const now = new Date().toLocaleTimeString();
+    speedChart.data.labels.push(now);
+    speedChart.data.datasets[0].data.push(parseFloat(metrics.speed) || 0);
+
+    if (speedChart.data.labels.length > 30) {
+      speedChart.data.labels.shift();
+      speedChart.data.datasets[0].data.shift();
+    }
+    speedChart.update('none');
+  }
+
+  if (resultsChart && (metrics.hits !== undefined || metrics.attempted !== undefined)) {
+    const hits = metrics.hits || 0;
+    const errors = metrics.errors || 0;
+    const failures = Math.max(0, (metrics.attempted || 0) - hits - errors);
+
+    resultsChart.data.datasets[0].data = [hits, failures, errors];
+    resultsChart.update();
+  }
+}
+
+// ─── Stats & Progress Updates ──────────────────────────────────────
+function updateStats(metrics) {
+  if (metrics.elapsed != null && DOM.statElapsed) DOM.statElapsed.textContent = formatTime(metrics.elapsed);
+  if (metrics.speed != null && DOM.statSpeed) DOM.statSpeed.textContent = `${parseFloat(metrics.speed).toFixed(1)} att/s`;
+  if (metrics.eta != null && DOM.statEta) DOM.statEta.textContent = formatTime(metrics.eta);
+  if (metrics.hits != null && DOM.statHits) DOM.statHits.textContent = String(metrics.hits);
+  if (metrics.attempted != null && DOM.statAttempted) DOM.statAttempted.textContent = String(metrics.attempted);
+  if (metrics.errors != null && DOM.statErrors) DOM.statErrors.textContent = String(metrics.errors);
+
   updateCharts(metrics);
 }
 
-/**
- * Reset all stats to their default display values.
- */
 function resetStats() {
-  DOM.statElapsed.textContent   = '00:00:00';
-  DOM.statSpeed.textContent     = '0.0 att/s';
-  DOM.statEta.textContent       = '--:--:--';
-  DOM.statHits.textContent      = '0';
-  DOM.statAttempted.textContent = '0';
-  DOM.statErrors.textContent    = '0';
+  if (DOM.statElapsed) DOM.statElapsed.textContent = '00:00:00';
+  if (DOM.statSpeed) DOM.statSpeed.textContent = '0.0 att/s';
+  if (DOM.statEta) DOM.statEta.textContent = '--:--:--';
+  if (DOM.statHits) DOM.statHits.textContent = '0';
+  if (DOM.statAttempted) DOM.statAttempted.textContent = '0';
+  if (DOM.statErrors) DOM.statErrors.textContent = '0';
+
+  if (speedChart) {
+    speedChart.data.labels = [];
+    speedChart.data.datasets[0].data = [];
+    speedChart.update('none');
+  }
+  if (resultsChart) {
+    resultsChart.data.datasets[0].data = [0, 0, 0];
+    resultsChart.update();
+  }
 }
 
-/**
- * Set progress bar width and label.
- */
 function setProgress(percent) {
+  if (!DOM.progressFill || !DOM.progressText) return;
   const clamped = Math.max(0, Math.min(100, percent));
   DOM.progressFill.style.width = `${clamped}%`;
   DOM.progressText.textContent = `${Math.round(clamped)}%`;
 }
 
-/**
- * Helper to POST JSON to an API endpoint.
- */
 async function postJSON(url, data) {
   const response = await fetch(url, {
     method: 'POST',
@@ -575,118 +679,103 @@ async function postJSON(url, data) {
   return response.json();
 }
 
-
-// ═══════════════════════════════════════════════════════════════
-//  API FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Collect all form values and start the attack.
- */
+// ─── API Operations ────────────────────────────────────────────────
 async function startAttack() {
   const config = {
-    // Target
-    target_url:     DOM.targetUrl.value.trim(),
-    username:       DOM.username.value.trim(),
-    password:       DOM.password.value.trim(),
-    error_msg:      DOM.errorString.value.trim(),
-    success_msg:    DOM.successString.value.trim(),
+    target_url: DOM.targetUrl?.value.trim() || '',
+    username: DOM.username?.value.trim() || '',
+    password: DOM.password?.value.trim() || '',
+    error_msg: DOM.errorString?.value.trim() || '',
+    success_msg: DOM.successString?.value.trim() || '',
 
-    // Attack mode
-    mode:           DOM.attackMode.value,
+    mode: DOM.attackMode?.value || 'browser',
+    threads: parseInt(DOM.threads?.value || '1', 10) || 1,
+    delay: parseFloat(DOM.delay?.value || '0') || 0,
+    jitter: parseFloat(DOM.jitter?.value || '0') || 0,
+    limit_text: DOM.rateLimit?.value.trim() || '',
+    cooldown: parseInt(DOM.cooldown?.value || '12', 10) || 12,
+    max_attempts: parseInt(DOM.maxAttempts?.value || '0', 10) || 0,
+    headless: DOM.headless ? DOM.headless.checked : true,
+    continue_after_success: DOM.continueAfterSuccess ? DOM.continueAfterSuccess.checked : false,
 
-    // Engine
-    threads:                parseInt(DOM.threads.value, 10)   || 1,
-    delay:                  parseFloat(DOM.delay.value)       || 0,
-    jitter:                 parseFloat(DOM.jitter.value)      || 0,
-    limit_text:             DOM.rateLimit.value.trim(),
-    cooldown:               parseInt(DOM.cooldown.value, 10)  || 12,
-    max_attempts:           parseInt(DOM.maxAttempts.value, 10) || 0,
-    headless:               DOM.headless.checked,
-    continue_after_success: DOM.continueAfterSuccess.checked,
+    use_tor: DOM.enableTor ? DOM.enableTor.checked : false,
+    tor_port: parseInt(DOM.torControlPort?.value || '9051', 10) || 9051,
+    tor_shift_every: parseInt(DOM.torShiftEvery?.value || '10', 10) || 10,
+    proxy: DOM.proxy?.value.trim() || '',
+    spray_mode: DOM.sprayMode ? DOM.sprayMode.checked : false,
 
-    // Tor & Proxy
-    use_tor:          DOM.enableTor.checked,
-    tor_port:         parseInt(DOM.torControlPort.value, 10) || 9051,
-    tor_shift_every:  parseInt(DOM.torShiftEvery.value, 10)  || 10,
-    proxy:            DOM.proxy.value.trim(),
-
-    // Spray mode
-    spray_mode:       DOM.sprayMode.checked,
-
-    // Notifications
-    discord_url:      DOM.discordWebhook ? DOM.discordWebhook.value.trim() : '',
-    telegram_token:   DOM.telegramToken ? DOM.telegramToken.value.trim() : '',
+    discord_url: DOM.discordWebhook ? DOM.discordWebhook.value.trim() : '',
+    telegram_token: DOM.telegramToken ? DOM.telegramToken.value.trim() : '',
     telegram_chat_id: DOM.telegramChatId ? DOM.telegramChatId.value.trim() : '',
   };
 
-  // Add HTTP-mode-specific fields
   if (config.mode === 'http') {
-    config.form_action          = DOM.formAction?.value.trim() || '';
-    config.username_field       = DOM.usernameField?.value.trim() || '';
-    config.password_field       = DOM.passwordField?.value.trim() || '';
-    config.csrf_field           = DOM.csrfField?.value.trim() || '';
-    config.follow_redirects     = DOM.followRedirects ? DOM.followRedirects.checked : false;
-    config.json_mode            = DOM.jsonMode ? DOM.jsonMode.checked : false;
-    config.custom_headers       = DOM.customHeaders?.value.trim() || '';
-    config.cookies              = DOM.customCookies?.value.trim() || '';
+    config.form_action = DOM.formAction?.value.trim() || '';
+    config.username_field = DOM.usernameField?.value.trim() || '';
+    config.password_field = DOM.passwordField?.value.trim() || '';
+    config.csrf_field = DOM.csrfField?.value.trim() || '';
+    config.follow_redirects = DOM.followRedirects ? DOM.followRedirects.checked : false;
+    config.json_mode = DOM.jsonMode ? DOM.jsonMode.checked : false;
+    config.custom_headers = DOM.customHeaders?.value.trim() || '';
+    config.cookies = DOM.customCookies?.value.trim() || '';
     config.success_status_codes = DOM.successStatusCodes?.value.trim() || '';
   }
 
-  // Validate minimum fields
   if (!config.target_url) {
     appendLog('[-] Target URL is required.');
-    DOM.targetUrl.focus();
+    DOM.targetUrl?.focus();
+    showToast('Target URL is required', 'error');
     return;
   }
   if (!config.username) {
-    appendLog('[-] Username is required.');
-    DOM.username.focus();
+    appendLog('[-] Username / userlist is required.');
+    DOM.username?.focus();
+    showToast('Username is required', 'error');
     return;
   }
   if (!config.password) {
     appendLog('[-] Password / wordlist is required.');
-    DOM.password.focus();
+    DOM.password?.focus();
+    showToast('Password is required', 'error');
     return;
   }
 
-  // Update UI state
   DOM.btnStart.disabled = true;
-  DOM.btnStop.disabled  = false;
+  DOM.btnStop.disabled = false;
 
-  // Clear terminal and reset stats
   DOM.terminal.innerHTML = '';
   resetStats();
   setProgress(0);
 
-  appendLog('[*] Initialising attack…');
+  appendLog('[*] Initializing attack routine…');
+  showToast('Starting attack…', 'info');
 
   try {
     const result = await postJSON('/api/attack/start', config);
     if (result.error) {
       appendLog(`[-] ${result.error}`);
       DOM.btnStart.disabled = false;
-      DOM.btnStop.disabled  = true;
+      DOM.btnStop.disabled = true;
+      showToast(result.error, 'error');
     } else {
-      appendLog(`[+] ${result.message || 'Attack started.'}`);
+      appendLog(`[+] ${result.message || 'Attack launched successfully.'}`);
     }
   } catch (err) {
     appendLog(`[-] Connection error: ${err.message}`);
     DOM.btnStart.disabled = false;
-    DOM.btnStop.disabled  = true;
+    DOM.btnStop.disabled = true;
+    showToast(`Network error: ${err.message}`, 'error');
   }
 }
 
-/**
- * Stop the current attack.
- */
 async function stopAttack() {
   DOM.btnStop.disabled = true;
-  appendLog('[!] Stopping attack…');
+  appendLog('[!] Terminating active attack…');
+  showToast('Stopping attack…', 'info');
 
   try {
     const result = await postJSON('/api/attack/stop', {});
-    appendLog(`[*] ${result.message || 'Stop signal sent.'}`);
+    appendLog(`[*] ${result.message || 'Stop signal acknowledged.'}`);
   } catch (err) {
     appendLog(`[-] Error stopping attack: ${err.message}`);
   }
@@ -694,1043 +783,669 @@ async function stopAttack() {
   DOM.btnStart.disabled = false;
 }
 
-/**
- * Generate a CUPP wordlist from profile fields.
- */
+// ─── Target Fingerprint Scanner ────────────────────────────────────
+async function scanTargetTechnology() {
+  const url = DOM.targetUrl?.value.trim();
+  if (!url) {
+    showToast('Please enter a target URL to scan', 'error');
+    DOM.targetUrl?.focus();
+    return;
+  }
+
+  DOM.btnScanTarget.disabled = true;
+  DOM.btnScanTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning…';
+  appendLog(`[*] Fingerprinting technology stack for: ${url}`);
+
+  try {
+    const res = await postJSON('/api/target/fingerprint', { url });
+    if (res.error) {
+      appendLog(`[-] Fingerprint failed: ${res.error}`);
+      showToast(res.error, 'error');
+    } else {
+      renderTechBadges(res);
+      showToast('Technology stack identified', 'success');
+    }
+  } catch (err) {
+    appendLog(`[-] Fingerprint scan error: ${err.message}`);
+  } finally {
+    DOM.btnScanTarget.disabled = false;
+    DOM.btnScanTarget.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Scan Tech';
+  }
+}
+
+function renderTechBadges(data) {
+  if (!DOM.targetTechBadge) return;
+  DOM.targetTechBadge.innerHTML = '';
+  DOM.targetTechBadge.style.display = 'flex';
+
+  const frameworks = data.frameworks || [];
+  const servers = data.servers || [];
+  const protections = data.protections || [];
+
+  frameworks.forEach(f => {
+    const tag = document.createElement('span');
+    tag.className = 'tech-tag framework';
+    tag.innerHTML = `<i class="fa-solid fa-code"></i> ${escapeHTML(f)}`;
+    DOM.targetTechBadge.appendChild(tag);
+  });
+
+  servers.forEach(s => {
+    const tag = document.createElement('span');
+    tag.className = 'tech-tag server';
+    tag.innerHTML = `<i class="fa-solid fa-server"></i> ${escapeHTML(s)}`;
+    DOM.targetTechBadge.appendChild(tag);
+  });
+
+  protections.forEach(p => {
+    const tag = document.createElement('span');
+    tag.className = 'tech-tag protection';
+    tag.innerHTML = `<i class="fa-solid fa-shield"></i> ${escapeHTML(p)}`;
+    DOM.targetTechBadge.appendChild(tag);
+  });
+
+  if (data.form && data.form.has_login_form) {
+    if (data.form.action && DOM.formAction && !DOM.formAction.value) {
+      DOM.formAction.value = data.form.action;
+    }
+    if (data.form.username_field && DOM.usernameField && !DOM.usernameField.value) {
+      DOM.usernameField.value = data.form.username_field;
+    }
+    if (data.form.password_field && DOM.passwordField && !DOM.passwordField.value) {
+      DOM.passwordField.value = data.form.password_field;
+    }
+    if (data.form.csrf_field && DOM.csrfField && !DOM.csrfField.value) {
+      DOM.csrfField.value = data.form.csrf_field;
+    }
+    appendLog(`[+] Auto-filled form parameters for action: ${data.form.action}`);
+  }
+}
+
+// ─── Generators: CUPP & Sequence ───────────────────────────────────
 async function generateCupp() {
   const profile = {
-    first_name:        DOM.cuppFirstName.value.trim(),
-    last_name:         DOM.cuppLastName.value.trim(),
-    nickname:          DOM.cuppNickname.value.trim(),
-    birthdate:         DOM.cuppBirthdate.value.trim(),
-    partner_name:      DOM.cuppPartnerName.value.trim(),
-    partner_nickname:  DOM.cuppPartnerNickname.value.trim(),
-    partner_birthdate: DOM.cuppPartnerBirthdate.value.trim(),
-    child_name:        DOM.cuppChildName.value.trim(),
-    child_birthdate:   DOM.cuppChildBirthdate.value.trim(),
-    pet_name:          DOM.cuppPetName.value.trim(),
-    company:           DOM.cuppCompany.value.trim(),
-    keywords:          DOM.cuppKeywords.value.trim(),
-    special_chars:     DOM.cuppSpecialChars.checked,
-    random_numbers:    DOM.cuppRandomNumbers.checked,
-    leet:              DOM.cuppLeet.checked,
+    first_name: DOM.cuppFirstName?.value.trim() || '',
+    last_name: DOM.cuppLastName?.value.trim() || '',
+    nickname: DOM.cuppNickname?.value.trim() || '',
+    birthdate: DOM.cuppBirthdate?.value.trim() || '',
+    partner_name: DOM.cuppPartnerName?.value.trim() || '',
+    partner_nickname: DOM.cuppPartnerNickname?.value.trim() || '',
+    partner_birthdate: DOM.cuppPartnerBirthdate?.value.trim() || '',
+    child_name: DOM.cuppChildName?.value.trim() || '',
+    child_birthdate: DOM.cuppChildBirthdate?.value.trim() || '',
+    pet_name: DOM.cuppPetName?.value.trim() || '',
+    company: DOM.cuppCompany?.value.trim() || '',
+    keywords: DOM.cuppKeywords?.value.trim() || '',
+    special_chars: DOM.cuppSpecialChars ? DOM.cuppSpecialChars.checked : false,
+    random_numbers: DOM.cuppRandomNumbers ? DOM.cuppRandomNumbers.checked : false,
+    leet: DOM.cuppLeet ? DOM.cuppLeet.checked : false,
   };
 
   DOM.btnGenerateCupp.disabled = true;
-  DOM.btnUseCupp.disabled      = true;
-  DOM.cuppStatus.textContent   = 'Generating…';
-  appendLog('[*] Generating CUPP wordlist…');
+  DOM.btnUseCupp.disabled = true;
+  DOM.cuppStatus.textContent = 'Generating…';
+  appendLog('[*] Compiling CUPP profile wordlist…');
 
   try {
     const result = await postJSON('/api/cupp/generate', profile);
     if (result.error) {
       appendLog(`[-] CUPP error: ${result.error}`);
-      DOM.cuppStatus.textContent = 'Error';
+      DOM.cuppStatus.textContent = 'Failed';
+      showToast(result.error, 'error');
     } else {
       cuppResultPath = result.path || '';
       const count = result.count || '?';
-      appendLog(`[+] CUPP generated: ${count} passwords → ${cuppResultPath}`);
+      appendLog(`[+] CUPP synthesized: ${count} entries → ${cuppResultPath}`);
       DOM.cuppStatus.textContent = `${count} passwords generated`;
       DOM.btnUseCupp.disabled = false;
+      showToast(`Generated ${count} passwords with CUPP`, 'success');
     }
   } catch (err) {
     appendLog(`[-] CUPP request failed: ${err.message}`);
-    DOM.cuppStatus.textContent = 'Failed';
+    DOM.cuppStatus.textContent = 'Error';
+  } finally {
+    DOM.btnGenerateCupp.disabled = false;
   }
-
-  DOM.btnGenerateCupp.disabled = false;
 }
 
-/**
- * Load the CUPP result file path into the password field.
- */
 function useCuppResult() {
-  if (cuppResultPath) {
+  if (cuppResultPath && DOM.password) {
     DOM.password.value = cuppResultPath;
     saveFormState();
-    appendLog(`[+] Password file set to CUPP result: ${cuppResultPath}`);
-    // Switch to Target tab for visibility
     switchTab('target');
+    showToast('Loaded CUPP wordlist into Password input', 'success');
   }
 }
 
-/**
- * Generate a numeric sequence.
- */
 async function generateSequence() {
-  const params = {
-    start:   parseInt(DOM.seqStart.value, 10)   || 0,
-    end:     parseInt(DOM.seqEnd.value, 10)      || 9999,
-    padding: parseInt(DOM.seqPadding.value, 10)  || 0,
-    prefix:  DOM.seqPrefix.value,
-    suffix:  DOM.seqSuffix.value,
+  const payload = {
+    start: parseInt(DOM.seqStart?.value || '0', 10),
+    end: parseInt(DOM.seqEnd?.value || '9999', 10),
+    pad_width: parseInt(DOM.seqPadding?.value || '4', 10),
+    prefix: DOM.seqPrefix?.value || '',
+    suffix: DOM.seqSuffix?.value || '',
   };
 
   DOM.btnGenerateSeq.disabled = true;
-  DOM.btnUseSeq.disabled      = true;
-  DOM.seqStatus.textContent   = 'Generating…';
-  appendLog('[*] Generating numeric sequence…');
+  DOM.btnUseSeq.disabled = true;
+  DOM.seqStatus.textContent = 'Generating…';
+  appendLog('[*] Generating numeric sequence wordlist…');
 
   try {
-    const result = await postJSON('/api/sequence/generate', params);
+    const result = await postJSON('/api/sequence/generate', payload);
     if (result.error) {
       appendLog(`[-] Sequence error: ${result.error}`);
-      DOM.seqStatus.textContent = 'Error';
+      DOM.seqStatus.textContent = 'Failed';
+      showToast(result.error, 'error');
     } else {
       sequenceResultPath = result.path || '';
       const count = result.count || '?';
-      appendLog(`[+] Sequence generated: ${count} entries → ${sequenceResultPath}`);
-      DOM.seqStatus.textContent = `${count} entries generated`;
+      appendLog(`[+] Sequence wordlist generated: ${count} entries → ${sequenceResultPath}`);
+      DOM.seqStatus.textContent = `${count} items generated`;
       DOM.btnUseSeq.disabled = false;
+      showToast(`Generated ${count} sequence entries`, 'success');
     }
   } catch (err) {
-    appendLog(`[-] Sequence request failed: ${err.message}`);
-    DOM.seqStatus.textContent = 'Failed';
+    appendLog(`[-] Sequence failed: ${err.message}`);
+    DOM.seqStatus.textContent = 'Error';
+  } finally {
+    DOM.btnGenerateSeq.disabled = false;
   }
-
-  DOM.btnGenerateSeq.disabled = false;
 }
 
-/**
- * Load the sequence result file path into the password field.
- */
 function useSequenceResult() {
-  if (sequenceResultPath) {
+  if (sequenceResultPath && DOM.password) {
     DOM.password.value = sequenceResultPath;
     saveFormState();
-    appendLog(`[+] Password file set to sequence result: ${sequenceResultPath}`);
     switchTab('target');
+    showToast('Loaded sequence wordlist into Target input', 'success');
   }
 }
 
-/**
- * Start the demo login server and auto-fill the target credentials settings.
- */
-async function launchDemoMode() {
-  if (!DOM.btnLaunchDemo) return;
-  DOM.btnLaunchDemo.disabled = true;
-  DOM.btnLaunchDemo.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting...';
-  appendLog('[*] Contacting server to launch demo environment...');
-
-  try {
-    const result = await postJSON('/api/demo/start', {});
-    if (result.status === 'ok') {
-      appendLog(`[+] Demo server is running on port ${result.port}!`);
-      
-      // Auto-fill form inputs
-      DOM.targetUrl.value = result.url;
-      DOM.username.value = result.default_username;
-      DOM.password.value = result.default_password_file;
-      DOM.errorString.value = result.default_error_msg;
-      DOM.successString.value = result.default_success_msg;
-      saveFormState();
-      
-      appendLog(`[~] Credentials and target configured: ${result.default_username} / ${result.default_password_file}`);
-      switchTab('target');
-    } else {
-      appendLog(`[-] Demo launch error: ${result.message || 'Unknown error'}`);
-    }
-  } catch (err) {
-    appendLog(`[-] Demo server request failed: ${err.message}`);
-  } finally {
-    DOM.btnLaunchDemo.disabled = false;
-    DOM.btnLaunchDemo.innerHTML = '<i class="fa-solid fa-rocket"></i> Demo Mode';
-  }
-}
-
-// ─── Starfield Canvas Background Animation Loop ─────────────────
-let starfieldCanvas = null;
-let starfieldCtx = null;
-let stars = [];
-const numStars = 50;
-let animationId = null;
-let isCosmicMode = false;
-
-function initStarfield() {
-  starfieldCanvas = document.getElementById('starfield');
-  if (!starfieldCanvas) return;
-  starfieldCtx = starfieldCanvas.getContext('2d');
-  resizeStarfield();
-  
-  // Debounced resize to avoid GPU thrashing during window drag
-  let resizeTimer = null;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resizeStarfield, 150);
-  });
-  
-  // Initialize stars
-  stars = [];
-  for (let i = 0; i < numStars; i++) {
-    stars.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      z: Math.random() * window.innerWidth,
-      color: Math.random() > 0.5 ? '#c084fc' : '#34d399'
-    });
-  }
-  
-  if (isCosmicMode) {
-    startStarfieldAnimation();
-  }
-}
-
-function resizeStarfield() {
-  if (!starfieldCanvas) return;
-  starfieldCanvas.width = window.innerWidth;
-  starfieldCanvas.height = window.innerHeight;
-}
-
-function startStarfieldAnimation() {
-  if (animationId) cancelAnimationFrame(animationId);
-  
-  function draw() {
-    if (!isCosmicMode) return;
-    
-    starfieldCtx.clearRect(0, 0, starfieldCanvas.width, starfieldCanvas.height);
-    
-    // Draw and update stars
-    for (let i = 0; i < stars.length; i++) {
-      let star = stars[i];
-      star.z -= 1.2;
-      
-      if (star.z <= 0) {
-        star.z = window.innerWidth;
-        star.x = Math.random() * window.innerWidth;
-        star.y = Math.random() * window.innerHeight;
-      }
-      
-      // 3D Projection
-      let k = 128.0 / star.z;
-      let px = (star.x - window.innerWidth / 2) * k + window.innerWidth / 2;
-      let py = (star.y - window.innerHeight / 2) * k + window.innerHeight / 2;
-      
-      if (px >= 0 && px <= window.innerWidth && py >= 0 && py <= window.innerHeight) {
-        let size = (1 - star.z / window.innerWidth) * 3;
-        starfieldCtx.beginPath();
-        starfieldCtx.fillStyle = star.color;
-        starfieldCtx.globalAlpha = 1 - star.z / window.innerWidth;
-        starfieldCtx.arc(px, py, size, 0, Math.PI * 2);
-        starfieldCtx.fill();
-      }
-    }
-    
-    animationId = requestAnimationFrame(draw);
-  }
-  
-  animationId = requestAnimationFrame(draw);
-}
-
-function stopStarfieldAnimation() {
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
-  if (starfieldCanvas && starfieldCtx) {
-    starfieldCtx.clearRect(0, 0, starfieldCanvas.width, starfieldCanvas.height);
-  }
-}
-
-/**
- * Toggle Cosmic Mode (opt-in glassmorphism + starfield).
- * Default = lightweight for low-end GPUs.
- */
-function toggleCosmicMode() {
-  isCosmicMode = document.body.classList.toggle('cosmic-mode');
-  if (isCosmicMode) {
-    localStorage.setItem('cosmic_mode', 'true');
-    startStarfieldAnimation();
-    if (DOM.btnToggleEco) {
-      DOM.btnToggleEco.classList.add('active');
-      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-star"></i> Cosmic Active';
-    }
-    appendLog('[~] Cosmic Mode: ON. Starfield and glassmorphism enabled.');
-  } else {
-    localStorage.setItem('cosmic_mode', 'false');
-    stopStarfieldAnimation();
-    if (DOM.btnToggleEco) {
-      DOM.btnToggleEco.classList.remove('active');
-      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-star"></i> Cosmic Mode';
-    }
-    appendLog('[~] Cosmic Mode: OFF. Lightweight mode for performance.');
-  }
-}
-
-/**
- * Export logs by opening the export endpoint in a new tab.
- */
-function exportLogs() {
-  window.open('/api/logs/export', '_blank');
-}
-
-/**
- * Synchronize live UI state (running state, metrics, progress, logs) on dynamic reload / reconnection.
- */
-function syncAttackStatus(statusData) {
-  if (!statusData) return;
-  const isRunning = Boolean(statusData.running);
-  if (DOM.btnStart) DOM.btnStart.disabled = isRunning;
-  if (DOM.btnStop) DOM.btnStop.disabled = !isRunning;
-
-  if (statusData.metrics && Object.keys(statusData.metrics).length > 0) {
-    updateStats(statusData.metrics);
-    const attempted = statusData.metrics.attempted || 0;
-    const total = statusData.metrics.total || 0;
-    if (total > 0) {
-      setProgress((attempted / total) * 100);
-    }
-  }
-
-  if (Array.isArray(statusData.recent_logs) && statusData.recent_logs.length > 0) {
-    if (DOM.terminal && !DOM.terminal.dataset.replayed) {
-      DOM.terminal.innerHTML = '';
-      DOM.terminal.dataset.replayed = 'true';
-      statusData.recent_logs.forEach(msg => appendLog(msg));
-    }
-  }
-}
-
-/**
- * Clear all lines from the terminal and clear server buffer.
- */
-function clearLogs() {
-  logQueue.length = 0;
-  if (DOM.terminal) {
-    DOM.terminal.innerHTML = '';
-    DOM.terminal.dataset.replayed = 'true';
-  }
-  postJSON('/api/logs/clear', {}).catch(() => {});
-  appendLog('[~] Console cleared.');
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-//  SOCKET.IO EVENT HANDLERS
-// ═══════════════════════════════════════════════════════════════
-
-socket.on('connect', () => {
-  DOM.connectionDot.className   = 'status-dot connected';
-  DOM.connectionLabel.textContent = 'Connected';
-  appendLog('[+] Socket connected to server.');
-});
-
-socket.on('disconnect', () => {
-  DOM.connectionDot.className   = 'status-dot disconnected';
-  DOM.connectionLabel.textContent = 'Disconnected';
-  appendLog('[-] Socket disconnected from server.');
-});
-
-socket.on('status', (data) => {
-  syncAttackStatus(data);
-});
-
-socket.on('log', (data) => {
-  const message = typeof data === 'string' ? data : data.message || '';
-  if (message) {
-    appendLog(message);
-  }
-});
-
-socket.on('progress', (data) => {
-  const percent = data.total ? (data.current / data.total) * 100 : 0;
-  setProgress(percent);
-});
-
-socket.on('metrics', (data) => {
-  updateStats(data);
-});
-
-socket.on('finished', (data) => {
-  const message = data?.message || 'Attack finished.';
-  appendLog(`[+] ${message}`);
-  DOM.btnStart.disabled = false;
-  DOM.btnStop.disabled  = true;
-  setProgress(100);
-});
-
-socket.on('cupp_done', (data) => {
-  cuppResultPath = data?.path || '';
-  const count = data?.count || '?';
-  DOM.cuppStatus.textContent = `${count} passwords generated`;
-  DOM.btnUseCupp.disabled    = false;
-  DOM.btnGenerateCupp.disabled = false;
-  appendLog(`[+] CUPP wordlist ready: ${cuppResultPath}`);
-});
-
-socket.on('sequence_done', (data) => {
-  sequenceResultPath = data?.path || '';
-  DOM.seqStatus.textContent = 'Sequence ready';
-  DOM.btnUseSeq.disabled = false;
-  DOM.btnGenerateSeq.disabled = false;
-  appendLog(`[+] Sequence wordlist ready: ${sequenceResultPath}`);
-});
-
-
-// ═══════════════════════════════════════════════════════════════
-//  EVENT LISTENERS — Wire Everything Up
-// ═══════════════════════════════════════════════════════════════
-
-document.addEventListener('DOMContentLoaded', () => {
-
-  // Initialize Cosmic Mode from storage (default = OFF = lightweight)
-  isCosmicMode = localStorage.getItem('cosmic_mode') === 'true';
-  if (isCosmicMode) {
-    document.body.classList.add('cosmic-mode');
-    if (DOM.btnToggleEco) {
-      DOM.btnToggleEco.classList.add('active');
-      DOM.btnToggleEco.innerHTML = '<i class="fa-solid fa-star"></i> Cosmic Active';
-    }
-  }
-
-  // Initialize background starfield animation
-  initStarfield();
-
-  // ── Tab buttons ──
-  DOM.tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  // ── Attack Mode Toggle ──
-  if (DOM.attackMode) {
-    DOM.attackMode.addEventListener('change', onModeChange);
-  }
-
-  // ── Header Actions ──
-  if (DOM.btnLaunchDemo) {
-    DOM.btnLaunchDemo.addEventListener('click', launchDemoMode);
-  }
-  if (DOM.btnToggleEco) {
-    DOM.btnToggleEco.addEventListener('click', toggleCosmicMode);
-  }
-
-  // ── Control Buttons ──
-  if (DOM.btnStart) {
-    DOM.btnStart.addEventListener('click', startAttack);
-  }
-  if (DOM.btnStop) {
-    DOM.btnStop.addEventListener('click', stopAttack);
-  }
-  if (DOM.btnExport) {
-    DOM.btnExport.addEventListener('click', exportLogs);
-  }
-  if (DOM.btnClear) {
-    DOM.btnClear.addEventListener('click', clearLogs);
-  }
-  if (DOM.btnResetConfig) {
-    DOM.btnResetConfig.addEventListener('click', resetFormState);
-  }
-
-  // ── CUPP Buttons ──
-  if (DOM.btnGenerateCupp) {
-    DOM.btnGenerateCupp.addEventListener('click', generateCupp);
-  }
-  if (DOM.btnUseCupp) {
-    DOM.btnUseCupp.addEventListener('click', useCuppResult);
-  }
-
-  // ── Sequence Buttons ──
-  if (DOM.btnGenerateSeq) {
-    DOM.btnGenerateSeq.addEventListener('click', generateSequence);
-  }
-  if (DOM.btnUseSeq) {
-    DOM.btnUseSeq.addEventListener('click', useSequenceResult);
-  }
-
-
-
-  // ── Session resume ──
-  if (DOM.btnResume) {
-    DOM.btnResume.addEventListener('click', resumeAttack);
-  }
-  if (DOM.btnDismissResume) {
-    DOM.btnDismissResume.addEventListener('click', () => {
-      DOM.resumeBanner.classList.remove('visible');
-    });
-  }
-
-  // ── Multi-target queue ──
-  if (DOM.btnAddTarget) {
-    DOM.btnAddTarget.addEventListener('click', addTarget);
-  }
-  if (DOM.btnStartAllTargets) {
-    DOM.btnStartAllTargets.addEventListener('click', startAllTargets);
-  }
-
-  // ── Scheduler ──
-  if (DOM.btnScheduleAttack) {
-    DOM.btnScheduleAttack.addEventListener('click', scheduleAttack);
-  }
-
-  // ── Alerts ──
-  if (DOM.btnSaveNotifications) {
-    DOM.btnSaveNotifications.addEventListener('click', saveNotificationConfig);
-  }
-  if (DOM.btnTestDiscord) {
-    DOM.btnTestDiscord.addEventListener('click', testDiscordNotif);
-  }
-  if (DOM.btnTestTelegram) {
-    DOM.btnTestTelegram.addEventListener('click', testTelegramNotif);
-  }
-
-  // ── Report & JSON Downloads ──
-  if (DOM.btnReport) {
-    DOM.btnReport.addEventListener('click', downloadReport);
-  }
-  if (DOM.btnDownloadJson) {
-    DOM.btnDownloadJson.addEventListener('click', () => {
-      window.open('/api/report/json', '_blank');
-    });
-  }
-
-  // ── Target Tech Scanner ──
-  if (DOM.btnScanTarget) {
-    DOM.btnScanTarget.addEventListener('click', scanTargetTech);
-  }
-
-  // ── Doctor Modal ──
-  if (DOM.btnDoctor) {
-    DOM.btnDoctor.addEventListener('click', openDoctorModal);
-  }
-  if (DOM.btnCloseDoctor) {
-    DOM.btnCloseDoctor.addEventListener('click', () => DOM.doctorModal?.classList.remove('active'));
-  }
-  if (DOM.btnCloseDoctorBtn) {
-    DOM.btnCloseDoctorBtn.addEventListener('click', () => DOM.doctorModal?.classList.remove('active'));
-  }
-  if (DOM.btnRerunDoctor) {
-    DOM.btnRerunDoctor.addEventListener('click', runDoctorChecks);
-  }
-
-  // ── Welcome & Tutorial Modal ──
-  if (DOM.tutorialModal) {
-    // Show warning on start
-    DOM.tutorialModal.classList.add('active');
-
-    // Agree & Proceed close button
-    if (DOM.btnAgreeDisclaimer) {
-      DOM.btnAgreeDisclaimer.addEventListener('click', () => {
-        DOM.tutorialModal.classList.remove('active');
-      });
-    }
-
-    // Close buttons (&times;)
-    if (DOM.btnCloseModal) {
-      DOM.btnCloseModal.addEventListener('click', () => {
-        DOM.tutorialModal.classList.remove('active');
-      });
-    }
-
-    // Finish guide close button
-    if (DOM.btnFinishTutorial) {
-      DOM.btnFinishTutorial.addEventListener('click', () => {
-        DOM.tutorialModal.classList.remove('active');
-      });
-    }
-
-    // Stepper from disclaimer to guide
-    if (DOM.btnShowTutorialFromStart) {
-      DOM.btnShowTutorialFromStart.addEventListener('click', () => {
-        DOM.panelDisclaimer.classList.remove('active');
-        DOM.panelTutorial.classList.add('active');
-      });
-    }
-
-    // Go back to disclaimer
-    if (DOM.btnBackToDisclaimer) {
-      DOM.btnBackToDisclaimer.addEventListener('click', () => {
-        DOM.panelTutorial.classList.remove('active');
-        DOM.panelDisclaimer.classList.add('active');
-      });
-    }
-
-    // Floating Info Button triggers guide directly
-    if (DOM.btnInfo) {
-      DOM.btnInfo.addEventListener('click', () => {
-        DOM.panelDisclaimer.classList.remove('active');
-        DOM.panelTutorial.classList.add('active');
-        DOM.tutorialModal.classList.add('active');
-      });
-    }
-
-    // Tutorial tab buttons wiring
-    DOM.tutTabButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        DOM.tutTabButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        const targetTut = btn.dataset.tut;
-        DOM.tutContents.forEach(content => {
-          if (content.id === targetTut) {
-            content.classList.add('active');
-          } else {
-            content.classList.remove('active');
-          }
-        });
-      });
-    });
-  }
-
-  // Initialize features
-  initCharts();
-  checkSessionStatus();
-  refreshTargets();
-  refreshScheduled();
-
-  // Restore persistent configuration from localStorage / disk and bind auto-save
-  restoreFormState().then(() => {
-    bindAutoSave();
-    const activeTab = localStorage.getItem('bluecrack_active_tab') || 'target';
-    switchTab(activeTab);
-  });
-
-  // Fetch live attack status & logs immediately to handle dynamic reload
-  fetch('/api/attack/status')
-    .then(res => res.json())
-    .then(data => {
-      if (data && data.status === 'ok') {
-        syncAttackStatus(data);
-      }
-    })
-    .catch(() => {});
-
-  appendLog('[~] All systems nominal. Ready.');
-});
-
-// ── Chart.js Setup ──
-let speedChart = null;
-let resultsChart = null;
-const speedHistory = [];
-
-function initCharts() {
-  const speedCtx = document.getElementById('speedChart')?.getContext('2d');
-  if (speedCtx) {
-    speedChart = new Chart(speedCtx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'Attempts/sec',
-          data: [],
-          borderColor: '#6c5ce7',
-          backgroundColor: 'rgba(108, 92, 231, 0.1)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true } },
-        plugins: { legend: { display: false } },
-        animation: { duration: 300 }
-      }
-    });
-  }
-  
-  const resultsCtx = document.getElementById('resultsChart')?.getContext('2d');
-  if (resultsCtx) {
-    resultsChart = new Chart(resultsCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Success', 'Failed', 'Errors', 'Skipped'],
-        datasets: [{
-          data: [0, 0, 0, 0],
-          backgroundColor: ['#10b981', '#ef4444', '#eab308', '#6b7280']
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } }
-      }
-    });
-  }
-}
-
-function updateCharts(metrics) {
-  if (!speedChart || !resultsChart) return;
-  const now = new Date().toLocaleTimeString();
-  speedHistory.push({ time: now, speed: metrics.speed || 0 });
-  if (speedHistory.length > 30) speedHistory.shift();
-  speedChart.data.labels = speedHistory.map(s => s.time);
-  speedChart.data.datasets[0].data = speedHistory.map(s => s.speed);
-  speedChart.update('none');
-  
-  resultsChart.data.datasets[0].data = [
-    metrics.successes || metrics.hits || 0,
-    metrics.failures || 0,
-    metrics.errors || 0,
-    (metrics.skipped_empty || 0) + (metrics.skipped_solved_user || 0)
-  ];
-  resultsChart.update('none');
-}
-
-// ── Session Resume ──
-async function checkSessionStatus() {
-  try {
-    const res = await fetch('/api/session/status');
-    const status = await res.json();
-    if (status.has_session) {
-      DOM.resumeBanner.classList.add('visible');
-    }
-  } catch (e) {}
-}
-
-async function resumeAttack() {
-  DOM.resumeBanner.classList.remove('visible');
-  appendLog('[*] Resuming attack...');
-  try {
-    const res = await fetch('/api/attack/resume', { method: 'POST' });
-    const data = await res.json();
-    if (data.status === 'ok') {
-      appendLog(`[+] ${data.message}`);
-      DOM.btnStart.disabled = true;
-      DOM.btnStop.disabled = false;
-    } else {
-      appendLog(`[-] Resume failed: ${data.message}`);
-    }
-  } catch (err) {
-    appendLog(`[-] Resume error: ${err.message}`);
-  }
-}
-
-// ── Target Queue ──
-let targetList = [];
-
-function getTargetConfig() {
-  return {
-    target_url: DOM.targetUrl.value.trim(),
-    username: DOM.username.value.trim(),
-    password: DOM.password.value.trim(),
-    error_msg: DOM.errorString.value.trim(),
-    success_msg: DOM.successString.value.trim(),
-    mode: DOM.attackMode.value,
-    threads: parseInt(DOM.threads.value, 10) || 1,
-    delay: parseFloat(DOM.delay.value) || 0,
-    jitter: parseFloat(DOM.jitter.value) || 0,
-    limit_text: DOM.rateLimit.value.trim(),
-    cooldown: parseInt(DOM.cooldown.value, 10) || 12,
-    max_attempts: parseInt(DOM.maxAttempts.value, 10) || 0,
-    headless: DOM.headless.checked,
-    continue_after_success: DOM.continueAfterSuccess.checked,
-    spray_mode: DOM.sprayMode.checked
-  };
-}
-
-async function addTarget() {
-  const config = getTargetConfig();
-  if (!config.target_url) {
-    appendLog('[-] Target URL is required.');
-    return;
-  }
-  try {
-    const res = await postJSON('/api/targets/add', config);
-    if (res.status === 'ok') {
-      appendLog(`[+] Target added to queue: ${config.target_url}`);
-      await refreshTargets();
-    }
-  } catch (e) {
-    appendLog(`[-] Failed to add target: ${e.message}`);
-  }
-}
-
-async function refreshTargets() {
-  try {
-    const res = await fetch('/api/targets/list');
-    const data = await res.json();
-    targetList = data.targets || [];
-    renderTargets();
-    
-    if (targetList.length > 0) {
-      DOM.btnStartAllTargets.disabled = false;
-    } else {
-      DOM.btnStartAllTargets.disabled = true;
-    }
-  } catch (e) {}
-}
-
-function renderTargets() {
-  if (targetList.length === 0) {
-    DOM.targetList.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No targets added yet.</p>`;
-    return;
-  }
-  DOM.targetList.innerHTML = targetList.map((t, idx) => `
-    <div class="target-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <span class="target-url">${escapeHTML(t.config?.target_url || '')}</span>
-      <span class="target-status ${escapeHTML(t.status)}">${escapeHTML(t.status)}</span>
-      <button class="btn btn-ghost btn-sm" onclick="removeTargetAt(${parseInt(t.index, 10)})">Remove</button>
-    </div>
-  `).join('');
-}
-
-window.removeTargetAt = async function(index) {
-  try {
-    const res = await postJSON('/api/targets/remove', { index: parseInt(index, 10) });
-    if (res.status === 'ok') {
-      appendLog('[+] Target removed from queue.');
-      await refreshTargets();
-    }
-  } catch (e) {}
-}
-
-async function startAllTargets() {
-  appendLog('[*] Starting sequential multi-target attack...');
-  const snapshot = [...targetList];
-  for (let t of snapshot) {
-    if (t.status === 'pending') {
-      const c = t.config || {};
-      DOM.targetUrl.value = c.target_url || '';
-      DOM.username.value = c.username || '';
-      DOM.password.value = c.password || '';
-      DOM.errorString.value = c.error_msg || '';
-      DOM.successString.value = c.success_msg || '';
-      DOM.attackMode.value = c.mode || 'browser';
-      DOM.threads.value = c.threads || 4;
-      DOM.delay.value = c.delay || 0;
-      DOM.jitter.value = c.jitter || 0;
-      DOM.rateLimit.value = c.limit_text || '';
-      DOM.cooldown.value = c.cooldown || 0;
-      DOM.maxAttempts.value = c.max_attempts || 0;
-      DOM.headless.checked = Boolean(c.headless);
-      DOM.continueAfterSuccess.checked = Boolean(c.continue_after_success);
-      DOM.sprayMode.checked = Boolean(c.spray_mode);
-      
-      await startAttack();
-      
-      let waitLimit = 300; // 5 minute max wait per target
-      while (DOM.btnStart.disabled && waitLimit > 0) {
-        await new Promise(r => setTimeout(r, 1000));
-        waitLimit--;
-      }
-      await refreshTargets();
-    }
-  }
-  appendLog('[+] Sequential multi-target attack complete!');
-}
-
-// ── Scheduler ──
-async function scheduleAttack() {
-  const timeVal = DOM.scheduleTime.value;
-  if (!timeVal) {
-    appendLog('[-] Schedule time is required.');
-    return;
-  }
-  const config = getTargetConfig();
-  try {
-    const res = await postJSON('/api/schedule/add', { target_url: config.target_url, run_at: timeVal, ...config });
-    if (res.status === 'ok') {
-      appendLog(`[+] Attack scheduled successfully for ${timeVal}`);
-      await refreshScheduled();
-    } else {
-      appendLog(`[-] Failed to schedule: ${res.message || 'Error'}`);
-    }
-  } catch (e) {
-    appendLog(`[-] Schedule error: ${e.message}`);
-  }
-}
-
-async function refreshScheduled() {
-  try {
-    const res = await fetch('/api/schedule/list');
-    const data = await res.json();
-    renderScheduled(data.scheduled || []);
-  } catch (e) {}
-}
-
-function renderScheduled(list) {
-  if (list.length === 0) {
-    DOM.scheduleList.innerHTML = `<p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 20px;">No scheduled attacks.</p>`;
-    return;
-  }
-  DOM.scheduleList.innerHTML = list.map(s => `
-    <div class="schedule-card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <span class="schedule-time">${escapeHTML(new Date(s.run_at).toLocaleString())}</span>
-      <span class="schedule-target">${escapeHTML(s.target_url)}</span>
-      <span class="target-status ${escapeHTML(s.status)}">${escapeHTML(s.status)}</span>
-      <button class="btn btn-ghost btn-sm" data-cancel-id="${escapeHTML(s.id)}">Cancel</button>
-    </div>
-  `).join('');
-
-  // Event delegation for cancel buttons
-  DOM.scheduleList.querySelectorAll('[data-cancel-id]').forEach(btn => {
-    btn.addEventListener('click', () => cancelScheduled(btn.dataset.cancelId));
-  });
-}
-
-window.cancelScheduled = async function(id) {
-  try {
-    const res = await postJSON('/api/schedule/cancel', { id });
-    if (res.status === 'ok') {
-      appendLog('[+] Scheduled attack cancelled.');
-      await refreshScheduled();
-    }
-  } catch (e) {}
-}
-
-// ── Alerts ──
-async function saveNotificationConfig() {
-  const payload = {
-    discord_url: DOM.discordWebhook ? DOM.discordWebhook.value.trim() : '',
-    telegram_token: DOM.telegramToken ? DOM.telegramToken.value.trim() : '',
-    telegram_chat_id: DOM.telegramChatId ? DOM.telegramChatId.value.trim() : ''
-  };
-  saveFormState();
-  try {
-    const res = await postJSON('/api/notifications/configure', payload);
-    if (res.status === 'ok') {
-      DOM.notifStatus.textContent = 'Configuration saved!';
-      setTimeout(() => { if (DOM.notifStatus) DOM.notifStatus.textContent = ''; }, 3000);
-      appendLog('[+] Notification configuration saved & synchronized.');
-    }
-  } catch (e) {}
-}
-
-async function testDiscordNotif() {
-  await saveNotificationConfig();
-  try {
-    const res = await postJSON('/api/notifications/test', {});
-    if (res.results && res.results.discord) {
-      appendLog('[+] Discord test notification sent successfully!');
-    } else {
-      appendLog('[-] Discord test notification failed.');
-    }
-  } catch (e) {}
-}
-
-async function testTelegramNotif() {
-  await saveNotificationConfig();
-  try {
-    const res = await postJSON('/api/notifications/test', {});
-    if (res.results && res.results.telegram) {
-      appendLog('[+] Telegram test notification sent successfully!');
-    } else {
-      appendLog('[-] Telegram test notification failed.');
-    }
-  } catch (e) {}
-}
-
-// ── Report ──
-function downloadReport() {
-  window.open('/api/report/html', '_blank');
-}
-
-// ── Target Tech Scanner ──
-async function scanTargetTech() {
-  const url = DOM.targetUrl?.value.trim();
-  if (!url) {
-    appendLog('[-] Enter a Target URL first to scan.');
-    DOM.targetUrl?.focus();
-    return;
-  }
-  appendLog(`[*] Fingerprinting technology stack for ${url}…`);
-  if (DOM.btnScanTarget) {
-    DOM.btnScanTarget.disabled = true;
-    DOM.btnScanTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning…';
-  }
-
-  try {
-    const res = await postJSON('/api/target/fingerprint', { target_url: url });
-    if (res.status === 'ok' && res.fingerprint) {
-      const fp = res.fingerprint;
-      appendLog(`[+] Tech scan complete for ${url}`);
-      if (DOM.targetTechBadge) {
-        let pills = '';
-        (fp.frameworks || []).forEach(fw => {
-          pills += `<span class="tech-pill tech-pill-fw"><i class="fa-solid fa-code"></i> ${escapeHTML(fw)}</span>`;
-        });
-        (fp.servers || []).forEach(srv => {
-          pills += `<span class="tech-pill tech-pill-server"><i class="fa-solid fa-server"></i> ${escapeHTML(srv)}</span>`;
-        });
-        (fp.protections || []).forEach(prot => {
-          pills += `<span class="tech-pill tech-pill-waf"><i class="fa-solid fa-shield"></i> ${escapeHTML(prot)}</span>`;
-        });
-        if (fp.form && fp.form.csrf_field) {
-          pills += `<span class="tech-pill tech-pill-csrf"><i class="fa-solid fa-key"></i> CSRF: ${escapeHTML(fp.form.csrf_field)}</span>`;
-        }
-        if (!pills) {
-          pills = '<span class="tech-pill">No specific framework headers found</span>';
-        }
-        DOM.targetTechBadge.innerHTML = pills;
-        DOM.targetTechBadge.style.display = 'flex';
-      }
-
-      // Auto-fill form fields if in HTTP mode or if empty
-      if (fp.form) {
-        if (DOM.formAction && !DOM.formAction.value && fp.form.action) {
-          DOM.formAction.value = fp.form.action;
-        }
-        if (DOM.usernameField && !DOM.usernameField.value && fp.form.username_field) {
-          DOM.usernameField.value = fp.form.username_field;
-        }
-        if (DOM.passwordField && !DOM.passwordField.value && fp.form.password_field) {
-          DOM.passwordField.value = fp.form.password_field;
-        }
-        if (DOM.csrfField && !DOM.csrfField.value && fp.form.csrf_field) {
-          DOM.csrfField.value = fp.form.csrf_field;
-        }
-        saveFormState();
-      }
-    } else {
-      appendLog(`[-] Fingerprint scan failed: ${res.message || 'Target unreachable'}`);
-    }
-  } catch (err) {
-    appendLog(`[-] Fingerprint scan error: ${err.message}`);
-  } finally {
-    if (DOM.btnScanTarget) {
-      DOM.btnScanTarget.disabled = false;
-      DOM.btnScanTarget.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Scan Tech';
-    }
-  }
-}
-
-// ── Doctor Environment Diagnostics ──
-function openDoctorModal() {
-  if (DOM.doctorModal) {
-    DOM.doctorModal.classList.add('active');
-    runDoctorChecks();
-  }
-}
-
-async function runDoctorChecks() {
+// ─── Environment Diagnostics (Doctor) ──────────────────────────────
+async function runDoctorDiagnostics() {
   if (!DOM.doctorChecksContainer) return;
-  DOM.doctorChecksContainer.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Running diagnostics…</div>';
+  DOM.doctorChecksContainer.innerHTML = `
+    <div class="loading-state">
+      <i class="fa-solid fa-spinner fa-spin"></i> Running diagnostic health checks…
+    </div>
+  `;
 
   try {
     const res = await fetch('/api/doctor');
     const data = await res.json();
-    if (data.status === 'ok' && data.report) {
-      const checks = data.report.checks || [];
-      DOM.doctorChecksContainer.innerHTML = checks.map(c => {
-        let badgeIcon = 'fa-check';
-        let badgeText = 'PASS';
-        let statusClass = 'ok';
-        if (c.status === 'warn') {
-          badgeIcon = 'fa-triangle-exclamation';
-          badgeText = 'WARN';
-          statusClass = 'warn';
-        } else if (c.status === 'fail') {
-          badgeIcon = 'fa-xmark';
-          badgeText = 'FAIL';
-          statusClass = 'fail';
-        }
+    DOM.doctorChecksContainer.innerHTML = '';
 
-        return `
-          <div class="doctor-check-item">
-            <div class="doctor-check-info">
-              <span class="doctor-check-title">${escapeHTML(c.name)}</span>
-              <span class="doctor-check-detail">${escapeHTML(c.detail)}</span>
-            </div>
-            <span class="doctor-check-badge ${statusClass}">
-              <i class="fa-solid ${badgeIcon}"></i> ${badgeText}
-            </span>
-          </div>
-        `;
-      }).join('');
-    } else {
-      DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Failed to fetch diagnostics: ${escapeHTML(data.message)}</div>`;
-    }
-  } catch (e) {
-    DOM.doctorChecksContainer.innerHTML = `<div style="color: var(--danger); padding: 10px;">Diagnostic error: ${escapeHTML(e.message)}</div>`;
+    const checks = data.checks || [];
+    checks.forEach(chk => {
+      const item = document.createElement('div');
+      item.className = 'doctor-item';
+      item.innerHTML = `
+        <div>
+          <div class="doctor-item-name">${escapeHTML(chk.name)}</div>
+          <div class="doctor-item-desc">${escapeHTML(chk.detail || '')}</div>
+        </div>
+        <span class="doctor-badge ${chk.passed ? 'pass' : 'fail'}">
+          ${chk.passed ? 'PASS' : 'FAIL'}
+        </span>
+      `;
+      DOM.doctorChecksContainer.appendChild(item);
+    });
+  } catch (err) {
+    DOM.doctorChecksContainer.innerHTML = `<div class="log-error">Doctor check failed: ${escapeHTML(err.message)}</div>`;
   }
 }
 
+// ─── Demo Sandbox ──────────────────────────────────────────────────
+async function launchDemoMode() {
+  appendLog('[*] Initializing local Demo Sandbox…');
+  showToast('Spinning up Demo Sandbox…', 'info');
+
+  try {
+    const res = await postJSON('/api/demo/start', { port: 5001 });
+    if (res.status === 'ok' || res.status === 'running') {
+      const demoUrl = `http://127.0.0.1:${res.port || 5001}/login`;
+      if (DOM.targetUrl) DOM.targetUrl.value = demoUrl;
+      if (DOM.username) DOM.username.value = 'demo';
+      if (DOM.password) DOM.password.value = 'pass.txt';
+      if (DOM.errorString) DOM.errorString.value = 'Invalid';
+      if (DOM.successString) DOM.successString.value = 'Successful';
+
+      saveFormState();
+      switchTab('target');
+      appendLog(`[+] Demo sandbox ready at: ${demoUrl} (Target configured)`);
+      showToast('Demo Sandbox active and loaded into Target Config!', 'success');
+    } else {
+      appendLog(`[-] Demo launch issue: ${res.message || 'Unknown'}`);
+    }
+  } catch (err) {
+    appendLog(`[-] Demo error: ${err.message}`);
+  }
+}
+
+// ─── Notifications Configuration ───────────────────────────────────
+async function saveNotifications() {
+  const payload = {
+    discord_url: DOM.discordWebhook?.value.trim() || '',
+    telegram_token: DOM.telegramToken?.value.trim() || '',
+    telegram_chat_id: DOM.telegramChatId?.value.trim() || '',
+  };
+
+  DOM.btnSaveNotifications.disabled = true;
+  DOM.notifStatus.textContent = 'Saving…';
+
+  try {
+    const res = await postJSON('/api/notifications/configure', payload);
+    DOM.notifStatus.textContent = res.message || 'Saved';
+    showToast('Notification settings saved', 'success');
+    saveFormState();
+  } catch (err) {
+    DOM.notifStatus.textContent = 'Save failed';
+    showToast(err.message, 'error');
+  } finally {
+    DOM.btnSaveNotifications.disabled = false;
+  }
+}
+
+async function testDiscord() {
+  const url = DOM.discordWebhook?.value.trim();
+  if (!url) {
+    showToast('Please enter a Discord Webhook URL', 'error');
+    return;
+  }
+
+  DOM.btnTestDiscord.disabled = true;
+  appendLog('[*] Testing Discord webhook alert…');
+
+  try {
+    const res = await postJSON('/api/notifications/test', { discord_url: url });
+    if (res.results?.discord) {
+      appendLog('[+] Discord test webhook sent successfully!');
+      showToast('Discord test notification dispatched!', 'success');
+    } else {
+      appendLog(`[-] Discord test failed: ${res.results?.discord_error || 'Check URL'}`);
+      showToast('Discord test failed', 'error');
+    }
+  } catch (err) {
+    appendLog(`[-] Discord test error: ${err.message}`);
+  } finally {
+    DOM.btnTestDiscord.disabled = false;
+  }
+}
+
+async function testTelegram() {
+  const token = DOM.telegramToken?.value.trim();
+  const chatId = DOM.telegramChatId?.value.trim();
+  if (!token || !chatId) {
+    showToast('Please enter both Bot Token and Chat ID', 'error');
+    return;
+  }
+
+  DOM.btnTestTelegram.disabled = true;
+  appendLog('[*] Testing Telegram bot notification…');
+
+  try {
+    const res = await postJSON('/api/notifications/test', { telegram_token: token, telegram_chat_id: chatId });
+    if (res.results?.telegram) {
+      appendLog('[+] Telegram test message sent successfully!');
+      showToast('Telegram test notification dispatched!', 'success');
+    } else {
+      appendLog(`[-] Telegram test failed: ${res.results?.telegram_error || 'Check Token/Chat ID'}`);
+      showToast('Telegram test failed', 'error');
+    }
+  } catch (err) {
+    appendLog(`[-] Telegram test error: ${err.message}`);
+  } finally {
+    DOM.btnTestTelegram.disabled = false;
+  }
+}
+
+// ─── Targets Queue & Scheduler ─────────────────────────────────────
+async function addCurrentTargetToQueue() {
+  const config = getFormState();
+  if (!config.target_url) {
+    showToast('Configure a Target URL first', 'error');
+    return;
+  }
+
+  try {
+    const res = await postJSON('/api/targets/add', { config, name: config.target_url });
+    if (res.status === 'ok') {
+      showToast('Target added to queue', 'success');
+      loadTargetsQueue();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadTargetsQueue() {
+  if (!DOM.targetList) return;
+  try {
+    const res = await fetch('/api/targets');
+    const data = await res.json();
+    const targets = data.targets || [];
+
+    if (targets.length === 0) {
+      DOM.targetList.innerHTML = `
+        <div class="empty-state">
+          <i class="fa-solid fa-folder-open empty-state-icon"></i>
+          <p>No targets queued yet. Configure a target and click "Queue Current Configuration".</p>
+        </div>
+      `;
+      if (DOM.btnStartAllTargets) DOM.btnStartAllTargets.disabled = true;
+    } else {
+      DOM.targetList.innerHTML = '';
+      targets.forEach((t, idx) => {
+        const item = document.createElement('div');
+        item.className = 'queue-target-item';
+        item.innerHTML = `
+          <div class="queue-target-url">${idx + 1}. ${escapeHTML(t.config?.target_url || t.name)}</div>
+          <button class="btn btn-ghost btn-sm" onclick="removeQueueTarget(${idx})">
+            <i class="fa-solid fa-trash text-rose"></i>
+          </button>
+        `;
+        DOM.targetList.appendChild(item);
+      });
+      if (DOM.btnStartAllTargets) DOM.btnStartAllTargets.disabled = false;
+    }
+  } catch (e) {}
+}
+
+window.removeQueueTarget = async function(idx) {
+  try {
+    await postJSON('/api/targets/remove', { index: idx });
+    loadTargetsQueue();
+  } catch (e) {}
+};
+
+async function scheduleAttack() {
+  const time = DOM.scheduleTime?.value;
+  if (!time) {
+    showToast('Please select a scheduled date and time', 'error');
+    return;
+  }
+
+  const config = getFormState();
+  try {
+    const res = await postJSON('/api/schedule/create', { run_at: time, config });
+    if (res.status === 'ok') {
+      showToast('Attack scheduled successfully', 'success');
+      loadScheduleList();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadScheduleList() {
+  if (!DOM.scheduleList) return;
+  try {
+    const res = await fetch('/api/schedule');
+    const data = await res.json();
+    const tasks = data.tasks || [];
+
+    if (tasks.length === 0) {
+      DOM.scheduleList.innerHTML = `
+        <div class="empty-state">
+          <i class="fa-solid fa-calendar-xmark empty-state-icon"></i>
+          <p>No scheduled tasks currently active.</p>
+        </div>
+      `;
+    } else {
+      DOM.scheduleList.innerHTML = '';
+      tasks.forEach((task, idx) => {
+        const item = document.createElement('div');
+        item.className = 'queue-target-item';
+        item.innerHTML = `
+          <div>
+            <div class="queue-target-url">${escapeHTML(task.target_url || 'Target')}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Runs: ${new Date(task.run_at).toLocaleString()}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="cancelScheduledTask('${task.id || idx}')">
+            <i class="fa-solid fa-xmark text-rose"></i> Cancel
+          </button>
+        `;
+        DOM.scheduleList.appendChild(item);
+      });
+    }
+  } catch (e) {}
+}
+
+window.cancelScheduledTask = async function(taskId) {
+  try {
+    await postJSON('/api/schedule/cancel', { task_id: taskId });
+    loadScheduleList();
+    showToast('Scheduled task cancelled', 'info');
+  } catch (e) {}
+};
+
+// ─── Socket.IO Real-Time Sync & Dynamic Reconnection ──────────────
+socket.on('connect', () => {
+  if (DOM.connectionDot) DOM.connectionDot.className = 'status-dot connected';
+  if (DOM.connectionLabel) DOM.connectionLabel.textContent = 'Live';
+  syncAttackStatus();
+});
+
+socket.on('disconnect', () => {
+  if (DOM.connectionDot) DOM.connectionDot.className = 'status-dot disconnected';
+  if (DOM.connectionLabel) DOM.connectionLabel.textContent = 'Disconnected';
+});
+
+socket.on('connect_error', () => {
+  if (DOM.connectionDot) DOM.connectionDot.className = 'status-dot disconnected';
+  if (DOM.connectionLabel) DOM.connectionLabel.textContent = 'Offline';
+});
+
+socket.on('status', data => {
+  if (data.metrics) updateStats(data.metrics);
+  if (data.progress !== undefined) setProgress(data.progress);
+  if (data.running !== undefined) {
+    DOM.btnStart.disabled = data.running;
+    DOM.btnStop.disabled = !data.running;
+  }
+});
+
+socket.on('log', data => {
+  if (data.message) appendLog(data.message);
+});
+
+socket.on('found', data => {
+  appendLog(`[+] 🔥 FOUND CREDENTIALS → User: ${data.username} | Pass: ${data.password}`);
+  showToast(`Found Credentials: ${data.username} / ${data.password}`, 'success');
+});
+
+socket.on('finished', data => {
+  DOM.btnStart.disabled = false;
+  DOM.btnStop.disabled = true;
+  appendLog(`[*] Attack finished: ${data.message || 'Complete'}`);
+  showToast('Attack cycle completed', 'info');
+});
+
+socket.on('tor_identity', data => {
+  appendLog(`[*] Tor identity shifted. New egress IP: ${data.ip || 'Rotated'}`);
+});
+
+async function syncAttackStatus() {
+  try {
+    const res = await fetch('/api/attack/status');
+    const data = await res.json();
+
+    if (data.running) {
+      DOM.btnStart.disabled = true;
+      DOM.btnStop.disabled = false;
+    } else {
+      DOM.btnStart.disabled = false;
+      DOM.btnStop.disabled = true;
+    }
+
+    if (data.metrics) updateStats(data.metrics);
+    if (data.progress !== undefined) setProgress(data.progress);
+
+    if (data.logs && Array.isArray(data.logs) && DOM.terminal.childNodes.length <= 1) {
+      data.logs.forEach(msg => appendLog(msg));
+    }
+  } catch (e) {}
+}
+
+// ─── Event Listeners Initialization ────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize lightweight charts
+  initCharts();
+
+  // Restore active tab
+  const savedTab = localStorage.getItem('bluecrack_active_tab') || 'target';
+  switchTab(savedTab);
+
+  // Tab buttons click
+  DOM.tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Mode change
+  if (DOM.attackMode) {
+    DOM.attackMode.addEventListener('change', onModeChange);
+  }
+
+  // Restore form state
+  await restoreFormState();
+  bindAutoSave();
+
+  // Attack Control Bar
+  DOM.btnStart?.addEventListener('click', startAttack);
+  DOM.btnStop?.addEventListener('click', stopAttack);
+  DOM.btnResetConfig?.addEventListener('click', resetFormState);
+
+  // Scan tech
+  DOM.btnScanTarget?.addEventListener('click', scanTargetTechnology);
+
+  // CUPP & Sequence
+  DOM.btnGenerateCupp?.addEventListener('click', generateCupp);
+  DOM.btnUseCupp?.addEventListener('click', useCuppResult);
+  DOM.btnGenerateSeq?.addEventListener('click', generateSequence);
+  DOM.btnUseSeq?.addEventListener('click', useSequenceResult);
+
+  // Targets & Schedule
+  DOM.btnAddTarget?.addEventListener('click', addCurrentTargetToQueue);
+  DOM.btnScheduleAttack?.addEventListener('click', scheduleAttack);
+
+  // Notifications
+  DOM.btnSaveNotifications?.addEventListener('click', saveNotifications);
+  DOM.btnTestDiscord?.addEventListener('click', testDiscord);
+  DOM.btnTestTelegram?.addEventListener('click', testTelegram);
+
+  // Header quick actions
+  DOM.btnLaunchDemo?.addEventListener('click', launchDemoMode);
+
+  DOM.btnDoctor?.addEventListener('click', () => {
+    DOM.doctorModal?.classList.add('open');
+    runDoctorDiagnostics();
+  });
+  DOM.btnCloseDoctor?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
+  DOM.btnCloseDoctorBtn?.addEventListener('click', () => DOM.doctorModal?.classList.remove('open'));
+  DOM.btnRerunDoctor?.addEventListener('click', runDoctorDiagnostics);
+
+  // Tutorial / Info Modal
+  DOM.btnInfo?.addEventListener('click', () => {
+    DOM.tutorialModal?.classList.add('open');
+    DOM.panelDisclaimer?.classList.remove('active');
+    DOM.panelTutorial?.classList.add('active');
+  });
+  DOM.btnCloseModal?.addEventListener('click', () => DOM.tutorialModal?.classList.remove('open'));
+  DOM.btnAgreeDisclaimer?.addEventListener('click', () => {
+    DOM.tutorialModal?.classList.remove('open');
+    try { localStorage.setItem('bluecrack_disclaimer_agreed', 'true'); } catch (e) {}
+  });
+  DOM.btnShowTutorialFromStart?.addEventListener('click', () => {
+    DOM.panelDisclaimer?.classList.remove('active');
+    DOM.panelTutorial?.classList.add('active');
+  });
+  DOM.btnBackToDisclaimer?.addEventListener('click', () => {
+    DOM.panelTutorial?.classList.remove('active');
+    DOM.panelDisclaimer?.classList.add('active');
+  });
+  DOM.btnFinishTutorial?.addEventListener('click', () => {
+    DOM.tutorialModal?.classList.remove('open');
+    try { localStorage.setItem('bluecrack_disclaimer_agreed', 'true'); } catch (e) {}
+  });
+
+  // Tutorial sub-tab navigation
+  DOM.tutTabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      DOM.tutTabButtons.forEach(b => b.classList.toggle('active', b === btn));
+      DOM.tutContents.forEach(c => c.classList.toggle('active', c.id === btn.dataset.tut));
+    });
+  });
+
+  // Cosmic Glow Mode Toggle
+  let cosmicMode = localStorage.getItem('bluecrack_cosmic') === 'true';
+  if (cosmicMode) document.body.classList.add('cosmic-mode');
+
+  DOM.btnToggleEco?.addEventListener('click', () => {
+    cosmicMode = !cosmicMode;
+    document.body.classList.toggle('cosmic-mode', cosmicMode);
+    try { localStorage.setItem('bluecrack_cosmic', String(cosmicMode)); } catch (e) {}
+    showToast(cosmicMode ? 'Cosmic Glow enabled' : 'Lightweight mode active', 'info');
+  });
+
+  // Terminal actions
+  DOM.btnClear?.addEventListener('click', () => {
+    if (DOM.terminal) DOM.terminal.innerHTML = '';
+    showToast('Terminal cleared', 'info');
+  });
+
+  DOM.btnCopyTerminal?.addEventListener('click', () => {
+    if (!DOM.terminal) return;
+    const text = DOM.terminal.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Logs copied to clipboard', 'success');
+    }).catch(() => {
+      showToast('Failed to copy logs', 'error');
+    });
+  });
+
+  DOM.btnAutoScroll?.addEventListener('click', () => {
+    autoScrollEnabled = !autoScrollEnabled;
+    DOM.btnAutoScroll.classList.toggle('active', autoScrollEnabled);
+    showToast(autoScrollEnabled ? 'Auto-scroll enabled' : 'Auto-scroll paused', 'info');
+  });
+
+  DOM.terminalFilter?.addEventListener('input', () => {
+    const q = DOM.terminalFilter.value.toLowerCase().trim();
+    const entries = DOM.terminal.querySelectorAll('.log-entry');
+    entries.forEach(el => {
+      el.style.display = (!q || el.textContent.toLowerCase().includes(q)) ? '' : 'none';
+    });
+  });
+
+  DOM.btnExport?.addEventListener('click', () => {
+    const text = DOM.terminal.innerText;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bluecrack_logs_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Logs exported', 'success');
+  });
+
+  DOM.btnReport?.addEventListener('click', () => {
+    window.open('/api/report/html', '_blank');
+  });
+
+  DOM.btnDownloadJson?.addEventListener('click', () => {
+    window.location.href = '/api/report/json';
+  });
+
+  // Check initial disclaimer acceptance
+  const disclaimerAgreed = localStorage.getItem('bluecrack_disclaimer_agreed') === 'true';
+  if (!disclaimerAgreed && DOM.tutorialModal) {
+    DOM.tutorialModal.classList.add('open');
+    DOM.panelDisclaimer?.classList.add('active');
+    DOM.panelTutorial?.classList.remove('active');
+  }
+
+  // Load targets & schedules
+  loadTargetsQueue();
+  loadScheduleList();
+});
