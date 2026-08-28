@@ -54,6 +54,8 @@ def _cmd_fingerprint(args: argparse.Namespace) -> None:
     if not url:
         print("[-] Target URL is required.")
         return
+    if not (url.startswith("http://") or url.startswith("https://")):
+        url = "http://" + url
     print(f"\n[*] Probing technology stack for: {url}")
     try:
         resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
@@ -69,7 +71,9 @@ def _cmd_fingerprint(args: argparse.Namespace) -> None:
             print(f"      - Username Field: {form['username_field']}")
             print(f"      - Password Field: {form['password_field']}")
             if form.get("csrf_field"):
-                print(f"      - CSRF Token:     {form['csrf_field']} (Value: {form['csrf_value'][:20]}...)")
+                csrf_val = form.get("csrf_value") or ""
+                csrf_preview = f" (Value: {csrf_val[:20]}...)" if csrf_val else ""
+                print(f"      - CSRF Token:     {form['csrf_field']}{csrf_preview}")
         else:
             print("  [-] No standard login form found in body.")
     except Exception as e:

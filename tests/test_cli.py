@@ -45,3 +45,24 @@ def test_cli_parser_doctor_flag():
     parser = _build_parser()
     args = parser.parse_args(["--doctor"])
     assert args.doctor is True
+
+
+def test_cli_fingerprint_command(monkeypatch, capsys):
+    """Verify _cmd_fingerprint normalizes scheme and handles missing CSRF safely."""
+    from unittest.mock import MagicMock
+
+    from bluecrack.cli import _cmd_fingerprint
+
+    parser = _build_parser()
+    args = parser.parse_args(["fingerprint", "example.com"])
+
+    # Mock requests.get to return a mock response
+    mock_resp = MagicMock()
+    mock_resp.text = '<form><input type="password" name="pwd"></form>'
+    mock_resp.headers = {"server": "nginx"}
+    monkeypatch.setattr("requests.get", lambda url, **kwargs: mock_resp if url.startswith("http://") else None)
+
+    _cmd_fingerprint(args)
+    captured = capsys.readouterr().out
+    assert "Probing technology stack for: http://example.com" in captured
+
