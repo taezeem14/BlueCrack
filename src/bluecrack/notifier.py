@@ -32,11 +32,14 @@ class DiscordWebhook(NotificationBackend):
     def send(self, title: str, message: str, color: int = 0x00FF00) -> bool:
         if not self.webhook_url:
             return False
+        # Adhere to Discord embed character limits
+        safe_title = str(title)[:250]
+        safe_desc = str(message)[:4000]
         payload = {
             "embeds": [
                 {
-                    "title": title,
-                    "description": message,
+                    "title": safe_title,
+                    "description": safe_desc,
                     "color": color,
                     "footer": {"text": "BlueCrack Notification"},
                 }
@@ -74,9 +77,10 @@ class TelegramBot(NotificationBackend):
         safe_msg = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", safe_msg)
         safe_msg = re.sub(r"`(.+?)`", r"<code>\1</code>", safe_msg)
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        formatted_text = f"<b>{safe_title}</b>\n\n{safe_msg}"[:4000]
         payload = {
             "chat_id": self.chat_id,
-            "text": f"<b>{safe_title}</b>\n\n{safe_msg}",
+            "text": formatted_text,
             "parse_mode": "HTML",
         }
         headers = {
@@ -85,7 +89,15 @@ class TelegramBot(NotificationBackend):
         }
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
-            return resp.status_code == 200
+            if resp.status_code == 200:
+                return True
+            # Fallback to plain text if HTML entity parsing failed
+            plain_payload = {
+                "chat_id": self.chat_id,
+                "text": f"{title}\n\n{message}"[:4000],
+            }
+            resp_plain = requests.post(url, json=plain_payload, headers=headers, timeout=10)
+            return resp_plain.status_code == 200
         except Exception:
             return False
 
@@ -97,6 +109,22 @@ class Notifier:
         self._backends: List[NotificationBackend] = []
         self._enabled = True
         self._lock = threading.Lock()
+
+    @property
+    def is_enabled(self) -> bool:
+        """Check if notification dispatching is currently enabled."""
+        with self._lock:
+            return self._enabled
+
+    def enable(self) -> None:
+        """Enable notification dispatching."""
+        with self._lock:
+            self._enabled = True
+
+    def disable(self) -> None:
+        """Disable notification dispatching."""
+        with self._lock:
+            self._enabled = False
 
     def add_discord(self, webhook_url: str) -> None:
         """Add a Discord webhook backend."""

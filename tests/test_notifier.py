@@ -92,3 +92,14 @@ def test_notifier_headers_and_attack_complete():
         assert kwargs["headers"]["User-Agent"] == "BlueCrack-Notifier/4.2"
 
 
+def test_notifier_toggle():
+    """Verify enable and disable functionality on Notifier."""
+    n = Notifier()
+    assert n.is_enabled is True
+    n.disable()
+    assert n.is_enabled is False
+    n.enable()
+    assert n.is_enabled is True
+
+
+
