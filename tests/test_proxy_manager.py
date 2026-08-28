@@ -21,3 +21,12 @@ def test_proxy_manager_rotation():
 
     assert first != second
     assert third == first
+
+
+def test_proxy_manager_scheme_normalization():
+    """Verify schemeless proxies like ip:port get normalized with http:// prefix."""
+    pm = ProxyManager(["192.168.1.10:8080", "https://10.0.0.1:3128", "socks5://localhost:9050"])
+    assert pm._proxies[0] == "http://192.168.1.10:8080"
+    assert pm._proxies[1] == "https://10.0.0.1:3128"
+    assert pm._proxies[2] == "socks5://localhost:9050"
+

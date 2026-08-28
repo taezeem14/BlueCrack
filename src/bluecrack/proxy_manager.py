@@ -7,10 +7,25 @@ round-robin rotation, and dead-proxy detection.
 
 import threading
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+warnings.filterwarnings("ignore", category=urllib3.exceptions.InsecureRequestWarning)
+
+
+def _normalize_proxy(proxy: str) -> str:
+    """Ensure proxy has a protocol scheme prefix."""
+    proxy = proxy.strip()
+    if not proxy:
+        return ""
+    if not (proxy.startswith("http://") or proxy.startswith("https://") or proxy.startswith("socks4://") or proxy.startswith("socks5://")):
+        return f"http://{proxy}"
+    return proxy
 
 
 class ProxyManager:
@@ -21,7 +36,7 @@ class ProxyManager:
         proxies: List[str],
         test_url: str = "https://httpbin.org/ip",
     ) -> None:
-        self._proxies = list(proxies)
+        self._proxies = [_normalize_proxy(p) for p in proxies if _normalize_proxy(p)]
         self._test_url = test_url
         self._health: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
@@ -45,7 +60,8 @@ class ProxyManager:
         Returns:
             Dict with keys: alive (bool), latency_ms (float).
         """
-        proxy_dict = {"http": proxy, "https": proxy}
+        normalized = _normalize_proxy(proxy)
+        proxy_dict = {"http": normalized, "https": normalized}
         start = time.time()
         try:
             resp = requests.get(
