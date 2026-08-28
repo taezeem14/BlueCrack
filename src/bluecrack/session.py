@@ -28,7 +28,8 @@ class SessionManager:
 
     def has_session(self) -> bool:
         """Check if a saved session file exists."""
-        return os.path.isfile(self._path)
+        with self._lock:
+            return os.path.isfile(self._path)
 
     def save_state(
         self,
@@ -41,27 +42,30 @@ class SessionManager:
 
         Writes to a temp file first, then renames to prevent corruption.
         """
+        # Serialize all JSON-serializable context options
+        safe_ctx: Dict[str, Any] = {}
+        for k, v in ctx.items():
+            if k in (
+                "notifier",
+                "log_callback",
+                "progress_callback",
+                "metrics_callback",
+                "finished_callback",
+                "found_callback",
+                "combos",
+            ):
+                continue
+            try:
+                json.dumps(v)
+                safe_ctx[k] = v
+            except (TypeError, ValueError):
+                pass
+
         state = {
             "version": 1,
             "saved_at": time.time(),
             "saved_at_iso": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "ctx": {
-                "target_url": ctx.get("target_url", ""),
-                "error_msg": ctx.get("error_msg", ""),
-                "success_msg": ctx.get("success_msg", ""),
-                "threads": ctx.get("threads", 1),
-                "delay": ctx.get("delay", 0),
-                "jitter": ctx.get("jitter", 0),
-                "headless": ctx.get("headless", False),
-                "limit_text": ctx.get("limit_text", ""),
-                "cooldown": ctx.get("cooldown", 12),
-                "use_tor": ctx.get("use_tor", False),
-                "tor_port": ctx.get("tor_port", 9051),
-                "tor_shift_every": ctx.get("tor_shift_every", 10),
-                "max_attempts": ctx.get("max_attempts", 0),
-                "continue_after_success": ctx.get("continue_after_success", False),
-                "spray_mode": ctx.get("spray_mode", False),
-            },
+            "ctx": safe_ctx,
             "remaining_combos": [[u, p] for u, p in remaining_combos],
             "metrics": dict(metrics),
             "found_creds": [[u, p] for u, p in found_creds],
@@ -99,20 +103,27 @@ class SessionManager:
             or None if no session exists or file is corrupted.
         """
         with self._lock:
-            if not self.has_session():
+            if not os.path.isfile(self._path):
                 return None
             try:
                 with open(self._path, "r", encoding="utf-8") as f:
                     state = json.load(f)
-                # Convert lists back to tuples
-                state["remaining_combos"] = [
-                    (u, p) for u, p in state.get("remaining_combos", [])
-                ]
-                state["found_creds"] = [
-                    (u, p) for u, p in state.get("found_creds", [])
-                ]
+                if not isinstance(state, dict):
+                    return None
+                # Convert lists back to tuples safely
+                combos = []
+                for item in state.get("remaining_combos", []):
+                    if isinstance(item, (list, tuple)) and len(item) == 2:
+                        combos.append((item[0], item[1]))
+                state["remaining_combos"] = combos
+
+                creds = []
+                for item in state.get("found_creds", []):
+                    if isinstance(item, (list, tuple)) and len(item) == 2:
+                        creds.append((item[0], item[1]))
+                state["found_creds"] = creds
                 return state
-            except (json.JSONDecodeError, KeyError, OSError):
+            except (json.JSONDecodeError, KeyError, OSError, TypeError, ValueError):
                 return None
 
     def clear_session(self) -> None:

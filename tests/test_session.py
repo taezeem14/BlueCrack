@@ -37,6 +37,29 @@ def test_session_lifecycle():
         assert sm.load_state() is None
 
 
+def test_session_full_context_persistence():
+    """Verify HTTP mode keys, headers, and form selectors are preserved in session."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        session_file = os.path.join(tmp_dir, "http_session.json")
+        sm = SessionManager(session_path=session_file)
+
+        ctx = {
+            "target_url": "https://example.com/api/auth",
+            "attack_mode": "http",
+            "json_mode": True,
+            "custom_headers": {"Authorization": "Bearer token"},
+            "csrf_field": "csrf_token",
+        }
+        sm.save_state(ctx, [("user", "pass")], {"attempted": 1}, [])
+        loaded = sm.load_state()
+        assert loaded is not None
+        assert loaded["ctx"]["attack_mode"] == "http"
+        assert loaded["ctx"]["json_mode"] is True
+        assert loaded["ctx"]["custom_headers"] == {"Authorization": "Bearer token"}
+        assert loaded["ctx"]["csrf_field"] == "csrf_token"
+
+
+
 def test_session_corrupted_file_recovery():
     """Test safe handling when session file contains invalid JSON."""
     with tempfile.TemporaryDirectory() as tmp_dir:
