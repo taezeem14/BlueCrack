@@ -459,7 +459,7 @@ async function resetFormState() {
 }
 
 function bindAutoSave() {
-  const inputs = document.querySelectorAll('input, select, textarea');
+  const inputs = document.querySelectorAll('input:not(#terminalFilter), select, textarea');
   inputs.forEach(el => {
     el.addEventListener('input', saveFormState);
     el.addEventListener('change', saveFormState);
@@ -1271,15 +1271,25 @@ async function loadScheduleList() {
       tasks.forEach((task, idx) => {
         const item = document.createElement('div');
         item.className = 'queue-target-item';
-        item.innerHTML = `
-          <div>
-            <div class="queue-target-url">${escapeHTML(task.target_url || 'Target')}</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted);">Runs: ${new Date(task.run_at).toLocaleString()}</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="cancelScheduledTask('${task.id || idx}')">
-            <i class="fa-solid fa-xmark text-rose"></i> Cancel
-          </button>
+
+        const parsedDate = new Date(task.run_at);
+        const dateDisplay = isNaN(parsedDate.getTime()) ? escapeHTML(String(task.run_at || '')) : parsedDate.toLocaleString();
+
+        const infoDiv = document.createElement('div');
+        infoDiv.innerHTML = `
+          <div class="queue-target-url">${escapeHTML(task.target_url || 'Target')}</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted);">Runs: ${dateDisplay}</div>
         `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-ghost btn-sm';
+        cancelBtn.innerHTML = '<i class="fa-solid fa-xmark text-rose"></i> Cancel';
+        cancelBtn.addEventListener('click', () => {
+          window.cancelScheduledTask(task.id || String(idx));
+        });
+
+        item.appendChild(infoDiv);
+        item.appendChild(cancelBtn);
         DOM.scheduleList.appendChild(item);
       });
     }
