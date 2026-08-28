@@ -91,6 +91,16 @@ def test_demo_server_lifecycle_api(client):
     assert stop_resp.get_json()["status"] == "ok"
 
 
+def test_demo_app_json_validation():
+    """Verify demo server handles non-dict JSON gracefully."""
+    from bluecrack.demo import app as demo_app
+    demo_app.config["TESTING"] = True
+    with demo_app.test_client() as c:
+        resp = c.post("/api/login", json=["invalid", "array"])
+        assert resp.status_code == 400
+        assert resp.get_json()["error"] == "invalid_payload"
+
+
 def test_cupp_and_sequence_generators_api(client):
     """Verify /api/cupp/generate and /api/sequence/generate endpoints."""
     cupp_resp = client.post("/api/cupp/generate", json={

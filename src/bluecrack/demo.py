@@ -13,6 +13,7 @@ Supports:
 """
 
 import argparse
+import threading
 import time
 import uuid
 from typing import Dict
@@ -24,6 +25,7 @@ from flask import Flask, jsonify, redirect, render_template_string, request, url
 # ═══════════════════════════════════════════════════════════════════
 app = Flask(__name__)
 app.secret_key = uuid.uuid4().hex
+_demo_lock = threading.Lock()
 
 # Rate Limiting & Demo settings
 ATTEMPT_TRACKER: dict = {}
@@ -557,7 +559,7 @@ FAIL_PAGE = """
         <h2>Access Denied</h2>
         <p class="lead">Failed Authentication</p>
         <div class="alert alert-danger">
-            <strong>Invalid credentials</strong><br>
+            <strong>{{ error or 'Invalid credentials' }}</strong><br>
             Please check your audit params and try again.
         </div>
         <a href="{{ return_url }}" class="btn-glass">← Retry</a>
@@ -616,14 +618,15 @@ CSRF_FAIL_PAGE = """
 def _check_rate_limit(client_ip: str, limit: int = 3, window: int = 10) -> bool:
     """Return True if the client is rate-limited."""
     now = time.time()
-    if client_ip in ATTEMPT_TRACKER:
-        if now - ATTEMPT_TRACKER[client_ip]["start"] > window:
+    with _demo_lock:
+        if client_ip in ATTEMPT_TRACKER:
+            if now - ATTEMPT_TRACKER[client_ip]["start"] > window:
+                ATTEMPT_TRACKER[client_ip] = {"count": 0, "start": now}
+        else:
             ATTEMPT_TRACKER[client_ip] = {"count": 0, "start": now}
-    else:
-        ATTEMPT_TRACKER[client_ip] = {"count": 0, "start": now}
 
-    ATTEMPT_TRACKER[client_ip]["count"] += 1
-    return ATTEMPT_TRACKER[client_ip]["count"] > limit
+        ATTEMPT_TRACKER[client_ip]["count"] += 1
+        return ATTEMPT_TRACKER[client_ip]["count"] > limit
 
 
 def _validate_credentials(username: str, password: str) -> bool:
@@ -814,12 +817,19 @@ def login_json():
 @app.route("/api/login", methods=["POST"])
 def api_login():
     """Universal programmatic JSON API endpoint."""
-    STATS["total_attempts"] += 1
+    with _demo_lock:
+        STATS["total_attempts"] += 1
     client_ip = request.remote_addr
 
     # Support JSON requests as well as standard forms
     if request.is_json:
         data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return jsonify({
+                "success": False,
+                "error": "invalid_payload",
+                "message": "JSON body must be an object.",
+            }), 400
         username = data.get("username", "")
         password = data.get("password", "")
     else:
