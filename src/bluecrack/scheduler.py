@@ -90,47 +90,66 @@ class AttackScheduler:
                 for e in self._scheduled
             ]
 
+    def clear_history(self) -> int:
+        """Remove fired, cancelled, or error tasks from history.
+
+        Returns:
+            Count of cleared tasks.
+        """
+        with self._lock:
+            initial = len(self._scheduled)
+            self._scheduled = [e for e in self._scheduled if e.get("status") == "pending"]
+            return initial - len(self._scheduled)
+
     def start(self) -> None:
         """Start the background timer thread."""
-        if self._timer_thread is not None and self._timer_thread.is_alive():
-            return
-        self._stop_event.clear()
+        with self._lock:
+            if self._timer_thread is not None and self._timer_thread.is_alive():
+                return
+            self._stop_event.clear()
 
-        def _timer_loop() -> None:
-            while not self._stop_event.is_set():
-                now = time.time()
-                to_fire = []
-                with self._lock:
-                    for e in self._scheduled:
-                        if e["status"] == "pending" and e["run_at_ts"] <= now:
-                            e["status"] = "fired"
-                            to_fire.append(e)
+            def _timer_loop() -> None:
+                while not self._stop_event.is_set():
+                    now = time.time()
+                    to_fire = []
+                    with self._lock:
+                        for e in self._scheduled:
+                            if e["status"] == "pending" and e["run_at_ts"] <= now:
+                                e["status"] = "fired"
+                                to_fire.append(e)
 
-                for entry in to_fire:
-                    if self._on_fire:
-                        try:
-                            threading.Thread(
-                                target=self._on_fire,
-                                args=(entry["config"],),
-                                daemon=True,
-                            ).start()
-                        except Exception:
-                            with self._lock:
-                                entry["status"] = "error"
+                    for entry in to_fire:
+                        if self._on_fire:
+                            def _fire_worker(item=entry) -> None:
+                                try:
+                                    self._on_fire(item["config"])
+                                except Exception:
+                                    with self._lock:
+                                        item["status"] = "error"
 
-                self._stop_event.wait(timeout=1)
+                            try:
+                                threading.Thread(
+                                    target=_fire_worker,
+                                    daemon=True,
+                                ).start()
+                            except Exception:
+                                with self._lock:
+                                    entry["status"] = "error"
 
-        self._timer_thread = threading.Thread(
-            target=_timer_loop, daemon=True
-        )
-        self._timer_thread.start()
+                    self._stop_event.wait(timeout=1)
+
+            self._timer_thread = threading.Thread(
+                target=_timer_loop, daemon=True
+            )
+            self._timer_thread.start()
 
     def stop(self) -> None:
         """Stop the background timer thread."""
         self._stop_event.set()
-        if self._timer_thread is not None:
-            self._timer_thread.join(timeout=5)
-            self._timer_thread = None
+        with self._lock:
+            if self._timer_thread is not None:
+                self._timer_thread.join(timeout=5)
+                self._timer_thread = None
 
     @property
     def pending_count(self) -> int:

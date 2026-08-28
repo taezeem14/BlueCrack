@@ -31,3 +31,9 @@ def test_scheduler_lifecycle():
     found_after = [s for s in scheduled_after if s["id"] == entry_id]
     assert len(found_after) == 1
     assert found_after[0]["status"] == "cancelled"
+
+    # Clear history
+    cleared = sched.clear_history()
+    assert cleared == 1
+    assert len(sched.list_scheduled()) == 0
+
