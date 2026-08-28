@@ -30,7 +30,7 @@ def test_generate_sequence_wordlist():
 def test_save_json_report():
     """Test saving JSON report to disk."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        report_file = os.path.join(tmp_dir, "report.json")
+        report_file = os.path.join(tmp_dir, "nested", "sub", "report.json")
         save_json_report(
             report_path=report_file,
             target_url="https://test.com",
@@ -40,3 +40,11 @@ def test_save_json_report():
             end_time=105.0,
         )
         assert os.path.exists(report_file)
+
+
+def test_get_package_data_path():
+    """Test package data path lookup fallback."""
+    from bluecrack.utils import get_package_data_path
+    path = get_package_data_path("non_existent_file_xyz.txt")
+    assert "non_existent_file_xyz.txt" in path
+

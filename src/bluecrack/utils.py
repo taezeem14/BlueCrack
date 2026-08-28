@@ -203,6 +203,9 @@ def save_json_report(
         "credentials_found": [{"username": u, "password": p} for u, p in found_creds],
     }
     try:
+        dirname = os.path.dirname(os.path.abspath(report_path))
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
     except Exception as e:
@@ -217,19 +220,22 @@ def get_package_data_path(filename: str) -> str:
     # Try importing importlib.resources (Python 3.9+)
     try:
         from importlib.resources import files
-        # Resolves to a Path object under bluecrack/data/filename
-        return str(files("bluecrack.data").joinpath(filename))
-    except (ImportError, AttributeError, TypeError):
-        # Fallback to file-based pathing relative to this module
-        _pkg_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(_pkg_dir, "data", filename)
-        if os.path.exists(path):
-            return path
-        # Fallback to root level configuration files for backward compatibility
-        root_path = os.path.abspath(os.path.join(_pkg_dir, "..", "..", "..", filename))
-        if os.path.exists(root_path):
-            return root_path
-        return filename
+        res_path = files("bluecrack.data").joinpath(filename)
+        if hasattr(res_path, "is_file") and res_path.is_file():
+            return str(res_path)
+    except (ImportError, AttributeError, TypeError, ValueError, ModuleNotFoundError):
+        pass
+
+    # Fallback to file-based pathing relative to this module
+    _pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(_pkg_dir, "data", filename)
+    if os.path.exists(path):
+        return path
+    # Fallback to root level configuration files for backward compatibility
+    root_path = os.path.abspath(os.path.join(_pkg_dir, "..", "..", filename))
+    if os.path.exists(root_path):
+        return root_path
+    return filename
 
 
 def generate_cupp_wordlist(
@@ -320,6 +326,10 @@ def generate_sequence_wordlist(
         count = end - start + 1
         if log_callback:
             log_callback(f"[*] Generating {count} sequence passwords...")
+
+        dirname = os.path.dirname(os.path.abspath(output_path))
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
 
         with open(output_path, "w", encoding="utf-8") as f:
             for num in range(start, end + 1):
