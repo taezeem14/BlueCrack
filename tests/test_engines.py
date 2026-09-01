@@ -111,3 +111,21 @@ def test_engine_found_callback():
     assert len(http_found) == 1
     assert http_found[0] == ("user1", "pass123", "http://test.com/http-login")
 
+
+def test_http_engine_total_calculation():
+    """Verify total calculation across users and passwords lists."""
+    engine = HTTPAttackEngine()
+    ctx = {
+        "target_url": "http://example.com/login",
+        "users": ["u1", "u2"],
+        "passwords": ["p1", "p2", "p3"],
+        "enable_session": False,
+    }
+    engine.start(ctx)
+    assert engine.total == 6
+    engine.stop()
+    if engine._attack_thread:
+        engine._attack_thread.join(timeout=3)
+    assert not engine.is_running
+
+

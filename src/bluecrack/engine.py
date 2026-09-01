@@ -291,15 +291,40 @@ class AttackEngine:
             def populate() -> None:
                 if "combos" in ctx and ctx["combos"]:
                     for u, p in ctx["combos"]:
-                        q.put((u, p))
+                        if self._stop_flag.is_set():
+                            break
+                        while not self._stop_flag.is_set():
+                            try:
+                                q.put((u, p), timeout=0.5)
+                                break
+                            except Exception:
+                                continue
                 elif spray_mode:
                     for p in passwords:
+                        if self._stop_flag.is_set():
+                            break
                         for u in users:
-                            q.put((u, p))
+                            if self._stop_flag.is_set():
+                                break
+                            while not self._stop_flag.is_set():
+                                try:
+                                    q.put((u, p), timeout=0.5)
+                                    break
+                                except Exception:
+                                    continue
                 else:
                     for u in users:
+                        if self._stop_flag.is_set():
+                            break
                         for p in passwords:
-                            q.put((u, p))
+                            if self._stop_flag.is_set():
+                                break
+                            while not self._stop_flag.is_set():
+                                try:
+                                    q.put((u, p), timeout=0.5)
+                                    break
+                                except Exception:
+                                    continue
 
             threading.Thread(target=populate, daemon=True).start()
 
@@ -583,10 +608,8 @@ class AttackEngine:
                             elif (
                                 current_url
                                 and current_url != ctx["target_url"]
-                                and "login" not in current_url.lower()
+                                and not any(k in current_url.lower() for k in ("login", "auth", "denied", "error", "failed", "signin"))
                             ):
-                                is_success = True
-                            elif error_msg and (src and error_msg not in src):
                                 is_success = True
 
                             if is_success:

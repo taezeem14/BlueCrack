@@ -415,6 +415,8 @@ class HTTPAttackEngine:
         self._target_url = ctx.get("target_url", "")
         if "combos" in ctx and ctx["combos"]:
             self.total = len(ctx["combos"])
+        else:
+            self.total = len(ctx.get("users", [])) * len(ctx.get("passwords", []))
         self._session_mgr = SessionManager() if ctx.get("enable_session", True) else None
         self._ctx = ctx
 
@@ -550,15 +552,40 @@ class HTTPAttackEngine:
             def populate() -> None:
                 if "combos" in ctx and ctx["combos"]:
                     for u, p in ctx["combos"]:
-                        q.put((u, p))
+                        if self._stop_flag.is_set():
+                            break
+                        while not self._stop_flag.is_set():
+                            try:
+                                q.put((u, p), timeout=0.5)
+                                break
+                            except Exception:
+                                continue
                 elif spray_mode:
                     for p in passwords:
+                        if self._stop_flag.is_set():
+                            break
                         for u in users:
-                            q.put((u, p))
+                            if self._stop_flag.is_set():
+                                break
+                            while not self._stop_flag.is_set():
+                                try:
+                                    q.put((u, p), timeout=0.5)
+                                    break
+                                except Exception:
+                                    continue
                 else:
                     for u in users:
+                        if self._stop_flag.is_set():
+                            break
                         for p in passwords:
-                            q.put((u, p))
+                            if self._stop_flag.is_set():
+                                break
+                            while not self._stop_flag.is_set():
+                                try:
+                                    q.put((u, p), timeout=0.5)
+                                    break
+                                except Exception:
+                                    continue
 
             threading.Thread(target=populate, daemon=True).start()
 
@@ -738,13 +765,10 @@ class HTTPAttackEngine:
                             if not is_success and not follow_redirects:
                                 if status_code in (301, 302, 303, 307, 308):
                                     loc = resp.headers.get("Location", "").lower()
-                                    if loc and "login" not in loc and "auth" not in loc:
+                                    if loc and not any(k in loc for k in ("login", "auth", "denied", "error", "failed", "signin")):
                                         is_success = True
                             if not is_success and follow_redirects and resp_url:
-                                if resp_url != target_url.lower() and "login" not in resp_url:
-                                    is_success = True
-                            if not is_success and error_msg_lower and (200 <= status_code < 300):
-                                if resp_text and error_msg_lower not in resp_text:
+                                if resp_url != target_url.lower() and not any(k in resp_url for k in ("login", "auth", "denied", "error", "failed", "signin")):
                                     is_success = True
                             if is_success:
                                 with self._found_lock:
@@ -783,6 +807,7 @@ class HTTPAttackEngine:
                             else:
                                 with self._metrics_lock:
                                     self.metrics["failures"] += 1
+                                current_csrf_token = ""
                                 _step_progress()
                         except requests.exceptions.RequestException as e:
                             self._log(f"[-] Network error: {e}. Requeuing {user}/{pwd}...")
