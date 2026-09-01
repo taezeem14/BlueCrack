@@ -84,13 +84,13 @@ def _sync_notifier_from_config(cfg: Dict[str, Any]) -> None:
     if not isinstance(cfg, dict):
         return
 
-    discord_url = cfg.get("discord_url") or cfg.get("discordWebhook", "")
+    discord_url = cfg.get("discord_url") or cfg.get("discordWebhook") or cfg.get("discord_webhook", "")
     telegram_token = cfg.get("telegram_token") or cfg.get("telegramToken", "")
     telegram_chat_id = cfg.get("telegram_chat_id") or cfg.get("telegramChatId", "")
 
     if isinstance(discord_url, str) and discord_url.strip():
         notifier.add_discord(discord_url.strip())
-    elif "discord_url" in cfg or "discordWebhook" in cfg:
+    elif "discord_url" in cfg or "discordWebhook" in cfg or "discord_webhook" in cfg:
         notifier.remove_discord()
 
     if (
@@ -212,8 +212,8 @@ def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str
 
     _sync_notifier_from_config(data)
 
-    # Parse attack mode
-    attack_mode = str(data.get("mode", "browser")).strip().lower()
+    # Parse attack mode (accept both JS 'attack_mode' and 'mode' keys)
+    attack_mode = str(data.get("mode") or data.get("attack_mode") or "browser").strip().lower()
     if attack_mode not in ("browser", "http"):
         attack_mode = "browser"
 
@@ -273,7 +273,7 @@ def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str
         delay = float(data.get("delay", 0) or 0)
         jitter = float(data.get("jitter", 0) or 0)
         cooldown = int(data.get("cooldown", 12) or 12)
-        tor_port = int(data.get("tor_port", 9051) or 9051)
+        tor_port = int(data.get("tor_port") or data.get("tor_control_port") or 9051)
         tor_shift_every = int(data.get("tor_shift_every", 10) or 10)
         max_attempts = int(data.get("max_attempts", 0) or 0)
     except (ValueError, TypeError) as e:
@@ -281,6 +281,7 @@ def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str
 
     ctx: Dict[str, Any] = {
         "target_url": target_url,
+        "attack_mode": attack_mode,
         "users": users,
         "passwords": passwords,
         "threads": threads,
@@ -288,11 +289,11 @@ def _prepare_and_start_attack(data: Dict[str, Any]) -> Tuple[bool, str, Dict[str
         "jitter": jitter,
         "error_msg": str(data.get("error_msg", "")).strip().lower(),
         "success_msg": str(data.get("success_msg", "")).strip(),
-        "limit_text": str(data.get("limit_text", "too many requests")).strip().lower(),
+        "limit_text": str(data.get("limit_text") or data.get("rate_limit") or "too many requests").strip().lower(),
         "cooldown": cooldown,
         "headless": bool(data.get("headless", False)),
         "proxies": proxies,
-        "use_tor": bool(data.get("use_tor", False)),
+        "use_tor": bool(data.get("use_tor") or data.get("enable_tor") or False),
         "tor_port": tor_port,
         "tor_shift_every": tor_shift_every,
         "max_attempts": max_attempts,
@@ -551,21 +552,24 @@ def resume_attack():
     state = session_mgr.load_state()
     if not state:
         return jsonify({"status": "error", "message": "No saved session found."}), 404
-    ctx = state["ctx"]
+    ctx = state.get("ctx")
+    if not isinstance(ctx, dict):
+        return jsonify({"status": "error", "message": "Corrupted session state."}), 400
     combos = state.get("remaining_combos", [])
     ctx["combos"] = combos
     ctx["users"] = list(dict.fromkeys(c[0] for c in combos)) if combos else ctx.get("users", [])
     ctx["passwords"] = list(dict.fromkeys(c[1] for c in combos)) if combos else ctx.get("passwords", [])
     from .engine import AttackEngine
     from .http_engine import HTTPAttackEngine
-    attack_mode = ctx.pop("attack_mode", "browser")
+    attack_mode = ctx.get("attack_mode", "browser")
     if attack_mode == "http":
         engine = HTTPAttackEngine()
     else:
         engine = AttackEngine()
     _wire_callbacks(engine)
     engine.start(ctx)
-    session_mgr.clear_session()
+    # Session file is cleared by _run_attack's finally block on completion;
+    # do NOT clear prematurely here in case of immediate failure.
     return jsonify({"status": "ok", "message": "Attack resumed from saved session."})
 
 
@@ -637,8 +641,8 @@ def start_all_targets():
                 continue
             while engine.is_running and not _queue_stop_event.is_set():
                 time.sleep(0.5)
-            metrics = getattr(engine, "metrics", {"attempted": 0, "hits": 0, "errors": 0})
-            creds = getattr(engine, "found_creds", [])
+            metrics = engine._build_metrics_snapshot() if hasattr(engine, "_build_metrics_snapshot") else {"attempted": 0, "hits": 0, "errors": 0}
+            creds = engine.get_found_creds() if hasattr(engine, "get_found_creds") else []
             target_queue.set_result(target_idx, dict(metrics), list(creds))
 
     threading.Thread(target=_run_queue_worker, daemon=True).start()
@@ -969,6 +973,8 @@ def api_target_fingerprint():
     target_url = data.get("target_url", "").strip()
     if not target_url:
         return jsonify({"status": "error", "message": "target_url is required."}), 400
+    if not target_url.startswith(("http://", "https://")):
+        target_url = "http://" + target_url
 
     try:
         import requests

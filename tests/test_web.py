@@ -175,4 +175,22 @@ def test_attack_status_and_logs_api(client):
     assert reset_resp.get_json()["status"] == "ok"
 
 
+def test_notifications_config_discord_webhook_key(client):
+    """Verify discord_webhook alias works in configuration sync."""
+    set_resp = client.post("/api/notifications/configure", json={
+        "discord_webhook": "https://discord.com/api/webhooks/1234/test_alias"
+    })
+    assert set_resp.status_code == 200
+    cfg = set_resp.get_json()["config"]
+    assert any(c.get("type") == "discord" for c in cfg)
+
+
+def test_target_fingerprint_api_empty_and_normalization(client):
+    """Verify fingerprint API requires target_url."""
+    resp = client.post("/api/target/fingerprint", json={})
+    assert resp.status_code == 400
+    assert resp.get_json()["status"] == "error"
+
+
+
 
