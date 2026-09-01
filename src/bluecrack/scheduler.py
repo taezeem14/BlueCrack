@@ -49,7 +49,7 @@ class AttackScheduler:
 
         entry = {
             "id": schedule_id,
-            "config": dict(config),
+            "config": dict(config) if config is not None else {},
             "run_at": run_at_iso,
             "run_at_ts": run_at.timestamp(),
             "created_at": datetime.now().isoformat(),
@@ -85,7 +85,7 @@ class AttackScheduler:
                     "run_at": e["run_at"],
                     "status": e["status"],
                     "created_at": e["created_at"],
-                    "target_url": e["config"].get("target_url", ""),
+                    "target_url": (e.get("config") or {}).get("target_url", ""),
                 }
                 for e in self._scheduled
             ]
@@ -146,10 +146,12 @@ class AttackScheduler:
     def stop(self) -> None:
         """Stop the background timer thread."""
         self._stop_event.set()
+        # Capture thread ref under lock, but join outside to avoid deadlock
         with self._lock:
-            if self._timer_thread is not None:
-                self._timer_thread.join(timeout=5)
-                self._timer_thread = None
+            thread = self._timer_thread
+            self._timer_thread = None
+        if thread is not None:
+            thread.join(timeout=5)
 
     @property
     def pending_count(self) -> int:

@@ -37,3 +37,14 @@ def test_scheduler_lifecycle():
     assert cleared == 1
     assert len(sched.list_scheduled()) == 0
 
+    # Test scheduling with None config
+    entry_id_none = sched.schedule(None, run_at_str)
+    assert entry_id_none is not None
+    found_none = [s for s in sched.list_scheduled() if s["id"] == entry_id_none]
+    assert len(found_none) == 1
+    assert found_none[0]["target_url"] == ""
+
+    # Test stop() thread cleanup
+    sched.stop()
+    assert sched._timer_thread is None
+
