@@ -30,3 +30,22 @@ def test_proxy_manager_scheme_normalization():
     assert pm._proxies[1] == "https://10.0.0.1:3128"
     assert pm._proxies[2] == "socks5://localhost:9050"
 
+
+def test_proxy_manager_mark_dead_and_health():
+    """Verify mark_dead works with unnormalized input and tracks failure thresholds."""
+    pm = ProxyManager(["192.168.1.10:8080"])
+    norm_key = "http://192.168.1.10:8080"
+    assert pm._health[norm_key]["alive"] is True
+    assert pm._health[norm_key]["fail_count"] == 0
+
+    # Mark dead using raw unnormalized string
+    pm.mark_dead("192.168.1.10:8080")
+    assert pm._health[norm_key]["fail_count"] == 1
+    assert pm._health[norm_key]["alive"] is True  # Not dead yet (threshold is 3)
+
+    pm.mark_dead("192.168.1.10:8080")
+    pm.mark_dead("192.168.1.10:8080")
+    assert pm._health[norm_key]["fail_count"] == 3
+    assert pm._health[norm_key]["alive"] is False  # Marked dead after 3 failures
+
+

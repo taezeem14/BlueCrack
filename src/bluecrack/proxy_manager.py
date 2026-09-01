@@ -23,7 +23,8 @@ def _normalize_proxy(proxy: str) -> str:
     proxy = proxy.strip()
     if not proxy:
         return ""
-    if not (proxy.startswith("http://") or proxy.startswith("https://") or proxy.startswith("socks4://") or proxy.startswith("socks5://")):
+    lower = proxy.lower()
+    if not (lower.startswith("http://") or lower.startswith("https://") or lower.startswith("socks4://") or lower.startswith("socks5://") or lower.startswith("socks5h://")):
         return f"http://{proxy}"
     return proxy
 
@@ -77,14 +78,17 @@ class ProxyManager:
             alive = False
 
         with self._lock:
-            if proxy in self._health:
-                self._health[proxy]["alive"] = alive
-                self._health[proxy]["latency_ms"] = round(latency, 1)
-                self._health[proxy]["last_checked"] = time.time()
+            if normalized in self._health:
+                self._health[normalized]["latency_ms"] = round(latency, 1)
+                self._health[normalized]["last_checked"] = time.time()
                 if not alive:
-                    self._health[proxy]["fail_count"] += 1
+                    self._health[normalized]["fail_count"] += 1
+                    # Only mark dead after exceeding max failures threshold
+                    if self._health[normalized]["fail_count"] >= self._max_failures:
+                        self._health[normalized]["alive"] = False
                 else:
-                    self._health[proxy]["fail_count"] = 0
+                    self._health[normalized]["fail_count"] = 0
+                    self._health[normalized]["alive"] = True
 
         return {"alive": alive, "latency_ms": round(latency, 1)}
 
@@ -144,11 +148,12 @@ class ProxyManager:
 
     def mark_dead(self, proxy: str) -> None:
         """Increment failure count for a proxy."""
+        normalized = _normalize_proxy(proxy)
         with self._lock:
-            if proxy in self._health:
-                self._health[proxy]["fail_count"] += 1
-                if self._health[proxy]["fail_count"] >= self._max_failures:
-                    self._health[proxy]["alive"] = False
+            if normalized in self._health:
+                self._health[normalized]["fail_count"] += 1
+                if self._health[normalized]["fail_count"] >= self._max_failures:
+                    self._health[normalized]["alive"] = False
 
     def get_health_report(self) -> List[Dict[str, Any]]:
         """Return health status of all proxies for API response."""
