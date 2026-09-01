@@ -652,7 +652,8 @@ def login():
 
     if request.method == "GET":
         token = str(uuid.uuid4())
-        CSRF_TOKENS.add(token)
+        with _demo_lock:
+            CSRF_TOKENS.add(token)
         return render_template_string(
             LOGIN_PAGE,
             common_styles=_COMMON_STYLES,
@@ -669,28 +670,33 @@ def login():
         )
 
     # POST validation
-    STATS["total_attempts"] += 1
+    with _demo_lock:
+        STATS["total_attempts"] += 1
 
     # Rate limiting (standard)
     if _check_rate_limit(client_ip, MAX_ATTEMPTS, RATE_LIMIT_WINDOW):
-        STATS["rate_limits"] += 1
+        with _demo_lock:
+            STATS["rate_limits"] += 1
         return render_template_string(RATE_LIMIT_PAGE, common_styles=_COMMON_STYLES), 429
 
     # CSRF check
     submitted_token = request.form.get("csrf_token", "")
-    if submitted_token not in CSRF_TOKENS:
-        STATS["csrf_blocks"] += 1
-        return render_template_string(CSRF_FAIL_PAGE, common_styles=_COMMON_STYLES), 403
-    CSRF_TOKENS.discard(submitted_token)
+    with _demo_lock:
+        if submitted_token not in CSRF_TOKENS:
+            STATS["csrf_blocks"] += 1
+            return render_template_string(CSRF_FAIL_PAGE, common_styles=_COMMON_STYLES), 403
+        CSRF_TOKENS.discard(submitted_token)
 
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
     if _validate_credentials(username, password):
-        STATS["successes"] += 1
+        with _demo_lock:
+            STATS["successes"] += 1
         return render_template_string(SUCCESS_PAGE, common_styles=_COMMON_STYLES, user=username)
 
-    STATS["failures"] += 1
+    with _demo_lock:
+        STATS["failures"] += 1
     return render_template_string(
         FAIL_PAGE,
         common_styles=_COMMON_STYLES,
@@ -718,15 +724,18 @@ def login_redirect():
         )
 
     # POST validation
-    STATS["total_attempts"] += 1
+    with _demo_lock:
+        STATS["total_attempts"] += 1
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
     if _validate_credentials(username, password):
-        STATS["successes"] += 1
+        with _demo_lock:
+            STATS["successes"] += 1
         return redirect(url_for("dashboard", user=username))
 
-    STATS["failures"] += 1
+    with _demo_lock:
+        STATS["failures"] += 1
     return redirect(url_for("denied"))
 
 
@@ -753,7 +762,8 @@ def login_custom():
     """Uses non-standard field names user_id and pass_word, and CSRF sec_token."""
     if request.method == "GET":
         token = str(uuid.uuid4())
-        CSRF_TOKENS.add(token)
+        with _demo_lock:
+            CSRF_TOKENS.add(token)
         return render_template_string(
             LOGIN_PAGE,
             common_styles=_COMMON_STYLES,
@@ -770,23 +780,27 @@ def login_custom():
         )
 
     # POST validation
-    STATS["total_attempts"] += 1
+    with _demo_lock:
+        STATS["total_attempts"] += 1
 
     # CSRF check
     submitted_token = request.form.get("sec_token", "")
-    if submitted_token not in CSRF_TOKENS:
-        STATS["csrf_blocks"] += 1
-        return render_template_string(CSRF_FAIL_PAGE, common_styles=_COMMON_STYLES), 403
-    CSRF_TOKENS.discard(submitted_token)
+    with _demo_lock:
+        if submitted_token not in CSRF_TOKENS:
+            STATS["csrf_blocks"] += 1
+            return render_template_string(CSRF_FAIL_PAGE, common_styles=_COMMON_STYLES), 403
+        CSRF_TOKENS.discard(submitted_token)
 
     username = request.form.get("user_id", "")
     password = request.form.get("pass_word", "")
 
     if _validate_credentials(username, password):
-        STATS["successes"] += 1
+        with _demo_lock:
+            STATS["successes"] += 1
         return render_template_string(SUCCESS_PAGE, common_styles=_COMMON_STYLES, user=username)
 
-    STATS["failures"] += 1
+    with _demo_lock:
+        STATS["failures"] += 1
     return render_template_string(
         FAIL_PAGE,
         common_styles=_COMMON_STYLES,
@@ -838,7 +852,8 @@ def api_login():
 
     # Rate limiting
     if _check_rate_limit(client_ip, MAX_ATTEMPTS, RATE_LIMIT_WINDOW):
-        STATS["rate_limits"] += 1
+        with _demo_lock:
+            STATS["rate_limits"] += 1
         return jsonify({
             "success": False,
             "error": "too many requests",
@@ -846,7 +861,8 @@ def api_login():
         }), 429
 
     if not username or not password:
-        STATS["failures"] += 1
+        with _demo_lock:
+            STATS["failures"] += 1
         return jsonify({
             "success": False,
             "error": "missing_credentials",
@@ -854,14 +870,16 @@ def api_login():
         }), 400
 
     if _validate_credentials(username, password):
-        STATS["successes"] += 1
+        with _demo_lock:
+            STATS["successes"] += 1
         return jsonify({
             "success": True,
             "message": f"Welcome, {username}!",
             "token": str(uuid.uuid4()),
         }), 200
 
-    STATS["failures"] += 1
+    with _demo_lock:
+        STATS["failures"] += 1
     return jsonify({
         "success": False,
         "error": "invalid_credentials",
@@ -891,21 +909,25 @@ def login_rate_limited():
         )
 
     # POST validation
-    STATS["total_attempts"] += 1
+    with _demo_lock:
+        STATS["total_attempts"] += 1
 
     # Aggressive throttle checking (2 attempts / 30 seconds)
     if _check_rate_limit(client_ip, 2, 30):
-        STATS["rate_limits"] += 1
+        with _demo_lock:
+            STATS["rate_limits"] += 1
         return render_template_string(RATE_LIMIT_PAGE, common_styles=_COMMON_STYLES), 429
 
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
     if _validate_credentials(username, password):
-        STATS["successes"] += 1
+        with _demo_lock:
+            STATS["successes"] += 1
         return render_template_string(SUCCESS_PAGE, common_styles=_COMMON_STYLES, user=username)
 
-    STATS["failures"] += 1
+    with _demo_lock:
+        STATS["failures"] += 1
     return render_template_string(
         FAIL_PAGE,
         common_styles=_COMMON_STYLES,
@@ -935,7 +957,8 @@ def login_headers():
     # Check for custom header requirement
     header_val = request.headers.get("X-Custom-Audit", "")
     if header_val != "BlueCrack":
-        STATS["header_blocks"] += 1
+        with _demo_lock:
+            STATS["header_blocks"] += 1
         return render_template_string(
             FAIL_PAGE,
             common_styles=_COMMON_STYLES,
@@ -944,15 +967,18 @@ def login_headers():
         ), 400
 
     # POST validation
-    STATS["total_attempts"] += 1
+    with _demo_lock:
+        STATS["total_attempts"] += 1
     username = request.form.get("username", "")
     password = request.form.get("password", "")
 
     if _validate_credentials(username, password):
-        STATS["successes"] += 1
+        with _demo_lock:
+            STATS["successes"] += 1
         return render_template_string(SUCCESS_PAGE, common_styles=_COMMON_STYLES, user=username)
 
-    STATS["failures"] += 1
+    with _demo_lock:
+        STATS["failures"] += 1
     return render_template_string(
         FAIL_PAGE,
         common_styles=_COMMON_STYLES,
