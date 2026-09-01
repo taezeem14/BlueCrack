@@ -721,6 +721,9 @@ def configure_notifications():
 
 @app.route("/api/notifications/test", methods=["POST"])
 def test_notifications():
+    data = request.get_json(silent=True) or {}
+    if data:
+        _sync_notifier_from_config(data)
     results = notifier.test()
     return jsonify({"status": "ok", "results": results})
 

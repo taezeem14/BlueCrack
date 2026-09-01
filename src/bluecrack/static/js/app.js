@@ -927,6 +927,7 @@ function renderTechBadges(data) {
     if (fp.form.csrf_field && DOM.csrfField && !DOM.csrfField.value) {
       DOM.csrfField.value = fp.form.csrf_field;
     }
+    saveFormState();
     appendLog(`[+] Auto-filled form parameters for action: ${fp.form.action}`);
   }
 }
@@ -1081,7 +1082,7 @@ async function launchDemoMode() {
       const demoUrl = `http://127.0.0.1:${res.port || 5001}/login`;
       if (DOM.targetUrl) DOM.targetUrl.value = demoUrl;
       if (DOM.username) DOM.username.value = 'demo';
-      if (DOM.password) DOM.password.value = 'pass.txt';
+      if (DOM.password) DOM.password.value = res.default_password_file || 'pass.txt';
       if (DOM.errorString) DOM.errorString.value = 'Invalid';
       if (DOM.successString) DOM.successString.value = 'Successful';
 
@@ -1382,22 +1383,32 @@ socket.on('tor_identity', data => {
 });
 
 socket.on('cupp_done', data => {
+  if (DOM.btnGenerateCupp) DOM.btnGenerateCupp.disabled = false;
   if (data && data.success && data.path) {
     cuppResultPath = data.path;
     const countText = data.count ? ` (${data.count} passwords)` : '';
     if (DOM.cuppStatus) DOM.cuppStatus.textContent = `Ready${countText}`;
     if (DOM.btnUseCupp) DOM.btnUseCupp.disabled = false;
     showToast(`CUPP wordlist ready${countText}`, 'success');
+  } else {
+    const msg = (data && (data.error || data.message)) || 'CUPP generation failed';
+    if (DOM.cuppStatus) DOM.cuppStatus.textContent = 'Failed';
+    showToast(msg, 'error');
   }
 });
 
 socket.on('sequence_done', data => {
+  if (DOM.btnGenerateSeq) DOM.btnGenerateSeq.disabled = false;
   if (data && data.success && data.path) {
     sequenceResultPath = data.path;
     const countText = data.count ? ` (${data.count} passwords)` : '';
     if (DOM.seqStatus) DOM.seqStatus.textContent = `Ready${countText}`;
     if (DOM.btnUseSeq) DOM.btnUseSeq.disabled = false;
     showToast(`Sequence wordlist ready${countText}`, 'success');
+  } else {
+    const msg = (data && (data.error || data.message)) || 'Sequence generation failed';
+    if (DOM.seqStatus) DOM.seqStatus.textContent = 'Failed';
+    showToast(msg, 'error');
   }
 });
 
