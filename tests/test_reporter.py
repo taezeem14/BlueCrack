@@ -55,3 +55,28 @@ def test_generate_json_report():
     assert data["metrics"]["attempted"] == 10
     assert len(data["found_credentials"]) == 1
     assert data["found_credentials"][0]["username"] == "root"
+
+
+def test_generate_report_none_safety():
+    """Verify ReportGenerator gracefully handles None/empty inputs without raising TypeError."""
+    html = ReportGenerator.generate_html(
+        metrics=None,
+        found_creds=None,
+        logs=None,
+        config=None,
+        start_time=None,
+        end_time=None,
+    )
+    assert "<!DOCTYPE html>" in html
+
+    json_str = ReportGenerator.generate_json(
+        metrics=None,
+        found_creds=None,
+        config=None,
+        start_time=None,
+        end_time=None,
+    )
+    data = json.loads(json_str)
+    assert data["elapsed_seconds"] == 0.0
+    assert data["found_credentials"] == []
+

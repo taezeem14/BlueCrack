@@ -36,7 +36,17 @@ class ReportGenerator:
         Returns a self-contained HTML document with inline CSS, Chart.js,
         and all attack data embedded.
         """
-        elapsed = max(0.0, float(end_time - start_time))
+        # Guard against None parameters
+        metrics = metrics or {}
+        found_creds = found_creds or []
+        logs = logs or []
+        config = config or {}
+        try:
+            start_time = float(start_time or 0)
+            end_time = float(end_time or 0)
+        except (TypeError, ValueError):
+            start_time = end_time = 0.0
+        elapsed = max(0.0, end_time - start_time)
         try:
             attempted = int(metrics.get("attempted", 0) or 0)
             successes = int(metrics.get("successes", 0) or 0)
@@ -212,7 +222,16 @@ new Chart(document.getElementById('resultsChart'), {{
         end_time: float,
     ) -> str:
         """Generate a JSON report string."""
-        elapsed = max(0.0, float(end_time - start_time))
+        # Guard against None parameters
+        metrics = metrics or {}
+        found_creds = found_creds or []
+        config = config or {}
+        try:
+            start_time = float(start_time or 0)
+            end_time = float(end_time or 0)
+        except (TypeError, ValueError):
+            start_time = end_time = 0.0
+        elapsed = max(0.0, end_time - start_time)
         try:
             start_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time))
         except Exception:
