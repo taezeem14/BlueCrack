@@ -302,56 +302,80 @@ class TechnologyDetector:
 
         # Pick the form with password or input fields
         best_attrs = ""
+        def _get_attr(attr_name: str, tag_str: str) -> str:
+            m = re.search(rf'''\b{attr_name}\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))''', tag_str, re.IGNORECASE)
+            if not m:
+                return ""
+            return (m.group(1) or m.group(2) or m.group(3) or "").strip()
+
         best_form_body = body
         if form_matches:
             selected_match = form_matches[0]
             for fm in form_matches:
                 f_body = fm.group(2)
-                if re.search(r'type=["\']password["\']', f_body, re.IGNORECASE) or "pass" in f_body.lower():
+                if re.search(r'type=["\']?password["\']?', f_body, re.IGNORECASE) or "pass" in f_body.lower():
                     selected_match = fm
                     break
             best_attrs = selected_match.group(1)
             best_form_body = selected_match.group(2)
 
-            action_match = re.search(r'action=["\'](.*?)["\']', best_attrs, re.IGNORECASE)
-            if action_match:
-                action_val = action_match.group(1).strip()
-                result["action"] = urljoin(base_url, action_val) if action_val else base_url
+            action_val = _get_attr("action", best_attrs)
+            if action_val:
+                result["action"] = urljoin(base_url, action_val)
+            else:
+                result["action"] = base_url
 
-            method_match = re.search(r'method=["\'](.*?)["\']', best_attrs, re.IGNORECASE)
-            if method_match:
-                result["method"] = method_match.group(1).upper()
+            method_val = _get_attr("method", best_attrs)
+            if method_val:
+                result["method"] = method_val.upper()
 
         # Extract all input fields
         inputs = re.findall(r"<input\b([^>]*)>", best_form_body, re.IGNORECASE)
         for inp in inputs:
-            type_m = re.search(r'type=["\'](.*?)["\']', inp, re.IGNORECASE)
-            name_m = re.search(r'name=["\'](.*?)["\']', inp, re.IGNORECASE)
-            val_m = re.search(r'value=["\'](.*?)["\']', inp, re.IGNORECASE)
-
-            inp_type = (type_m.group(1).lower() if type_m else "text").strip()
-            inp_name = (name_m.group(1) if name_m else "").strip()
-            inp_val = val_m.group(1) if val_m else ""
+            inp_type = _get_attr("type", inp).lower() or "text"
+            inp_name = _get_attr("name", inp)
+            inp_val = _get_attr("value", inp)
 
             if not inp_name:
                 continue
 
+            inp_name_lower = inp_name.lower()
+
             # Password field
-            if inp_type == "password" or "pass" in inp_name.lower():
+            if inp_type == "password" or "pass" in inp_name_lower or inp_name_lower == "pwd":
                 result["password_field"] = inp_name
                 result["has_login_form"] = True
 
-            # Username field
+            # Username field (supports exact 'log' for WordPress, avoid broad substrings like catalog)
             elif (
                 inp_type in ("text", "email")
-                and any(k in inp_name.lower() for k in ("user", "usr", "email", "login", "auth", "account", "log"))
+                and (
+                    any(k in inp_name_lower for k in ("user", "usr", "email", "login", "auth", "account", "uname", "identifier", "handle"))
+                    or inp_name_lower in ("log", "login_id", "user_id")
+                )
             ):
                 result["username_field"] = inp_name
                 result["has_login_form"] = True
 
             # CSRF token
-            if inp_name.lower() in csrf_names_lower or "csrf" in inp_name.lower():
+            if inp_name_lower in csrf_names_lower or "csrf" in inp_name_lower or "xsrf" in inp_name_lower:
                 result["csrf_field"] = inp_name
                 result["csrf_value"] = inp_val
+
+        # Fallback: Extract CSRF token from <meta> tags if not found in form
+        if not result["csrf_value"]:
+            meta_csrf = re.search(
+                r'''<meta\b[^>]*?\b(?:name|property)\s*=\s*['"]?(?:csrf-token|_csrf|csrf_token|xsrf-token)['"]?[^>]*?\bcontent\s*=\s*['"]?([^'">\s]+)['"]?''',
+                body,
+                re.IGNORECASE,
+            ) or re.search(
+                r'''<meta\b[^>]*?\bcontent\s*=\s*['"]?([^'">\s]+)['"]?[^>]*?\b(?:name|property)\s*=\s*['"]?(?:csrf-token|_csrf|csrf_token|xsrf-token)['"]?''',
+                body,
+                re.IGNORECASE,
+            )
+            if meta_csrf:
+                result["csrf_value"] = meta_csrf.group(1).strip()
+                if not result["csrf_field"]:
+                    result["csrf_field"] = "X-CSRF-Token"
 
         return result

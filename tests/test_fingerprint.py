@@ -78,3 +78,32 @@ def test_technology_detector_django_csrf():
     assert "Django" in analysis["frameworks"]
     assert analysis["form"]["csrf_field"] == "csrfmiddlewaretoken"
     assert analysis["form"]["csrf_value"] == "dJ4ng0CsrfT0k3nXYZ123456"
+
+
+def test_technology_detector_unquoted_and_meta_csrf():
+    """Test parsing forms with unquoted attributes and extracting CSRF from meta tags."""
+    spa_html = """
+    <html>
+    <head>
+      <meta name="csrf-token" content="meta_csrf_token_abcdef123456">
+    </head>
+    <body>
+      <form action=/auth/login method=POST>
+        <input type=text name=user_id value=admin>
+        <input type=password name=pass_word>
+      </form>
+    </body>
+    </html>
+    """
+    analysis = TechnologyDetector.analyze(
+        url="https://example.com/login",
+        body=spa_html,
+        headers={"Server": "cloudflare"},
+    )
+    assert analysis["form"]["has_login_form"] is True
+    assert analysis["form"]["username_field"] == "user_id"
+    assert analysis["form"]["password_field"] == "pass_word"
+    assert analysis["form"]["action"] == "https://example.com/auth/login"
+    assert analysis["form"]["method"] == "POST"
+    assert analysis["form"]["csrf_value"] == "meta_csrf_token_abcdef123456"
+
